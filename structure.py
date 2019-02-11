@@ -84,7 +84,7 @@ class Group:
             if type(element) == Layer:
                 cum_width = cum_width + element.width*1e6
                 self.materials.append(element.material)
-                self.n_depths.append(element.n_depths)
+                #self.n_depths.append(element.n_depths)
                 self.widths.append(element.width)
 
 
