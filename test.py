@@ -24,9 +24,9 @@ z = np.array([0, 0, 0, 0, 0])
 
 Points = np.vstack([x, y, z]).T
 surf_back = RTSurface(Points)
-wavelengths = si(np.linspace(900, 1200, 20), 'nm')
+wavelengths = si(np.linspace(700, 1200, 25), 'nm')
 options =  {'wavelengths': wavelengths, 'I_thresh': 1e-5, 'theta': 0, 'phi': 0, 'n_rays': 100,
-            'nx': 50, 'ny': 50}
+            'nx': 13, 'ny': 14}
 
 theta = 0
 phi = 0
@@ -46,19 +46,19 @@ R, T, A_per_layer, profiles = RT(struct, Air, Air, options)
 #for i, element in enumerate(a):
 #    print(type(element) == Interface, '\n')
 
-R[17] + T[17]+sum(A_per_layer[17])
-
 A = np.trapz(profiles, z_pos)
 
 plt.figure()
 plt.plot(wavelengths*1e9, R)
-plt.plot(wavelengths*1e9, A)
+plt.plot(wavelengths*1e9, sum(A_per_layer.T))
 plt.plot(wavelengths*1e9, T)
 plt.plot(wavelengths*1e9, R+A+T)
+plt.ylim([0,1.02])
+plt.legend(['R', 'A', 'T'])
 plt.show()
 
 plt.figure()
-plt.plot(z_pos, profiles[19])
+plt.plot(z_pos, profiles[14])
 
 plt.show()
 

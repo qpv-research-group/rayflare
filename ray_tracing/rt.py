@@ -73,12 +73,13 @@ def RT(group, incidence, transmission, options):
             absorption_profiles[i1] = absorption_profiles[i1] + profile/(nx*ny)
             A_layer[i1] = A_layer[i1] + A_per_layer/(nx*ny)
             if th_o is not None:
+                #print(th_o)
                 if np.real(th_o) < np.pi/2:
                     R[i1] = R[i1] + I/(nx*ny)
+                    #print('R')
                 else:
                     T[i1] = T[i1] + I/(nx*ny)
-
-
+                    #print('T')
 
     return R, T, A_layer, absorption_profiles
 
@@ -90,7 +91,7 @@ class RTSurface:
         # so if min(Points(:, 3) < 0 or > 0, translate
 
         # Points[:, 2] = Points[:, 2] - min(Points[:,2])
-        tri = Delaunay(Points[:, [0,1]])
+        tri = Delaunay(Points[:, [0, 1]])
         self.simplices = tri.simplices
         self.Points = Points
         self.P_0s = Points[tri.simplices[:, 0]]
@@ -98,8 +99,10 @@ class RTSurface:
         self.P_2s = Points[tri.simplices[:, 2]]
         self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
         self.size = self.P_0s.shape[0]
-        self.Lx = abs(min(Points[:,0])-max(Points[:,0]))
-        self.Ly = abs(min(Points[:,1])-max(Points[:,1]))
+        self.Lx = abs(min(Points[:, 0])-max(Points[:, 0]))
+        self.Ly = abs(min(Points[:, 1])-max(Points[:, 1]))
+        self.z_min = min(Points[:, 2])
+        self.z_max = max(Points[:, 2])
 
         self.zcov= Points[:,2][np.all(np.array([Points[:,0] == min(Points[:,0]), Points[:,1] == min(Points[:,1])]), axis = 0)]
         #z1 = Points[:,2][np.all(np.array([Points[:,0] == min(Points[:,0]), Points[:,1] == max(Points[:,1])]), axis = 0)]
@@ -175,12 +178,13 @@ def single_ray(x, y, r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh):
 
 
     while not stop:
-        #print('surface: ', surf_index)
-        #print('material: ', mat_index)
-        #print('direction:', direction)
+
         #ax.plot([r_a[0], r_a[0] + d[0]], [r_a[1], r_a[1] + d[1]], [r_a[2], r_a[2] + d[2]])
         # translate r_a so that the ray can actually intersect with the unit cell of the surface it is approaching
         surf = surfaces[surf_index]
+        #print('surface: ', surf_index, surf.Points)
+        #print('material: ', mat_index)
+        #print('direction:', direction)
         #print(r_a, d)
         #print('translating...')
         r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
@@ -352,35 +356,30 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
         else:
             # there has been an intersection
             intersn = result[0] # coordinate of the intersection (3D)
-            #print('intersection:', intersn)
+
             theta =  result[1]
             N = result[2]*side # so angles get worked out correctly, relative to incident face normal
             #print('intersn, theta, N', result)
 
             #ax.plot([intersn[0], intersn[0]+N[0]], [intersn[1], intersn[1]+N[1]], [intersn[2], intersn[2]+N[2]])
 
-            if side == 1:
-                ni = n0
-                nj = n1
-            else:
-                ni = n1
-                nj = n0
-
-            #print('ni, nj', ni, nj)
+            #print('n0, n1', n0, n1)
 
             #print(nj, ni)
 
 
             rnd = random()
             #print(theta)
-            R = calc_R(ni, nj, theta)
+            R = calc_R(n0, n1, theta)
             #print('calculated R', R)
 
             if rnd <= R: # REFLECTION
                 # reflection, theta_out = theta_in
+                #print('d before', d)
                 d = np.real(d - 2 * np.dot(d, N) * N)
                 d = d/np.linalg.norm(d)
                 #print('R')
+                #print('d after', d)
 
             else: # TRANSMISSION
                     # transmission, refraction
@@ -388,20 +387,20 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
                 #print('d before', d)
                 tr_par = ((np.real(n0)/np.real(n1))**side)*(d-np.dot(d, N)*N)
                 tr_perp = -sqrt(1-np.linalg.norm(tr_par)**2)*N
-                #side = -side  set side explicitly, by checking, to avoid problems with hitting edges
+                side = -side
                 d = np.real(tr_par+tr_perp)
                 d = d/np.linalg.norm(d)
-                #print('d after', d)
                 #print('T')
+                #print('d after', d)
 
 
             r_a = np.real(intersn + d / 1e9) # this is to make sure the raytracer doesn't immediately just find the same intersection again
-            if r_a[2] < intersn[2]:
-                #print('below surface', side)
-                side = -1
-            else:
-                #print('above surface', side)
-                side = 1
+            #if r_a[2] < intersn[2]: THIS DOESN'T WORK!
+            #    print('below surface', side)
+            #    side = -1
+            #else:
+            #    print('above surface', side)
+            #    side = 1
             checked_translation = False # reset, need to be able to translate the ray back into the unit cell again if necessary
             #print(intersn)
             ray_path = np.vstack((ray_path, np.append(intersn, 0)))
@@ -416,11 +415,13 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
         if (side == 1 and d[2] < 0 and r_a[2] > z_cov) or \
                 (side == -1 and d[2] > 0 and r_a[2] < z_cov):  # going down but above surface
             exit, t = exit_side(r_a, d, Lx, Ly)
-
             r_a = r_a + t*d + translation[exit]
             ray_path = np.vstack((ray_path, np.append(r_a, 1)))
             checked_translation = True
             #print('extra translation, r_a / d / z_cov / t = ', r_a, d, z_cov, t)
+
+        #if d[2] < 0 and r_a[2] > tri.z_min: # going down but (maybe) above surface
+
 
 
 
@@ -455,7 +456,8 @@ def check_intersect(r_a, d, tri):
         N = N / np.linalg.norm(N)
         # only need the face normal of the relevant triangle
 
-        theta = abs(atan(np.linalg.norm(np.cross(N, -d))/np.dot(N, -d))) # in radians, angle relative to plane
+        theta = atan(np.linalg.norm(np.cross(N, -d))/np.dot(N, -d))  # in radians, angle relative to plane
+        # theta = atan2(np.linalg.norm(np.cross(N, -d)),np.dot(N, -d)) # in radians, angle relative to plane
         # this is negative if approaching from below
 
 
