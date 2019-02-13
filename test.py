@@ -20,16 +20,18 @@ z = np.array([0, -h, 0, 0, 0])
 Points = np.vstack([x, y, z]).T
 surf = RTSurface(Points)
 
-z = np.array([0, 0, 0, 0, 0])
+x = np.array([0, 0, Lx, Lx])
+y = np.array([0, Ly, Ly, 0])
+z = np.array([0, 0, 0, 0])
 
 Points = np.vstack([x, y, z]).T
 surf_back = RTSurface(Points)
-wavelengths = si(np.linspace(700, 1200, 25), 'nm')
-options =  {'wavelengths': wavelengths, 'I_thresh': 1e-5, 'theta': 0, 'phi': 0, 'n_rays': 100,
-            'nx': 13, 'ny': 14}
+wavelengths = si(np.linspace(700, 1160, 40), 'nm')
+options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4, 'theta': 0, 'phi': 0,
+            'nx': 70, 'ny': 73}
 
-theta = 0
-phi = 0
+theta = 25*np.pi/180
+phi = 20*np.pi/180
 
 a = [Interface(texture = surf), Layer(material = Si, width = si('200um')), \
      Interface(texture = surf_back)]
@@ -41,7 +43,7 @@ z_pos = np.arange(0, 200, 1e-3)
 incidence = Air
 transmission = Air
 
-R, T, A_per_layer, profiles = RT(struct, Air, Air, options)
+R, T, A_per_layer, profiles, thetas, phis = RT(struct, Air, Air, options)
 #b = [Interface(texture = surf), Layer(material = Si, width = si('100um')),Interface(texture = surf_back)]
 #for i, element in enumerate(a):
 #    print(type(element) == Interface, '\n')
@@ -61,4 +63,20 @@ plt.figure()
 plt.plot(z_pos, profiles[14])
 
 plt.show()
+
+
+n_theta_bins = 20
+n_phi_bins = 20
+phi_unique = np.radians(45)
+#data = data[~(data == None)]
+bins = np.linspace(-1e-9, np.pi+1e-9, n_theta_bins+1)
+digitized_theta = np.digitize(thetas, bins, right = True)
+
+phi_bins = np.linspace(-1e-9, (phi_unique+1e-9), n_phi_bins+1)
+
+# need to go from -pi -> pi to 0 -> 2pi;
+
+phi_fold = (phis + 2*np.pi*(phis//np.pi))%phi_unique
+
+digitized_phi = np.digitize(phi_fold, phi_bins, right = True)
 

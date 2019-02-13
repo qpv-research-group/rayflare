@@ -16,13 +16,13 @@ from random import random
 
 # simple pyramids:
 
-char_angle = math.radians(55)
+char_angle = math.radians(10)
 Lx = 1
 Ly = 1
 h = Lx*math.tan(char_angle)/2
 x = np.array([0, Lx/2, Lx, 0, Lx])
 y = np.array([0, Ly/2, 0, Ly, Ly])
-z = np.array([0, -h, 0, 0, 0])
+z = np.array([0, 0, 0, 0, 0])
 # large pyramid array
 #Z = np.genfromtxt('pyramids.csv', delimiter=',')
 
@@ -40,11 +40,11 @@ char_angle = math.radians(55)
 Lx = 1.7
 Ly = 1.7
 h = Lx*math.tan(char_angle)/2
-x2 = np.array([0, Lx/2, Lx, 0, Lx])
-y2 = np.array([0, Ly/2, 0, Ly, Ly])
-z2 = np.array([0, 0, 0, 0, 0])
+x2 = np.array([0, 0, Lx, Lx])
+y2 = np.array([0, Ly, Ly, 0])
+z2 = np.array([0, 0, 0, 0])
 
-Points = np.vstack([x2, y2, z2-10]).T
+Points = np.vstack([x2, y2, z2-5]).T
 
 surf2 = RTSurface(Points)
 
@@ -65,21 +65,21 @@ z3 = np.array([0, -h, 0, 0, 0])
 #z = Z.flatten()
 
 
-Points = np.vstack([x3, y3, z3-11]).T
+Points = np.vstack([x3, y3, z3-5]).T
 
 surf3 = RTSurface(Points)
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 ax.plot_trisurf(x, y, z, triangles=surf.simplices,  linewidth=1, color = (0.5, 0.5, 0.5, 0.5))
-ax.plot_trisurf(x2, y2, z2-10, triangles=surf2.simplices,  linewidth=1, color = (0.5, 0.5, 0.5, 0.5))
+ax.plot_trisurf(x2, y2, z2-5, triangles=surf2.simplices,  linewidth=1, color = (0.5, 0.5, 0.5, 0.5))
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 #ax.set_zlim(-9, -10.5)
 #ax.set_xlim(0, 1.5)
 
 surfaces = [surf, surf2]
-materials = {'nk': [1, 3.614+0.0021701*1j, 1], 'alpha': [0, 4*np.pi*0.0021701/0.9, 0], 'width': [0, 10, 0]}
+materials = {'nk': [1, 3.614+0.021701*1j, 1], 'alpha': [0, 4*np.pi*0.021701/0.9, 0], 'width': [0, 5, 0]}
 #materials = {'nk': [1, 3+0.5*1*1j], 'alpha': [0, 0.05], 'width': [0, 0]}
 
 I_thresh = 1e-6
@@ -87,12 +87,12 @@ I_thresh = 1e-6
 n_points = [0, 1000, 0]
 
 
-theta = 0
+theta = 50*np.pi/180
 phi = 0
 
 #x = 0.18
 #y = 0.673
-x = 0.179
+x = 0.19
 y = 0.3
 
 # need to translate ray back into unit cell of layer, so that initial point hits surface.

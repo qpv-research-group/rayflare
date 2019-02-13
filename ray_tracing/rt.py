@@ -62,6 +62,8 @@ def RT(group, incidence, transmission, options):
     yv = yv.flatten()
 
     # need to calculate r_a and r_b
+    thetas = np.zeros((len(wavelengths), nx*ny))
+    phis = np.zeros((len(wavelengths), nx*ny))
 
     for i1, wl in enumerate(wavelengths):
         print(i1)
@@ -69,8 +71,10 @@ def RT(group, incidence, transmission, options):
 
         for c, value in enumerate(xv):
 
-            I, profile, A_per_layer, th_o, ray_path = single_ray(xv[c], yv[c], r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh)
+            I, profile, A_per_layer, th_o, phi_o, ray_path = single_ray(xv[c], yv[c], r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh)
             absorption_profiles[i1] = absorption_profiles[i1] + profile/(nx*ny)
+            thetas[i1, c] = th_o
+            phis[i1, c] = phi_o
             A_layer[i1] = A_layer[i1] + A_per_layer/(nx*ny)
             if th_o is not None:
                 #print(th_o)
@@ -81,7 +85,7 @@ def RT(group, incidence, transmission, options):
                     T[i1] = T[i1] + I/(nx*ny)
                     #print('T')
 
-    return R, T, A_layer, absorption_profiles
+    return R, T, A_layer, absorption_profiles, thetas, phis
 
 
 
@@ -182,7 +186,7 @@ def single_ray(x, y, r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh):
         #ax.plot([r_a[0], r_a[0] + d[0]], [r_a[1], r_a[1] + d[1]], [r_a[2], r_a[2] + d[2]])
         # translate r_a so that the ray can actually intersect with the unit cell of the surface it is approaching
         surf = surfaces[surf_index]
-        #print('surface: ', surf_index, surf.Points)
+        #print('surface: ', surf_index)
         #print('material: ', mat_index)
         #print('direction:', direction)
         #print(r_a, d)
@@ -192,8 +196,8 @@ def single_ray(x, y, r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh):
 
         ray_path = np.vstack((ray_path, np.append(r_a + d*(((surf.zcov - r_a[2])/d[2])-2), 1)))
         #print(r_a, d)
-        res, theta, r_a, d, ray_path = single_interface_check(r_a, d, materials['nk'][mat_index],
-                                     materials['nk'][mat_index+direction], surf, surf.Lx, surf.Ly, direction, surf.zcov, ray_path)
+        res, theta, phi, r_a, d, ray_path = single_interface_check(r_a, d, materials['nk'][mat_index],
+                                     materials['nk'][mat_index+1], surf, surf.Lx, surf.Ly, direction, surf.zcov, ray_path)
 
         if res == 0:  # reflection
             direction = -direction # changing direction due to reflection
@@ -230,7 +234,7 @@ def single_ray(x, y, r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh):
         #print('stop', stop)
 
     #print('n_passes', n_passes)
-    return I, profile, A_per_layer, theta, ray_path
+    return I, profile, A_per_layer, theta, phi, ray_path
 
 
 
@@ -257,7 +261,7 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
 
 
 
-def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
+def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, ray_path):
     #print('initial side: ', side)
     initial_side = side
     # weird stuff happens around edges; can get transmission counted as reflection
@@ -318,8 +322,9 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
         elif result == False and checked_translation:
             # end, do nothing
             #print(d)
-            o_t = acos(d[2] / (np.linalg.norm(d) ** 2))
-            #print('theta_out', o_t)
+            o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
+            o_p = np.real(atan2(d[1], d[0]))
+            #print('theta_out', o_t*180/np.pi)
 
 
             #if (side == 1 and o_t > np.pi/2) or (side == -1 and o_t < np.pi/2):
@@ -366,12 +371,19 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
             #print('n0, n1', n0, n1)
 
             #print(nj, ni)
+            if side == 1:
+                n0 = ni
+                n1 = nj
+
+            else:
+                n0 = nj
+                n1 = ni
 
 
             rnd = random()
             #print(theta)
             R = calc_R(n0, n1, theta)
-            #print('calculated R', R)
+            #print('calculated R', theta, R, n0, n1)
 
             if rnd <= R: # REFLECTION
                 # reflection, theta_out = theta_in
@@ -385,8 +397,12 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
                     # transmission, refraction
                     # for now, ignore effect of k on refraction
                 #print('d before', d)
+                #print('N', N)
+                #print(d-np.dot(d, N)*N)
                 tr_par = ((np.real(n0)/np.real(n1))**side)*(d-np.dot(d, N)*N)
+                #print('trpar', tr_par)
                 tr_perp = -sqrt(1-np.linalg.norm(tr_par)**2)*N
+                #print('trperp', tr_perp)
                 side = -side
                 d = np.real(tr_par+tr_perp)
                 d = d/np.linalg.norm(d)
@@ -413,7 +429,7 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
         # the ray will move into
 
         if (side == 1 and d[2] < 0 and r_a[2] > z_cov) or \
-                (side == -1 and d[2] > 0 and r_a[2] < z_cov):  # going down but above surface
+                (side == -1 and d[2] > 0 and r_a[2] < z_cov) and checked_translation:  # going down but above surface
             exit, t = exit_side(r_a, d, Lx, Ly)
             r_a = r_a + t*d + translation[exit]
             ray_path = np.vstack((ray_path, np.append(r_a, 1)))
@@ -427,7 +443,7 @@ def single_interface_check(r_a, d, n0, n1, tri, Lx, Ly, side, z_cov, ray_path):
 
     # final result we need is theta and phi out:
     #ax.plot([r_a[0], r_a[0] + d[0]], [r_a[1], r_a[1] + d[1]], [r_a[2], r_a[2] + d[2]])
-    return final_res, o_t, r_a, d, ray_path
+    return final_res, o_t, o_p, r_a, d, ray_path
 
 def check_intersect(r_a, d, tri):
 
@@ -457,7 +473,7 @@ def check_intersect(r_a, d, tri):
         # only need the face normal of the relevant triangle
 
         theta = atan(np.linalg.norm(np.cross(N, -d))/np.dot(N, -d))  # in radians, angle relative to plane
-        # theta = atan2(np.linalg.norm(np.cross(N, -d)),np.dot(N, -d)) # in radians, angle relative to plane
+        #theta = atan2(np.linalg.norm(np.cross(N, -d)),np.dot(N, -d)) # in radians, angle relative to plane
         # this is negative if approaching from below
 
 
