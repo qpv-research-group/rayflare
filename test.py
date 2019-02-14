@@ -26,9 +26,9 @@ z = np.array([0, 0, 0, 0])
 
 Points = np.vstack([x, y, z]).T
 surf_back = RTSurface(Points)
-wavelengths = si(np.linspace(700, 1160, 40), 'nm')
+wavelengths = si(np.linspace(900, 1160, 20), 'nm')
 options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4, 'theta': 0, 'phi': 0,
-            'nx': 70, 'ny': 73}
+            'nx': 30, 'ny': 31, 'max_passes': 100}
 
 theta = 25*np.pi/180
 phi = 20*np.pi/180
@@ -49,6 +49,8 @@ R, T, A_per_layer, profiles, thetas, phis = RT(struct, Air, Air, options)
 #    print(type(element) == Interface, '\n')
 
 A = np.trapz(profiles, z_pos)
+
+A_ref = np.genfromtxt('examples/PVlighthouse_reginv.csv', delimiter = ',')
 
 plt.figure()
 plt.plot(wavelengths*1e9, R)

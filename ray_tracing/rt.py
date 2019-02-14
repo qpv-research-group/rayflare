@@ -4,12 +4,11 @@ from scipy.spatial import Delaunay
 from cmath import sin, cos, asin, sqrt, acos, atan
 from math import atan2, ceil
 from random import random
+import matplotlib.pyplot as plt
 
 # want a Delaunay-type triangulation object which has the same attributes as
 # the return from scipy.spatial.Delaunaytheta_t = np.asin((n1/n2)*np.sin(theta)), but contains 3D rather than 2D coordinates,
 # i.e. a 2D surface in 3D space.
-
-
 
 
 def RT(group, incidence, transmission, options):
@@ -65,12 +64,24 @@ def RT(group, incidence, transmission, options):
     thetas = np.zeros((len(wavelengths), nx*ny))
     phis = np.zeros((len(wavelengths), nx*ny))
 
-    for i1, wl in enumerate(wavelengths):
-        print(i1)
-        materials = {'nk': nks[:,i1], 'alpha': np.imag(nks[:,i1])*4*np.pi/(wl*1e6), 'width': widths}
+    plt.ion()
+    fig, ax = plt.subplots()
+    graphA = ax.plot(wavelengths*1e9, sum(A_layer.T), '-o')[0]
+    graphB = ax.plot(wavelengths*1e9, R, '-o')[0]
+    graphC = ax.plot(wavelengths*1e9, T, '-o')[0]
+    text = ax.text(0.9*max(wavelengths*1e9), 0.9, 'hejk')
+    print()
+    fig.text(1000, 0.9, 'svsd')
+    ax.set_ylim(0, 1)
+    ax.set_xlabel('Wavelength (nm)')
+    ax.set_ylabel('Absorption')
+    ax.legend(['A', 'R', 'T'])
 
-        for c, value in enumerate(xv):
 
+    for c, value in enumerate(xv):
+
+        for i1, wl in enumerate(wavelengths):
+            materials = {'nk': nks[:,i1], 'alpha': np.imag(nks[:,i1])*4*np.pi/(wl*1e6), 'width': widths}
             I, profile, A_per_layer, th_o, phi_o, ray_path = single_ray(xv[c], yv[c], r_a_0, theta, phi, surfaces, materials, z_pos, I_thresh)
             absorption_profiles[i1] = absorption_profiles[i1] + profile/(nx*ny)
             thetas[i1, c] = th_o
@@ -84,6 +95,15 @@ def RT(group, incidence, transmission, options):
                 else:
                     T[i1] = T[i1] + I/(nx*ny)
                     #print('T')
+
+        if c % 10 == 0:
+            fraction_done = c/len(xv)
+            graphA.set_ydata(sum(A_layer.T)/fraction_done)
+            graphB.set_ydata(R/fraction_done)
+            graphC.set_ydata(T/fraction_done)
+            text.set_text('%d %% completed' % (fraction_done*100))
+            plt.draw()
+            plt.pause(0.01)
 
     return R, T, A_layer, absorption_profiles, thetas, phis
 
@@ -411,6 +431,8 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, ray_path):
 
 
             r_a = np.real(intersn + d / 1e9) # this is to make sure the raytracer doesn't immediately just find the same intersection again
+
+            # check if anything weird has happened; i.e. transmission record as reflection or vice versa.
             #if r_a[2] < intersn[2]: THIS DOESN'T WORK!
             #    print('below surface', side)
             #    side = -1
