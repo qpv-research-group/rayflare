@@ -1,10 +1,16 @@
+from multiprocessing import freeze_support
+
+from solcore import material
+from solcore import si
+
 from structure import Structure, Layer, Interface, Group
 from ray_tracing.rt import RTSurface, RT
 import numpy as np
 import math
-from solcore import material
-from solcore import si
+
 import matplotlib.pyplot as plt
+from time import time
+from multiprocessing import Pool
 
 Si = material('Si')()
 Air = material('Air')()
@@ -27,11 +33,13 @@ z = np.array([0, 0, 0, 0])
 Points = np.vstack([x, y, z]).T
 surf_back = RTSurface(Points)
 wavelengths = si(np.linspace(900, 1160, 20), 'nm')
+#pool = Pool(processes = 4)
 options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4, 'theta': 0, 'phi': 0,
-            'nx': 30, 'ny': 31, 'max_passes': 100}
+            'nx': 40, 'ny': 40, 'max_passes': 100, 'parallel': False}#,
+            #'pool': pool}
 
-theta = 25*np.pi/180
-phi = 20*np.pi/180
+theta = 0*np.pi/180
+phi = 0*np.pi/180
 
 a = [Interface(texture = surf), Layer(material = Si, width = si('200um')), \
      Interface(texture = surf_back)]
@@ -43,7 +51,11 @@ z_pos = np.arange(0, 200, 1e-3)
 incidence = Air
 transmission = Air
 
+group = struct
+
+start = time()
 R, T, A_per_layer, profiles, thetas, phis = RT(struct, Air, Air, options)
+print(time() - start)
 #b = [Interface(texture = surf), Layer(material = Si, width = si('100um')),Interface(texture = surf_back)]
 #for i, element in enumerate(a):
 #    print(type(element) == Interface, '\n')
@@ -55,10 +67,12 @@ A_ref = np.genfromtxt('examples/PVlighthouse_reginv.csv', delimiter = ',')
 plt.figure()
 plt.plot(wavelengths*1e9, R)
 plt.plot(wavelengths*1e9, sum(A_per_layer.T))
+plt.plot(A_ref[:,0], A_ref[:,1])
 plt.plot(wavelengths*1e9, T)
 plt.plot(wavelengths*1e9, R+A+T)
 plt.ylim([0,1.02])
-plt.legend(['R', 'A', 'T'])
+#plt.xlim([900, 1160])
+plt.legend(['R', 'A', 'A (PV Lighthouse)', 'T'])
 plt.show()
 
 plt.figure()
