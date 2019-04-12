@@ -16,8 +16,8 @@ def solve_tmm(solar_cell, options):
     A substrate can be specified in the SolarCell object, which is treated as a semi-infinite transmission medium.
     Shading can also be specified (as a fraction).
     Relevant options are 'wl' (the wavelengths, in m), the incidence angle 'theta' (in degrees), the polarization 'pol' ('s',
-    'p' or 'u'), 'position' (locations in m at which depth-dependent absorption is calculated), 'no_back_reflexion' and 'BL_correction'.
-    'no_back_reflexion' sets whether reflections from the back surface are suppressed (if set to True, the default),
+    'p' or 'u'), 'position' (locations in m at which depth-dependent absorption is calculated), 'no_back_reflection' and 'BL_correction'.
+    'no_back_reflection' sets whether reflections from the back surface are suppressed (if set to True, the default),
     or taken into account (if set to False).
     If 'BL_correction' is set to True, the absorption at very high attenuation
     (absorption coefficient * width > 150 so attenuation is 1e65 times) is calculated using the Beer-Lambert law.
@@ -59,9 +59,9 @@ def solve_tmm(solar_cell, options):
                 widths.append(layer.width)
 
     # With all the information, we create the optical stack
-    no_back_reflexion = options.no_back_reflexion if 'no_back_reflexion' in options.keys() else True
+    no_back_reflection = options.no_back_reflection if 'no_back_reflection' in options.keys() else True
 
-    full_stack = OptiStack(all_layers, no_back_reflexion=no_back_reflexion, substrate=solar_cell.substrate)
+    full_stack = OptiStack(all_layers, no_back_reflection=no_back_reflection, substrate=solar_cell.substrate)
 
     if 'coherency_list' in options.keys():
         coherency_list = options.coherency_list
@@ -89,12 +89,12 @@ def solve_tmm(solar_cell, options):
 
     print('Calculating RAT...')
     RAT = calculate_rat(full_stack, wl * 1e9, angle=theta,
-                        coherent=coherent, coherency_list=coherency_list, no_back_reflexion=no_back_reflexion,
+                        coherent=coherent, coherency_list=coherency_list, no_back_reflection=no_back_reflection,
                         pol=pol)
 
     print('Calculating absorption profile...')
     out = calculate_absorption_profile(full_stack, wl * 1e9, dist=profile_position,
-                                       angle=theta, no_back_reflexion=no_back_reflexion,
+                                       angle=theta, no_back_reflection=no_back_reflection,
                                        pol=pol, coherent=coherent,
                                        coherency_list=coherency_list)
 

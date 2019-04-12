@@ -106,36 +106,6 @@ def RT(group, incidence, transmission, options):
                 plt.draw()
                 plt.pause(0.01)
 
-    if options['parallel']:
-        pool = options['pool']
-        current_wavelength_func = partial(wavelength_loop, wavelengths = wavelengths, nks = nks, alphas = alphas, r_a_0 = r_a_0, theta = theta, phi = phi, surfaces = surfaces, widths = widths, z_pos = z_pos, I_thresh = I_thresh)
-        I_output = np.zeros((nx*ny, len(wavelengths)))
-        profile_output = np.zeros((nx*ny, len(wavelengths), len(z_pos)))
-        thetas = np.zeros((nx*ny, len(wavelengths)))
-        phis = np.zeros((nx*ny, len(wavelengths)))
-        A_layer_output = np.zeros((nx*ny, len(wavelengths), len(widths)))
-
-        for ind, res in enumerate(pool.imap(current_wavelength_func, product(xs, ys), chunksize = 5)):
-            I_output[ind] = res[0]
-            profile_output[ind] = res[1]
-            thetas[ind] = res[2]
-            phis[ind] = res[3]
-            A_layer_output[ind] = res[4]
-
-        A_layer = np.sum(A_layer_output, axis = 0)/(nx*ny)
-        absorption_profiles = np.sum(profile_output, axis = 0)/(nx*ny)
-
-        not_absorbed = ~np.isnan(thetas)
-        reflected = np.logical_and(not_absorbed, thetas < np.pi / 2)*I_output
-        transmitted = np.logical_and(not_absorbed, thetas >= np.pi/2)*I_output
-
-        R = np.sum(reflected, axis = 0)/(nx*ny)
-        T = np.sum(transmitted, axis = 0)/(nx*ny)
-
-        # reflected:
-
-
-
     return R, T, A_layer, absorption_profiles, thetas, phis
 
 
@@ -254,6 +224,7 @@ def single_ray(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I
 
         #ax.plot([r_a[0], r_a[0] + d[0]], [r_a[1], r_a[1] + d[1]], [r_a[2], r_a[2] + d[2]])
         # translate r_a so that the ray can actually intersect with the unit cell of the surface it is approaching
+        print(surf_index)
         surf = surfaces[surf_index]
         #print('surface: ', surf_index)
         #print('material: ', mat_index)

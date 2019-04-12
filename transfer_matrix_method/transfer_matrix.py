@@ -4,10 +4,9 @@ transfer matrix package developed by Steven Byrnes and included in the PyPi repo
 """
 import numpy as np
 import solcore
-import tmm as old_tmm
 from solcore.interpolate import interp1d
 from solcore.structure import ToStructure
-from solcore.absorption_calculator import tmm_core_vec as tmm
+import transfer_matrix_method.tmm_core_vec as tmm
 
 degree = np.pi / 180
 
@@ -53,7 +52,7 @@ class OptiStack(object):
     included at runtime to fulfill the requirements of the TMM solver or to solve some of its limitations.
     """
 
-    def __init__(self, structure=(), no_back_reflexion=False, substrate=None):
+    def __init__(self, structure=(), no_back_reflection=False, substrate=None, incidence=None):
         """ Class constructor. It takes a Solcore structure and extract the thickness and optical data from the
         Layers and the materials. Option is given to indicate if the reflexion from the back of the structure must be
         supressed, usefull for ellipsometry calculations. This is done by creating an artificial highly absorbing but
@@ -64,8 +63,8 @@ class OptiStack(object):
         flexibility.
 
         :param structure: A list with one or more layers.
-        :param no_back_reflexion: If reflexion from the back must be suppressed. Default=False.
-        :param substrate: a semi-infinite transmission medium. Note that if no_back_reflexion is set to True,
+        :param no_back_reflection: If reflexion from the back must be suppressed. Default=False.
+        :param substrate: a semi-infinite transmission medium. Note that if no_back_reflection is set to True,
         adding a substrate won't make any difference.
         """
 
@@ -75,11 +74,12 @@ class OptiStack(object):
         self.models = []
         self.layers = []
         self.substrate = substrate
+        self.incidence = incidence
 
         self.num_layers = 0
         self.add_layers(structure)
 
-        self.no_back_reflexion = no_back_reflexion
+        self.no_back_reflection = no_back_reflection
 
     def get_indices(self, wl):
         """ Returns the complex refractive index of the stack.
@@ -100,16 +100,20 @@ class OptiStack(object):
             else:
                 n1 = 1
 
-        if hasattr(wl, 'size'):
-            n0 = np.ones_like(wl, dtype=complex)
+        # incidence medium!
+        if hasattr(self, 'n_sup'):
+            n0 = self.n_sup(wl_m) #+ self.k_sup(wl_m)*1.0j ignore complex part for now to avoid errors
         else:
-            n0 = 1
+            if hasattr(wl, 'size'):
+                n0 = np.ones_like(wl, dtype=complex)
+            else:
+                n0 = 1
 
         for i in range(self.num_layers):
             out.append(self.n_data[i](wl_m) + self.k_data[i](wl_m) * 1.0j)
 
-        # substrate irrelevant if no_back_reflexion = True
-        if self.no_back_reflexion:
+        # substrate irrelevant if no_back_reflection = True
+        if self.no_back_reflection:
             return [n0] + out + [self.n_data[-1](wl_m) + self._k_absorbing(wl_m) * 1.0j, n1] # look at last entry in stack,
             # make high;y absorbing layer based on it.
 
@@ -124,7 +128,7 @@ class OptiStack(object):
         the back absorbing layer used to suppress back surface relfexion, defined as 1 mm thick.
         """
 
-        if self.no_back_reflexion:
+        if self.no_back_reflection:
             return [np.inf] + self.widths + [1e6, np.inf]
         else:
             return [np.inf] + self.widths + [np.inf]
@@ -164,6 +168,10 @@ class OptiStack(object):
             if self.substrate is not None:
                 self.n_sub = self.substrate.n
                 self.k_sub = self.substrate.k
+
+            if self.incidence is not None:
+                self.n_sup = self.incidence.n
+                self.k_sup = self.incidence.k
 
             for layer in layers:
                 self.layers.append(layer)
@@ -276,7 +284,7 @@ class OptiStack(object):
 
 
 def calculate_rat(structure, wavelength, angle=0, pol='u',
-                  coherent=True, coherency_list=None, no_back_reflexion=True):
+                  coherent=True, coherency_list=None, no_back_reflection=True):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined.
 
@@ -287,16 +295,16 @@ def calculate_rat(structure, wavelength, angle=0, pol='u',
     :param coherent: If the light is coherent or not. If not, a coherency list must be added.
     :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which
     incoherent ('i'). It needs as many elements as layers in the structure.
-    :param no_back_reflexion: If reflexion from the back must be supressed. Default=True.
+    :param no_back_reflection: If reflexion from the back must be supressed. Default=True.
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
     num_wl = len(wavelength)
 
     if 'OptiStack' in str(type(structure)):
         stack = structure
-        stack.no_back_reflexion = no_back_reflexion
+        stack.no_back_reflection = no_back_reflection
     else:
-        stack = OptiStack(structure, no_back_reflexion=no_back_reflexion)
+        stack = OptiStack(structure, no_back_reflection=no_back_reflection)
 
     if not coherent:
         if coherency_list is not None:
@@ -304,7 +312,7 @@ def calculate_rat(structure, wavelength, angle=0, pol='u',
                 'Error: The coherency list must have as many elements (now {}) as the ' \
                 'number of layers (now {}).'.format(len(coherency_list), stack.num_layers)
             
-            if stack.no_back_reflexion:
+            if stack.no_back_reflection:
                 coherency_list = ['i'] + coherency_list + ['i', 'i']
             else:
                 coherency_list = ['i'] + coherency_list + ['i']
@@ -318,33 +326,33 @@ def calculate_rat(structure, wavelength, angle=0, pol='u',
 
     if pol in 'sp':
         if coherent:
-            out = tmm.coh_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), angle * degree, wavelength)
+            out = tmm.coh_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), angle, wavelength)
             A_per_layer =  tmm.absorp_in_each_layer(out)
             output['R'] = out['R']
             output['A'] = 1 - out['R'] - out['T']
             output['T'] = out['T']
-            output['A_per_layer'] = A_per_layer
+            output['A_per_layer'] = A_per_layer[1:-1]
         else:
-            out = tmm.inc_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle * degree, wavelength)
+            out = tmm.inc_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle, wavelength)
             A_per_layer = tmm.inc_absorp_in_each_layer(out)
             output['R'] = out['R']
             output['A'] = 1 - out['R'] - out['T']
             output['T'] = out['T']
-            output['A_per_layer'] = A_per_layer
+            output['A_per_layer'] = A_per_layer[1:-1]
     else:
         if coherent:
-            out_p = tmm.coh_tmm('p', stack.get_indices(wavelength), stack.get_widths(), angle * degree, wavelength)
-            out_s = tmm.coh_tmm('s', stack.get_indices(wavelength), stack.get_widths(), angle * degree, wavelength)
+            out_p = tmm.coh_tmm('p', stack.get_indices(wavelength), stack.get_widths(), angle, wavelength)
+            out_s = tmm.coh_tmm('s', stack.get_indices(wavelength), stack.get_widths(), angle, wavelength)
             A_per_layer_p = tmm.absorp_in_each_layer(out_p)
             A_per_layer_s = tmm.absorp_in_each_layer(out_s)
             output['R'] = 0.5 * (out_p['R'] + out_s['R'])
             output['T'] = 0.5 * (out_p['T'] + out_s['T'])
             output['A'] = 1 - output['R'] - output['T']
-            output['A_per_layer'] = 0.5*(A_per_layer_p + A_per_layer_s)
+            output['A_per_layer'] = 0.5*(A_per_layer_p[1:-1] + A_per_layer_s[1:-1])
 
         else:
-            out_p = tmm.inc_tmm('p', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle * degree, wavelength)
-            out_s = tmm.inc_tmm('s', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle * degree, wavelength)
+            out_p = tmm.inc_tmm('p', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle, wavelength)
+            out_s = tmm.inc_tmm('s', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle, wavelength)
 
             A_per_layer_p = np.array(tmm.inc_absorp_in_each_layer(out_p))
             A_per_layer_s = np.array(tmm.inc_absorp_in_each_layer(out_s))
@@ -354,23 +362,23 @@ def calculate_rat(structure, wavelength, angle=0, pol='u',
             output['A'] = 1 - output['R'] - output['T']
             output['all_p'] = out_p['power_entering_list']
             output['all_s'] = out_s['power_entering_list']
-            output['A_per_layer'] = 0.5*(A_per_layer_p + A_per_layer_s)
+            output['A_per_layer'] = 0.5*(A_per_layer_p[1:-1] + A_per_layer_s[1:-1])
 
     return output
 
 
-def calculate_ellipsometry(structure, wavelength, angle, no_back_reflexion=True):
+def calculate_ellipsometry(structure, wavelength, angle, no_back_reflection=True):
     """ Calculates the ellipsometric parameters psi and delta. It can only deal with coherent light and the whole stack
     (including back surface) is considered, so caution must be taken when comparing the simulated results with
     experiments where the back surface is rough or layers are thick and coherent light propagation makes no sense.
 
-    The optional argument no_back_reflexion can be included to add an extra layer on the back absorbing all light that
+    The optional argument no_back_reflection can be included to add an extra layer on the back absorbing all light that
     reaches that position without any reflexion, to remove the reflexion from the back surface.
 
     :param structure: A solcore structure with layers and materials.
     :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
     :param angle: A tupple or list with the angles (in degrees) in which to calculate the data.
-    :param no_back_reflexion: If reflexion from the back must be suppressed. Default=True.
+    :param no_back_reflection: If reflexion from the back must be suppressed. Default=True.
     :return: A dictionary with psi and delta at the specified wavelengths and angles (2D arrays).
     """
 
@@ -379,9 +387,9 @@ def calculate_ellipsometry(structure, wavelength, angle, no_back_reflexion=True)
 
     if 'OptiStack' in str(type(structure)):
         stack = structure
-        stack.no_back_reflexion = no_back_reflexion
+        stack.no_back_reflection = no_back_reflection
     else:
-        stack = OptiStack(structure, no_back_reflexion=no_back_reflexion)
+        stack = OptiStack(structure, no_back_reflection=no_back_reflection)
 
     output = {'psi': np.zeros((num_wl, num_ang)), 'Delta': np.zeros((num_wl, num_ang))}
 
@@ -400,7 +408,7 @@ def calculate_ellipsometry(structure, wavelength, angle, no_back_reflexion=True)
 
 
 # def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size=2, dist=None,
-#                                  no_back_reflexion=True):
+#                                  no_back_reflection=True):
 #     """ It calculates the absorbed energy density within the material. From the documentation:
 #
 #     'In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
@@ -423,9 +431,9 @@ def calculate_ellipsometry(structure, wavelength, angle, no_back_reflexion=True)
 #
 #     if 'OptiStack' in str(type(structure)):
 #         stack = structure
-#         stack.no_back_reflexion = no_back_reflexion
+#         stack.no_back_reflection = no_back_reflection
 #     else:
-#         stack = OptiStack(structure, no_back_reflexion=no_back_reflexion)
+#         stack = OptiStack(structure, no_back_reflection=no_back_reflection)
 #
 #     if dist is None:
 #         if z_limit is None:
@@ -445,7 +453,7 @@ def calculate_ellipsometry(structure, wavelength, angle, no_back_reflexion=True)
 
 
 def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size=2, dist=None,
-                                   no_back_reflexion=True, angle=0, pol = 'u',
+                                   no_back_reflection=True, angle=0, pol = 'u',
                                  coherent=True, coherency_list=None):
     """ It calculates the absorbed energy density within the material. From the documentation:
 
@@ -463,7 +471,7 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
     :param z_limit: Maximum value in the z direction
     :param steps_size: if the dist is not specified, the step size in nm to use in the depth-dependent calculation
     :param dist: the positions (in nm) at which to calculate depth-dependent absorption
-    :param no_back_reflexion: whether to suppress reflections from the back interface (True) or not (False)
+    :param no_back_reflection: whether to suppress reflections from the back interface (True) or not (False)
     :param angle: incidence angle in degrees
     :param pol: polarization of incident light: 's', 'p' or 'u' (unpolarized)
     :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a
@@ -474,9 +482,9 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
 
     if 'OptiStack' in str(type(structure)):
         stack = structure
-        stack.no_back_reflexion = no_back_reflexion
+        stack.no_back_reflection = no_back_reflection
     else:
-        stack = OptiStack(structure, no_back_reflexion=no_back_reflexion)
+        stack = OptiStack(structure, no_back_reflection=no_back_reflection)
 
     if dist is None:
         if z_limit is None:
@@ -486,7 +494,7 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
     if not coherent:
         if coherency_list is not None:
 
-            if stack.no_back_reflexion:
+            if stack.no_back_reflection:
                 coherency_list = ['i'] + coherency_list + ['i', 'i']
             else:
                 coherency_list = ['i'] + coherency_list + ['i']
@@ -501,14 +509,14 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
     if pol in 'sp':
     # print(stack.get_indices(wavelength).shape)
         if coherent:
-            out = tmm.coh_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), angle*degree, wavelength)
+            out = tmm.coh_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), angle, wavelength)
 
             layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
             data = tmm.position_resolved(layer, d_in_layer, out)
             output['absorption'] = data['absor']
 
         else:
-            out = tmm.inc_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle * degree,
+            out = tmm.inc_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle,
                               wavelength)
             layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
             data = tmm.inc_position_resolved(layer, d_in_layer, out, coherency_list,
@@ -518,8 +526,8 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
 
     else:
         if coherent:
-            out1 = tmm.coh_tmm('s', stack.get_indices(wavelength), stack.get_widths(), angle * degree, wavelength)
-            out2 = tmm.coh_tmm('p', stack.get_indices(wavelength), stack.get_widths(), angle * degree, wavelength)
+            out1 = tmm.coh_tmm('s', stack.get_indices(wavelength), stack.get_widths(), angle, wavelength)
+            out2 = tmm.coh_tmm('p', stack.get_indices(wavelength), stack.get_widths(), angle, wavelength)
 
             layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
             data_s = tmm.position_resolved(layer, d_in_layer, out1)
@@ -528,9 +536,9 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
             output['absorption'] = 0.5*(data_s['absor'] + data_p['absor'])
 
         else:
-            out1 = tmm.inc_tmm('s', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle * degree,
+            out1 = tmm.inc_tmm('s', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle,
                               wavelength)
-            out2 = tmm.inc_tmm('p', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle * degree,
+            out2 = tmm.inc_tmm('p', stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle,
                               wavelength)
             layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
             data_s = tmm.inc_position_resolved(layer, d_in_layer, out1, coherency_list,
@@ -561,7 +569,7 @@ if __name__ == '__main__':
 
     wavelength = np.linspace(450, 1100, 300)
 
-    out = calculate_rat(my_structure, wavelength, coherent=True, no_back_reflexion=False)
+    out = calculate_rat(my_structure, wavelength, coherent=True, no_back_reflection=False)
     # #
     # plt.plot(wavelength, out['R'], 'b', label='Reflexion')
     # plt.plot(wavelength, out['A'], 'r', label='Absorption')
