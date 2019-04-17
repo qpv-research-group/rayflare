@@ -283,7 +283,7 @@ class OptiStack(object):
             self.k_data.append(interp1d(x=solcore.si(layer[1], 'nm'), y=layer[3], fill_value=layer[3][-1]))
 
 
-def calculate_rat(structure, wavelength, angle=0, pol='u',
+def calculate_rat(stack, wavelength, angle=0, pol='u',
                   coherent=True, coherency_list=None, no_back_reflection=True):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined.
@@ -299,12 +299,6 @@ def calculate_rat(structure, wavelength, angle=0, pol='u',
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
     num_wl = len(wavelength)
-
-    if 'OptiStack' in str(type(structure)):
-        stack = structure
-        stack.no_back_reflection = no_back_reflection
-    else:
-        stack = OptiStack(structure, no_back_reflection=no_back_reflection)
 
     if not coherent:
         if coherency_list is not None:

@@ -4,74 +4,82 @@ from solcore import material
 from solcore.structure import Layer
 from transfer_matrix_method.transfer_matrix import calculate_rat, OptiStack
 import matplotlib.pyplot as plt
+import os
+from config import results_path
 
-wavelengths = np.linspace(400, 1000, 100)
-options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4,
-            'nx': 5, 'ny': 5, 'max_passes': 100, 'parallel': False, 'n_rays': 40000,
-            'phi_symmetry': np.pi/2, 'n_theta_bins': 100, 'c_azimuth': 0.25,
-            'random_angles': True, 'lookuptable_angles': 200, 'pol': 'u',
-            'coherent': True, 'coherency_list': None}#,
+def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options):
 
+    wavelengths = options['wavelengths']
+    #pol = options['pol']
+    coherent = options['coherent']
+    coherency_list = options['coherency_list']
+    n_angles = options['lookuptable_angles']
+    thetas = np.linspace(0, np.pi/2, n_angles)
 
-Ge = material('Ge')()
-GaAs = material('GaAs')()
-Air = material('Air')()
+    n_layers = len(layers)
+    optlayers = OptiStack(layers, substrate=substrate, incidence=incidence)
+    optlayers_flip = OptiStack(layers[::-1], substrate=incidence, incidence=substrate)
+    optstacks = [optlayers, optlayers_flip]
 
-wl = options['wavelengths']
-pol = options['pol']
-coherent = options['coherent']
-coherency_list = options['coherency_list']
+    if coherency_list is not None:
+        coherency_lists = [coherency_list, coherency_list[::,-1]]
+    else:
+        coherency_lists = [None, None]
+    # can calculate by angle, already vectorized over wavelength
+    sides = [1, -1]
+    pols = ['s', 'p']
+    
 
+    R = xr.DataArray(np.empty((2, 2, len(wavelengths), n_angles)), 
+                     dims=['side', 'pol', 'wl', 'angle'],
+                     coords={'side': [1, -1], 'pol': pols, 'wl': wavelengths, 'angle': thetas},
+                     name='R')
+    T = xr.DataArray(np.empty((2, 2, len(wavelengths), n_angles)), 
+                     dims=['side', 'pol', 'wl', 'angle'],
+                     coords={'side': [1, -1], 'pol': pols, 'wl': wavelengths, 'angle': thetas},
+                     name='T')
+    Alayer = xr.DataArray(np.empty((2, 2, n_angles, len(wavelengths), n_layers)),
+                          dims=['side', 'pol', 'angle', 'wl', 'layer'],
+                          coords={'side': [1, -1], 'pol': pols,
+                                  'wl': wavelengths, 
+                                  'angle': thetas,
+                                  'layer': range(1, n_layers + 1)}, name='Alayer')
 
-layers = OptiStack([Layer(100e-9, Ge), Layer(50e-9, GaAs)], substrate = Ge, incidence=Air)
-n_angles = options['lookuptable_angles']
-thetas = np.linspace(0, np.pi/2, n_angles)
-#results = xr.DataArray(np.empty((2, len(wavelengths), n_angles)), dims=['side', 'wl', 'theta'],
-#                             coords={'side': [1, -1], 'wl': wavelengths, 'theta': thetas})
+    for i1, side in enumerate(sides):
+        R_loop = np.empty((len(wavelengths), n_angles))
+        T_loop = np.empty((len(wavelengths), n_angles))
+        Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
 
-n_layers = 2
+        for i2, pol in enumerate(pols):
 
-# can group by angle, already vectorized over wavelength
-loop_res = np.empty(len(thetas))
+            for i3, theta in enumerate(thetas):
+                res = calculate_rat(optstacks[i1], wavelengths, angle=theta, pol=pol,
+                                coherent=coherent, coherency_list=coherency_lists[i1],
+                                no_back_reflection=False)
+                R_loop[:, i3] = np.real(res['R'])
+                T_loop[:, i3] = np.real(res['T'])
+                Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)
 
-R_loop = np.empty((len(wavelengths), n_angles))
-T_loop = np.empty((len(wavelengths), n_angles))
-Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
+            # sometimes get very small negative values (like -1e-20)
+            R_loop[R_loop<0] = 0
+            T_loop[T_loop<0] = 0
+            Alayer_loop[Alayer_loop<0] = 0
 
-for i1, theta in enumerate(thetas):
-    res = calculate_rat(layers, wavelengths, angle=theta, pol=pol,
-                     coherent=coherent, coherency_list=coherency_list, no_back_reflection=False)
-    R_loop[:, i1] = res['R']
-    T_loop[:, i1] = res['T']
-    Alayer_loop[i1, :, :] = res['A_per_layer'].T
+            if side == -1:
+                Alayer_loop = np.flip(Alayer_loop, axis = 2)
 
-# sometimes get very small negative values (like -1e-20)
-R_loop[R_loop<0] = 0
-T_loop[T_loop<0] = 0
-Alayer_loop[Alayer_loop<0] = 0
+            R.loc[dict(side=side, pol=pol)] = R_loop
+            T.loc[dict(side=side, pol=pol)] = T_loop
+            Alayer.loc[dict(side=side, pol=pol)] = Alayer_loop
 
-R = xr.DataArray(R_loop, dims=['wl', 'angle'], coords={'wl': wavelengths, 'angle': thetas,
-    'sin_theta': (['angle'], np.sin(thetas))}, name='R')
-T = xr.DataArray(T_loop, dims=['wl', 'angle'], coords={'wl': wavelengths, 'angle': thetas,
-    'sin_theta': (['angle'], np.sin(thetas))}, name='T')
-Alayer = xr.DataArray(Alayer_loop, dims=['angle', 'wl', 'layer'],
-                      coords={'wl': wavelengths, 'angle': thetas,
-                              'sin_theta': (['angle'], np.sin(thetas)),
-                              'layer': range(1, n_layers+1)}, name='Alayer').transpose('wl', 'angle', 'layer')
+    Alayer = Alayer.transpose('side', 'pol', 'wl', 'angle', 'layer')
+    allres = xr.merge([R, T, Alayer])
+    unpol = allres.reduce(np.mean, 'pol').assign_coords(pol='u').expand_dims('pol')
+    allres = allres.merge(unpol)
+    structpath = os.path.join(results_path, options['struct_name'])
+    if not os.path.isdir(structpath):
+        os.mkdir(structpath)
+    savepath = os.path.join(structpath, surf_name + '.nc')
+    allres.to_netcdf(savepath)
 
-allres = xr.merge([R, T, Alayer])
-
-plt.figure()
-plt.subplot(2,1,1)
-allres['R'].plot.imshow('wl', 'angle')
-plt.subplot(2,1,2)
-allres['T'].plot.imshow('wl', 'angle')
-plt.show()
-
-plt.figure()
-for i1 in range(1, n_layers+1):
-    plt.subplot(n_layers,1,i1)
-    allres['Alayer'].sel(layer=i1).plot.imshow('wl', 'angle')
-plt.show()
-
-allres.to_netcdf(path='lookuptable.nc', mode='w')
+    return allres

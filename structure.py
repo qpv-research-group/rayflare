@@ -59,41 +59,47 @@ class Layer:
         self.__dict__.update(kwargs)
 
 
-class Group:
+class Surface:
 
-    def __init__(self, layers, method, **kwargs):
+    def __init__(self, method, layers=None, texture=None, **kwargs):
         """ Layer class constructor.
 
         """
         self.method = method
         self.__dict__.update(kwargs)
         self.layers = layers
-        self.interfaces = []
+        self.texture = texture
         self.materials = []
         self.n_depths = []
         self.widths = []
 
         cum_width = 0
 
-        for i, element in enumerate(layers):
-            if type(element) == Interface:
-                Points = element.texture.Points
-                Points[:,2] = Points[:,2] - cum_width
-                self.interfaces.append(RTSurface(Points))
-
-            if type(element) == Layer:
+        if layers is not None:
+            for i, element in enumerate(layers):
+                #if type(element) == Layer:
                 cum_width = cum_width + element.width*1e6
                 self.materials.append(element.material)
                 #self.n_depths.append(element.n_depths)
                 self.widths.append(element.width)
 
+        Points = texture.Points
+        Points[:, 2] = Points[:, 2] - cum_width
+        self.texture = RTSurface(Points)
 
-class Interface:
+
+class Texture:
 
     def __init__(self, texture):
         self.texture = texture
 
 
+class RTgroup:
 
+    def __init__(self, textures, materials=[], widths=[], depth_spacing=1):
+        self.materials = materials
+        self.textures = textures
+        self.widths = widths
+        self.depth_spacing = depth_spacing
 
 
