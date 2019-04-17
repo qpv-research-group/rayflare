@@ -46,5 +46,15 @@ def theta_summary(out_mat, angle_vector):
     sum_mat = out_mat.groupby('theta_in').apply(np.sum, args=(1, None))
     sum_mat = sum_mat.groupby('theta_out').apply(np.sum, args=(0, None))
 
-    return sum_mat.data
+    R = sum_mat[sum_mat.coords['theta_out'] < np.pi / 2, :].reduce(np.sum, 'theta_out').data
+    T = sum_mat[sum_mat.coords['theta_out'] > np.pi / 2, :].reduce(np.sum, 'theta_out').data
 
+    return sum_mat.data, R, T
+
+def theta_summary_A(A_mat, angle_vector):
+    A_mat = xr.DataArray(A_mat, dims=['layer_out', 'index_in'],
+                           coords={'theta_in': (['index_in'], angle_vector[:A_mat.shape[1],1]),
+                                   'layer_out': 1+np.arange(A_mat.shape[0])})
+    sum_mat = A_mat.groupby('theta_in').apply(np.sum, args=(1, None))
+
+    return sum_mat.data

@@ -86,7 +86,7 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options):
     #allArrays = [RT_wl(i1, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
     #      I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector) for i1 in range(len(wavelengths))]
     if options['parallel']:
-        allArrays = Parallel(n_jobs=-1)(delayed(RT_wl)
+        allres = Parallel(n_jobs=-1)(delayed(RT_wl)
                                        (i1, wavelengths[i1], n_angles, nx, ny, z_pos,
                                         widths, thetas_in, phis_in, h,
                                         xs, ys, nks, alphas, surfaces,
@@ -95,20 +95,22 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options):
                                    for i1 in range(len(wavelengths)))
 
     else:
-        allArrays = [RT_wl(i1, wavelengths[i1], n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
+        allres = [RT_wl(i1, wavelengths[i1], n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
                                  I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_absorbing_layers) for i1 in range(len(wavelengths))]
 
-    allArrays = stack(allArrays)
+    allArrays = stack([item[0] for item in allres])
+    absArrays = np.stack([item[1] for item in allres])
     structpath = os.path.join(results_path, options['struct_name'])
     if not os.path.isdir(structpath):
         os.mkdir(structpath)
     savepath = os.path.join(structpath, surf_name + '.npz')
     save_npz(savepath, allArrays)
-    return allArrays
+    return allArrays, absArrays
 
 
 def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
           I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_abs_layers):
+    print('wavelength = ', wl)
 
     theta_out = np.zeros((n_angles, nx * ny))
     phi_out = np.zeros((n_angles, nx * ny))
@@ -131,6 +133,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
             phi_out[i2, c] = phi_o
             A_layer[i2] = A_layer[i2] + A_per_layer / (nx * ny)
 
+    print('done ray-tracing, binning')
     phi_out = fold_phi(phi_out, phi_sym)
     phis_in = fold_phi(phis_in, phi_sym)
 
@@ -145,7 +148,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
     # xarray: can use coordinates in calculations using apply!
     binned_theta_in = np.digitize(thetas_in, theta_intv, right=True) - 1
     binned_theta_out = np.digitize(theta_out, theta_intv, right=True) - 1
-    print('binned theta, len angle vec', binned_theta_out, len(angle_vector))
     # -1 to give the correct index for the bins in phi_intv
 
     phi_in = xr.DataArray(phis_in,
@@ -166,21 +168,27 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
     # everything is coming in from above so we don't need 90 -> 180 in incoming bins
     A_mat = np.zeros((n_abs_layers, int(len(angle_vector)/2)))
 
-    for l1, theta_in in enumerate(thetas_in):
+    n_abs = np.zeros((1, int(len(angle_vector)/2)))
+    n_notabs = np.zeros((1, int(len(angle_vector)/2)))
+
+    for l1 in range(len(thetas_in)):
         for l2 in range(nx * ny):
             if binned_theta_out[l1, l2] <= (n_thetas-1):
                 out_mat[bin_out[l1, l2], bin_in[l1]] += 1
+
             else:
                 A_mat[binned_theta_out[l1, l2]-n_thetas, bin_in[l1]] += 1
 
-        # fraction absorbed
-        out_mat[:, bin_in[l1]] = out_mat[:, bin_in[l1]] / np.sum(out_mat[:, bin_in[l1]])
+        #out_mat[:, bin_in[l1]] = out_mat[:, bin_in[l1]] / np.sum(out_mat[:, bin_in[l1]])
+    total_rays = np.sum(out_mat) + np.sum(A_mat)
+    out_mat = out_mat/total_rays
+    A_mat = A_mat/total_rays
 
     result = COO(out_mat)  # sparse matrix
 
     #savepath = os.path.join(structpath, surf_name + '_' + "{0:.6g}".format(wl * 1e9) + '.npz')
     #save_npz(savepath, result)
-    return result
+    return result, A_mat
 
 def normalize(x):
     if sum(x > 0):

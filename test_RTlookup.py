@@ -1,5 +1,3 @@
-from multiprocessing import freeze_support
-
 from solcore import material
 from solcore import si
 
@@ -36,7 +34,7 @@ surf_back = RTSurface(Points)
 wavelengths = np.linspace(900, 1160, 2)*1e-9
 #pool = Pool(processes = 4)
 options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4, 'theta': 0, 'phi': 0,
-            'nx': 2, 'ny': 2, 'max_passes': 100, 'parallel': False, 'n_rays': 1000,
+            'nx': 2, 'ny': 2, 'max_passes': 100, 'parallel': False, 'n_rays': 2000,
             'phi_symmetry': np.pi/2, 'n_theta_bins': 50, 'c_azimuth': 0.25,
             'random_angles': False, 'pol': 's', 'struct_name': 'testing', 'Fr_or_TMM': 1}#,
             #'pool': pool}
@@ -47,22 +45,29 @@ surf = Surface('RT', None, texture = surf, depth_spacing = si('1nm'))
 start = time()
 group = RTgroup(textures=[surf.texture])
 
-incidence = Si
-transmission = Air
+incidence = Air
+transmission = Si
 
-allArrays = RT(group, incidence, transmission, 'GeGaAsstack', 2, options)
+allArrays, absArrays = RT(group, incidence, transmission, 'GeGaAsstack', 2, options)
 print('Time taken = ', time() - start, ' s')
 
-out_mat = allArrays[1]
+out_mat = allArrays[0]
 outfull = out_mat.todense()
 
-from angles import theta_summary, make_angle_vector
+from angles import theta_summary, theta_summary_A, make_angle_vector
 
 theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'],
                                                        options['phi_symmetry'],
                                                        options['c_azimuth'])
 
-theta_sum = theta_summary(outfull, angle_vector)
+theta_sum, R, T = theta_summary(outfull, angle_vector)
 
 plt.imshow(theta_sum, cmap='hot', interpolation='nearest')
 plt.show()
+
+A_sum = theta_summary_A(absArrays[0], angle_vector)
+thetas = (theta_intv[1:]+theta_intv[:-1])/2
+thetas = thetas[:int(len(thetas)/2)]
+plt.figure()
+plt.plot(thetas, A_sum[0])
+plt.plot(thetas, A_sum[1])
