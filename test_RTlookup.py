@@ -31,11 +31,11 @@ z = np.array([0, 0, 0, 0])
 
 Points = np.vstack([x, y, z]).T
 surf_back = RTSurface(Points)
-wavelengths = np.linspace(900, 1160, 2)*1e-9
+wavelengths = np.linspace(700, 800, 2)*1e-9
 #pool = Pool(processes = 4)
 options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4, 'theta': 0, 'phi': 0,
-            'nx': 2, 'ny': 2, 'max_passes': 100, 'parallel': False, 'n_rays': 2000,
-            'phi_symmetry': np.pi/2, 'n_theta_bins': 50, 'c_azimuth': 0.25,
+            'nx': 2, 'ny': 2, 'max_passes': 100, 'parallel': True, 'n_rays': 10000,
+            'phi_symmetry': np.pi/2, 'n_theta_bins': 100, 'c_azimuth': 0.25,
             'random_angles': False, 'pol': 's', 'struct_name': 'testing', 'Fr_or_TMM': 1}#,
             #'pool': pool}
 
@@ -53,6 +53,7 @@ print('Time taken = ', time() - start, ' s')
 
 out_mat = allArrays[0]
 outfull = out_mat.todense()
+absArrays = absArrays.todense()
 
 from angles import theta_summary, theta_summary_A, make_angle_vector
 

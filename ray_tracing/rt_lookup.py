@@ -14,12 +14,11 @@ from sparse import COO, save_npz, stack
 from config import results_path
 from joblib import Parallel, delayed
 
-global lookuptable
 # want a Delaunay-type triangulation object which has the same attributes as
 # the return from scipy.spatial.Delaunaytheta_t = np.asin((n1/n2)*np.sin(theta)), but contains 3D rather than 2D coordinates,
 # i.e. a 2D surface in 3D space.
 
-def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options):
+def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options, front_or_rear='front'):
 
     structpath = os.path.join(results_path, options['struct_name'])
     if not os.path.isdir(structpath):
@@ -38,8 +37,11 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options):
     Fr_or_TMM = options['Fr_or_TMM']
 
     if Fr_or_TMM == 1:
-        global lookuptable
         lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + '.nc'))
+        if front_or_rear == 'rear':
+            lookuptable = lookuptable.assign_coords(side=np.flip(allres.side))
+    else:
+        lookuptable = None
 
     theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
@@ -47,7 +49,7 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options):
         thetas_in = np.random.random(n_angles)*np.pi/2
         phis_in = np.random.random(n_angles)*2*np.pi
     else:
-        angles_in = angle_vector[1:int(len(angle_vector)/2),:]
+        angles_in = angle_vector[:int(len(angle_vector)/2),:]
         n_reps = int(np.ceil(n_angles/len(angles_in)))
         thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
         phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
@@ -91,25 +93,31 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options):
                                         widths, thetas_in, phis_in, h,
                                         xs, ys, nks, alphas, surfaces,
                                         I_thresh, pol, phi_sym, theta_intv,
-                                        phi_intv, angle_vector, Fr_or_TMM, n_absorbing_layers)
+                                        phi_intv, angle_vector, Fr_or_TMM, n_absorbing_layers,
+                                        lookuptable)
                                    for i1 in range(len(wavelengths)))
 
     else:
-        allres = [RT_wl(i1, wavelengths[i1], n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
-                                 I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_absorbing_layers) for i1 in range(len(wavelengths))]
+        allres = [RT_wl(i1, wavelengths[i1], n_angles, nx, ny, z_pos, widths,
+                        thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
+                                 I_thresh, pol, phi_sym, theta_intv, phi_intv,
+                        angle_vector, Fr_or_TMM, n_absorbing_layers, lookuptable)
+                  for i1 in range(len(wavelengths))]
 
     allArrays = stack([item[0] for item in allres])
-    absArrays = np.stack([item[1] for item in allres])
+    absArrays = stack([item[1] for item in allres])
     structpath = os.path.join(results_path, options['struct_name'])
     if not os.path.isdir(structpath):
         os.mkdir(structpath)
-    savepath = os.path.join(structpath, surf_name + '.npz')
-    save_npz(savepath, allArrays)
+    savepath_RT = os.path.join(structpath, surf_name + 'RT.npz')
+    savepath_A = os.path.join(structpath, surf_name + 'A.npz')
+    save_npz(savepath_RT, allArrays)
+    save_npz(savepath_A, absArrays)
     return allArrays, absArrays
 
 
 def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
-          I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_abs_layers):
+          I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_abs_layers, lookuptable):
     print('wavelength = ', wl)
 
     theta_out = np.zeros((n_angles, nx * ny))
@@ -127,7 +135,8 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
         for c, vals in enumerate(product(xs, ys)):
             I, profile, A_per_layer, th_o, phi_o, ray_path = \
                 single_ray(vals[0], vals[1], nks[:, i1], alphas[:, i1],
-                           r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, wl, Fr_or_TMM)
+                           r_a_0, theta, phi, surfaces, widths, z_pos,
+                           I_thresh, pol, wl, Fr_or_TMM, lookuptable)
             absorption_profiles[i2] = absorption_profiles[i2] + profile / (nx * ny)
             theta_out[i2, c] = th_o
             phi_out[i2, c] = phi_o
@@ -147,6 +156,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
 
     # xarray: can use coordinates in calculations using apply!
     binned_theta_in = np.digitize(thetas_in, theta_intv, right=True) - 1
+
     binned_theta_out = np.digitize(theta_out, theta_intv, right=True) - 1
     # -1 to give the correct index for the bins in phi_intv
 
@@ -173,6 +183,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
 
     for l1 in range(len(thetas_in)):
         for l2 in range(nx * ny):
+            print(thetas_in[l1], bin_in[l1], bin_out[l1,l2])
             if binned_theta_out[l1, l2] <= (n_thetas-1):
                 out_mat[bin_out[l1, l2], bin_in[l1]] += 1
 
@@ -180,15 +191,18 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
                 A_mat[binned_theta_out[l1, l2]-n_thetas, bin_in[l1]] += 1
 
         #out_mat[:, bin_in[l1]] = out_mat[:, bin_in[l1]] / np.sum(out_mat[:, bin_in[l1]])
-    total_rays = np.sum(out_mat) + np.sum(A_mat)
-    out_mat = out_mat/total_rays
-    A_mat = A_mat/total_rays
 
-    result = COO(out_mat)  # sparse matrix
+    # normalize
+    norm_factor = np.sum(out_mat, axis = 0) + np.sum(A_mat, axis = 0)
+    out_mat = out_mat/norm_factor
+    A_mat = A_mat/norm_factor
 
+
+    out_mat = COO(out_mat)  # sparse matrix
+    A_mat = COO(A_mat)
     #savepath = os.path.join(structpath, surf_name + '_' + "{0:.6g}".format(wl * 1e9) + '.npz')
     #save_npz(savepath, result)
-    return result, A_mat
+    return out_mat, A_mat
 
 def normalize(x):
     if sum(x > 0):
@@ -258,7 +272,7 @@ def calc_angle(x):
     v1 = np.array([0, 1])
     return np.math.atan2(np.linalg.det([x, v1]), np.dot(x, v1))  # - 180 to 180
 
-def single_ray(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, wl, Fr_or_TMM):
+def single_ray(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, wl, Fr_or_TMM, lookuptable):
     # final_res = 0: reflection
     # final_res = 1: transmission
     # This should get a list of surfaces and materials (optical constants, alpha + widths); there is one less surface than material
@@ -314,7 +328,8 @@ def single_ray(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I
         ray_path = np.vstack((ray_path, np.append(r_a + d*(((surf.zcov - r_a[2])/d[2])-2), 1)))
         #print(r_a, d)
         res, theta, phi, r_a, d, ray_path = single_interface_check(r_a, d, nks[mat_index],
-                                     nks[mat_index+1], surf, surf.Lx, surf.Ly, direction, surf.zcov, ray_path, pol, wl, Fr_or_TMM)
+                                     nks[mat_index+1], surf, surf.Lx, surf.Ly, direction,
+                                     surf.zcov, ray_path, pol, wl, Fr_or_TMM, lookuptable)
 
         if res == 0:  # reflection
             direction = -direction # changing direction due to reflection
@@ -387,7 +402,7 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     return DA, stop, I_back, theta
 
 
-def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl):
+def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptable = None):
     R = calc_R(n0, n1, theta, pol)
 
     if rnd <= R:  # REFLECTION
@@ -409,8 +424,9 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl):
 
     return d, side, False # never absorbed, A = False
 
-def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl):
-    data = lookuptable.loc[dict(side=side, pol=pol)].interp(wl=wl*1e9, angle=abs(theta))
+def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
+    #data = lookuptable.loc[dict(side=side, pol=pol)].interp(wl=wl*1e9, angle=abs(theta))
+    data = lookuptable.loc[dict(side=side, pol=pol)].sel(angle=abs(theta), wl=wl*1e9, method='nearest')
     R = np.real(data['R'].data.item(0))
     T = np.real(data['T'].data.item(0))
     A_per_layer = np.real(data['Alayer'].data)
@@ -446,7 +462,7 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl):
     return d, side, A
 
 
-def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, ray_path, pol, wl, Fr_or_TMM):
+def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, ray_path, pol, wl, Fr_or_TMM, lookuptable):
 
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
@@ -520,7 +536,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, ray_path, p
 
             rnd = random()
 
-            d, side, A = decide[Fr_or_TMM](n0, n1, theta, d, N, side, pol, rnd, wl)
+            d, side, A = decide[Fr_or_TMM](n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable)
 
             r_a = np.real(intersn + d / 1e9) # this is to make sure the raytracer doesn't immediately just find the same intersection again
 

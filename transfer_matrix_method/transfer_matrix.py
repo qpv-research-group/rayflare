@@ -284,7 +284,7 @@ class OptiStack(object):
 
 
 def calculate_rat(stack, wavelength, angle=0, pol='u',
-                  coherent=True, coherency_list=None, no_back_reflection=True):
+                  coherent=True, coherency_list=None, profile=False, layers=None):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined.
 
@@ -328,7 +328,7 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
             output['A_per_layer'] = A_per_layer[1:-1]
         else:
             out = tmm.inc_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle, wavelength)
-            A_per_layer = tmm.inc_absorp_in_each_layer(out)
+            A_per_layer = np.array(tmm.inc_absorp_in_each_layer(out))
             output['R'] = out['R']
             output['A'] = 1 - out['R'] - out['T']
             output['T'] = out['T']
@@ -357,6 +357,76 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
             output['all_p'] = out_p['power_entering_list']
             output['all_s'] = out_s['power_entering_list']
             output['A_per_layer'] = 0.5*(A_per_layer_p[1:-1] + A_per_layer_s[1:-1])
+
+
+    # if requested, calculate absorption profile as well
+
+    # layer indices: 0 is incidence, n is transmission medium
+    if profile:
+        if pol in 'sp':
+            # print(stack.get_indices(wavelength).shape)
+            if coherent:
+                fn = tmm.absorp_analytic_fn().fill_in(out, layers)
+
+            else:
+                fraction_reaching = 1 - np.cumsum(A_per_layer, axis=0)
+                fn = tmm.absorp_analytic_fn()
+                fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty((0, num_wl)), \
+                                                    np.empty((0, num_wl)), np.empty((0, num_wl))
+
+                for l in layers:
+                    if coherency_list[l] == 'c':
+                        fn_l = tmm.inc_find_absorp_analytic_fn(l, out)
+                        fn.a1 = np.vstack((fn.a1, fn_l.a1))
+                        fn.a3 = np.vstack((fn.a3, fn_l.a3))
+                        fn.A1 = np.vstack((fn.A1, fn_l.A1))
+                        fn.A2 = np.vstack((fn.A2, fn_l.A2))
+                        fn.A3 = np.vstack((fn.A3, fn_l.A3))
+
+                    else:
+                        # DO NOT KNOW IF UNITS ARE CORRECT
+                        alpha = np.imag(stack.get_indices(wavelength)[l])*4*np.pi/wavelength
+                        fn.a1 = np.vstack((fn.a1, alpha))
+                        fn.A2 = np.vstack((fn.A2, alpha*fraction_reaching[l-1]))
+                        fn.a3 = np.vstack((fn.a3, np.zeros((1, num_wl))))
+                        fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
+                        fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
+
+        else:
+            if coherent:
+                fn_s = tmm.absorp_analytic_fn().fill_in(out_s, layers)
+                fn_p = tmm.absorp_analytic_fn().fill_in(out_p, layers)
+                fn = fn_s.add(fn_p).scale(0.5)
+            else:
+                fraction_reaching_s = 1 - np.cumsum(A_per_layer_s, axis=0)
+                fraction_reaching_p = 1 - np.cumsum(A_per_layer_s, axis=0)
+                fraction_reaching = 0.5*(fraction_reaching_s + fraction_reaching_p)
+                fn = tmm.absorp_analytic_fn()
+                fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty((0, num_wl)), \
+                                                    np.empty((0, num_wl)), np.empty((0, num_wl))
+
+                for l in layers:
+                    if coherency_list[l] == 'c':
+                        fn_s = tmm.inc_find_absorp_analytic_fn(l, out_s)
+                        fn_p = tmm.inc_find_absorp_analytic_fn(l, out_s)
+                        fn_l = fn_s.add(fn_p).scale(0.5)
+                        fn.a1 = np.vstack((fn.a1, fn_l.a1))
+                        fn.a3 = np.vstack((fn.a3, fn_l.a3))
+                        fn.A1 = np.vstack((fn.A1, fn_l.A1))
+                        fn.A2 = np.vstack((fn.A2, fn_l.A2))
+                        fn.A3 = np.vstack((fn.A3, fn_l.A3))
+
+
+                    else:
+                        # DO NOT KNOW IF UNITS ARE CORRECT
+                        alpha = np.imag(stack.get_indices(wavelength)[l]) * 4 * np.pi / wavelength
+                        fn.a1 = np.vstack((fn.a1, alpha))
+                        fn.A2 = np.vstack((fn.A2, alpha * fraction_reaching[l - 1]))
+                        fn.a3 = np.vstack((fn.a3, np.zeros((1, num_wl))))
+                        fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
+                        fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
+
+        output['profile_coeff'] = np.stack((fn.A1, fn.A2, fn.A3, fn.a1, fn.a3)) # shape is (5, n_layers, num_wl)
 
     return output
 
@@ -457,8 +527,6 @@ def calculate_absorption_profile(structure, wavelength, z_limit=None, steps_size
     Integrating this absorption profile in the whole stack gives the same result that the absorption obtained with
     calculate_rat as long as the spacial mesh (controlled by steps_thinest_layer) is fine enough. If the structure is
     very thick and the mesh not thin enough, the calculation might diverege at short wavelengths.
-
-    For now, it only works for normal incident, coherent light.
 
     :param structure: A solcore structure with layers and materials.
     :param wavelength: Wavelengths in which calculate the data (in nm). An array

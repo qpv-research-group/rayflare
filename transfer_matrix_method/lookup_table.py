@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from config import results_path
 
-def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options):
+def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options, profile=False, prof_layers=None):
 
     wavelengths = options['wavelengths']
     #pol = options['pol']
@@ -22,7 +22,7 @@ def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options):
     optstacks = [optlayers, optlayers_flip]
 
     if coherency_list is not None:
-        coherency_lists = [coherency_list, coherency_list[::,-1]]
+        coherency_lists = [coherency_list, coherency_list[::-1]]
     else:
         coherency_lists = [None, None]
     # can calculate by angle, already vectorized over wavelength
@@ -45,20 +45,33 @@ def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options):
                                   'angle': thetas,
                                   'layer': range(1, n_layers + 1)}, name='Alayer')
 
+    if profile:
+        Aprof = xr.DataArray(np.empty((2, 2, n_angles, 5, len(prof_layers), len(wavelengths))),
+                              dims=['side', 'pol', 'angle', 'coeff', 'layer', 'wl'],
+                          coords={'side': [1, -1], 'pol': pols,
+                                  'wl': wavelengths,
+                                  'angle': thetas,
+                                  'layer': prof_layers,
+                                  'coeff': ['A1', 'A2', 'A3', 'a1', 'a3']}, name='Aprof')
+
+
     for i1, side in enumerate(sides):
         R_loop = np.empty((len(wavelengths), n_angles))
         T_loop = np.empty((len(wavelengths), n_angles))
         Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
+        if profile:
+            Aprof_loop = np.empty((n_angles, 5, len(prof_layers), len(wavelengths)))
 
         for i2, pol in enumerate(pols):
 
             for i3, theta in enumerate(thetas):
                 res = calculate_rat(optstacks[i1], wavelengths, angle=theta, pol=pol,
-                                coherent=coherent, coherency_list=coherency_lists[i1],
-                                no_back_reflection=False)
+                                coherent=coherent, coherency_list=coherency_lists[i1], profile=profile, layers=prof_layers)
                 R_loop[:, i3] = np.real(res['R'])
                 T_loop[:, i3] = np.real(res['T'])
                 Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)
+                if profile:
+                    Aprof_loop[i3, :, :, :] = res['profile_coeff']
 
             # sometimes get very small negative values (like -1e-20)
             R_loop[R_loop<0] = 0
@@ -67,13 +80,24 @@ def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options):
 
             if side == -1:
                 Alayer_loop = np.flip(Alayer_loop, axis = 2)
+                if profile:
+                    Aprof_loop = np.flip(Aprof_loop, axis = 2)
 
             R.loc[dict(side=side, pol=pol)] = R_loop
             T.loc[dict(side=side, pol=pol)] = T_loop
             Alayer.loc[dict(side=side, pol=pol)] = Alayer_loop
 
+            if profile:
+                Aprof.loc[dict(side=side, pol=pol)] = Aprof_loop
+                Aprof.transpose('side', 'pol', 'wl', 'angle', 'layer', 'coeff')
+
     Alayer = Alayer.transpose('side', 'pol', 'wl', 'angle', 'layer')
-    allres = xr.merge([R, T, Alayer])
+
+    if profile:
+        allres = xr.merge([R, T, Alayer, Aprof])
+    else:
+        allres = xr.merge([R, T, Alayer])
+
     unpol = allres.reduce(np.mean, 'pol').assign_coords(pol='u').expand_dims('pol')
     allres = allres.merge(unpol)
     structpath = os.path.join(results_path, options['struct_name'])
