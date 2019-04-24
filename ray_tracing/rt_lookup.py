@@ -39,7 +39,7 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options, f
     if Fr_or_TMM == 1:
         lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + '.nc'))
         if front_or_rear == 'rear':
-            lookuptable = lookuptable.assign_coords(side=np.flip(allres.side))
+            lookuptable = lookuptable.assign_coords(side=np.flip(lookuptable.side))
     else:
         lookuptable = None
 
@@ -63,7 +63,7 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options, f
 
     I_thresh = options['I_thresh']
 
-    widths = group.widths
+    widths = group.widths[:]
     widths.insert(0, 0)
     widths.append(0)
     widths = 1e6*np.array(widths)  # convert to um
@@ -109,8 +109,8 @@ def RT(group, incidence, transmission, surf_name, n_absorbing_layers, options, f
     structpath = os.path.join(results_path, options['struct_name'])
     if not os.path.isdir(structpath):
         os.mkdir(structpath)
-    savepath_RT = os.path.join(structpath, surf_name + 'RT.npz')
-    savepath_A = os.path.join(structpath, surf_name + 'A.npz')
+    savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
+    savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
     save_npz(savepath_RT, allArrays)
     save_npz(savepath_A, absArrays)
     return allArrays, absArrays
@@ -183,7 +183,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
 
     for l1 in range(len(thetas_in)):
         for l2 in range(nx * ny):
-            print(thetas_in[l1], bin_in[l1], bin_out[l1,l2])
+            #print(thetas_in[l1], bin_in[l1], bin_out[l1,l2])
             if binned_theta_out[l1, l2] <= (n_thetas-1):
                 out_mat[bin_out[l1, l2], bin_in[l1]] += 1
 
@@ -313,15 +313,15 @@ def single_ray(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I
         depths.append(z_pos[depth_indices[i1]] - \
              np.cumsum(widths)[i1 - 1])
 
+    #print('nwidths', len(widths))
+    #print('s/d before', surf_index, direction, mat_index, stop)
+
     while not stop:
         #ax.plot([r_a[0], r_a[0] + d[0]], [r_a[1], r_a[1] + d[1]], [r_a[2], r_a[2] + d[2]])
         # translate r_a so that the ray can actually intersect with the unit cell of the surface it is approaching
+
         surf = surfaces[surf_index]
-        #print('surface: ', surf_index)
-        #print('material: ', mat_index)
-        #print('direction:', direction)
-        #print(r_a, d)
-        #print('translating...')
+
         r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
         r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
 
@@ -361,21 +361,18 @@ def single_ray(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I
 
         if res == 2:
             stop = True
-        #print(materials['width'][mat_index])
-        #print(materials['alpha'][mat_index])
-        #print(depths[mat_index])
-        #print(DA)
+
         # theta = None means absorbed
 
         if direction == 1 and mat_index == (len(widths)-1):
+            #print('transmission')
             stop = True
             # have ended with transmission
 
         elif direction == -1 and mat_index == 0:
             stop = True
-            # have ended with reflection
-            # final results to pass are
-        #print('stop', stop)
+
+        #print('s/d after', surf_index, direction, mat_index, stop)
 
     #print('n_passes', n_passes)
     return I, profile, A_per_layer, theta, phi, ray_path

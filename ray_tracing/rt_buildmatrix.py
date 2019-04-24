@@ -48,7 +48,7 @@ def RT(group, incidence, transmission, options):
 
     I_thresh = options['I_thresh']
 
-    widths =  group.widths
+    widths = group.widths[:]
     widths.insert(0, 0)
     widths.append(0)
     widths = 1e6*np.array(widths)  # convert to um
