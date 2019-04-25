@@ -27,7 +27,7 @@ n_layers = len(layers)
 substrate = Si
 incidence = Air
 
-surf_name = 'GaAsGaAsstack'
+surf_name = 'GaAsGaAsstack_prof'
 
 prof_layers = [1,2]
 

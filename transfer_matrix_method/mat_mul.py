@@ -7,11 +7,13 @@ from solcore import material
 import os
 import matplotlib.pyplot as plt
 
+lookuptable = xr.open_dataset('C://Users//pmpea//Box Sync//Optics package//results//testing//GaAsGaAsstack.nc')
+
 theta_intv, phi_intv, angle_vector = make_angle_vector(100, np.pi/2, 0.25)
 n_a_in = int(len(angle_vector)/2)
 
 Si = material('Si')()
-num_wl = 4
+num_wl = 20
 
 wls = np.linspace(700, 1100, num_wl)*1e-9
 alphas = Si.alpha(wls)
@@ -45,7 +47,10 @@ Rf_2 = fullmat[:, :n_a_in,:]
 Tf_2 = fullmat[:, n_a_in:, :]
 Af_2 = absmat
 
-mat_path = os.path.join(results_path, 'testing', 'GeGaAsstackrearRT.npz')
+a = np.sum(Rf_2[0].todense(), 0) + np.sum(Tf_2[0].todense(), 0) + np.sum(Af_2[0].todense(), 0)
+print(np.all(np.abs(a-1) < 1e-9)) # rounding errors
+
+mat_path = os.path.join(results_path, 'testing', 'GaAsGaAsstackrearRT.npz')
 absmat_path = os.path.join(results_path, 'testing', 'GaAsGaAsstackrearA.npz')
 
 fullmat = load_npz(mat_path)
@@ -58,6 +63,9 @@ Ab_1 = absmat
 print(np.sum(Rf_1[0].todense(), 0))
 print(np.sum(Tf_1[0].todense(), 0))
 print(np.sum(Af_1[0].todense(), 0))
+
+a = np.sum(Rf_1[0].todense(), 0) + np.sum(Tf_1[0].todense(), 0) + np.sum(Af_1[0].todense(), 0)
+print(np.all(np.abs(a-1) < 1e-9)) # rounding errors
 
 # v0.groupby('wl').apply(lambda x: dot(R, x.data))
 
@@ -82,7 +90,7 @@ power = np.sum(vf_1, axis=1)
 # rep
 i1=1
 
-while np.any(power > 1e-10):
+while np.any(power > 1e-15):
     print(i1)
     # vb_1 = dot_wl(D_1, vf_1) # pass through bulk, downwards
     # vb_2 = dot_wl(Rf_2, vb_1) # reflect from back surface
@@ -126,6 +134,7 @@ plt.plot(wls, A)
 plt.plot(wls, A_front)
 plt.plot(wls, A_back)
 plt.plot(wls, T)
+plt.plot(wls, R+A+A_front+A_back+T)
 plt.legend(['R', 'A', 'Af', 'Ab', 'T'])
 
 a_l_front = np.sum(a_1, 0)
@@ -134,3 +143,70 @@ plt.figure()
 plt.plot(wls, a_l_front[:,0])
 plt.plot(wls, a_l_front[:,1])
 plt.legend(np.arange(2))
+
+class absorp_surface_fn:
+    """
+
+    Absorption in a given layer is a pretty simple analytical function:
+    The sum of four exponentials.
+
+    a(z) = A1*exp(a1*z) + A2*exp(-a1*z)
+           + A3*exp(1j*a3*z) + conj(A3)*exp(-1j*a3*z)
+
+    where a(z) is absorption at depth z, with z=0 being the start of the layer,
+    and A1,A2,a1,a3 are real numbers, with a1>0, a3>0, and A3 is complex.
+    The class stores these five parameters, as well as d, the layer thickness.
+
+    This gives absorption as a fraction of intensity coming towards the first
+    layer of the stack.
+    """
+
+    def __init__(self, arr):
+        # (5, 1) array, order of rows: A1, A2, A3, a1, a3
+        self.A1 = arr[:,0]
+        self.A2 = arr[:,1]
+        self.A3 = arr[:,2]
+        self.a1 = arr[:,3]
+        self.a3 = arr[:,4]
+
+    def run(self, z):
+        """
+        Calculates absorption at a given depth z, where z=0 is the start of the
+        layer.
+        """
+
+        part1 = self.A1[:, None] * np.exp(self.a1[:, None] * z[None, :])
+        part2 = self.A2[:, None] * np.exp(-self.a1[:, None] * z[None, :])
+        part3 = self.A3[:, None] * np.exp(1j * self.a3[:, None] * z[None, :])
+        part4 = np.conj(self.A3[:, None]) * np.exp(-1j * self.a3[:, None] * z[None, :])
+
+        part1[self.A1 < 1e-100, :] = 0
+
+        return (part1 + part2 + part3 + part4)/len(self.A1)
+
+    def flip(self):
+        """
+        Flip the function front-to-back, to describe a(d-z) instead of a(z),
+        where d is layer thickness.
+        """
+        expn = np.exp(self.a1 * self.d)
+        #expn[expn > 1e100] = 1e100
+        newA1 = self.A2 * np.exp(-self.a1 * self.d)
+        newA1[self.A2 == 0] = 0
+        newA2 = self.A1 * expn
+        newA2[self.A1 == 0] = 0
+        self.A1, self.A2 = newA1, newA2
+        self.A3 = np.conj(self.A3 * np.exp(1j * self.a3 * self.d))
+        return self
+
+    def scale(self, factor):
+        """
+        multiplies the absorption at each point by "factor".
+        """
+        self.A1 *= factor
+        self.A2 *= factor
+        self.A3 *= factor
+        self.A1[np.isnan(self.A1)] = 0
+        self.A2[np.isnan(self.A2)] = 0
+        self.A3[np.isnan(self.A3)] = 0
+        return self
