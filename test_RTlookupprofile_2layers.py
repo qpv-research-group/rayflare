@@ -37,8 +37,8 @@ options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4, 'theta': 0, 'phi': 0,
             'nx': 2, 'ny': 2, 'max_passes': 50, 'parallel': True, 'n_jobs': -1, 'n_rays': 400000,
             'phi_symmetry': np.pi/2, 'n_theta_bins': 100, 'c_azimuth': 0.25,
             'random_angles': False, 'pol': 's', 'struct_name': 'testing', 'Fr_or_TMM': 1,
-            'surf_name': 'GaAsonSi', 'n_absorbing_layers': 1, 'front_or_rear': 'front',
-            'prof_indices': [0]}#,
+            'surf_name': 'GaInPGaAsonSi', 'n_absorbing_layers': 2, 'front_or_rear': 'front',
+            'prof_indices': [0,1]}#,
             #'pool': pool}
 
 

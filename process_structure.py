@@ -13,4 +13,6 @@ elif full_RCWA:
     # send relevant struct to RCWA solver
 
 elif matrix_method:
-    # need to scan through each surface and determine method
+    # need to scan through each surface and determine method (for now, have the method be specified explicitly)
+
+

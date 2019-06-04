@@ -1,6 +1,7 @@
 from ray_tracing.rt import RTSurface
 
 class Structure(list):
+    # both interfaces and bulk layers
 
     def __init__(self, *args, **kwargs):
         super(Structure, self).__init__(*args)
@@ -42,11 +43,9 @@ class Structure(list):
 
         return "<Structure object\n{}\n{}>".format(str(self.__dict__), "\n".join(layer_info))
 
-    def width(self):
-        return sum([layer.width for layer in self])
 
 
-class Layer:
+class BulkLayer:
     """ Class that stores the information about layers of materials, such as thickness and composition.
     It is the building block of the 'Structures' """
 
@@ -59,7 +58,7 @@ class Layer:
         self.__dict__.update(kwargs)
 
 
-class Surface:
+class Interface:
 
     def __init__(self, method, layers=None, texture=None, **kwargs):
         """ Layer class constructor.

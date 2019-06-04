@@ -7,18 +7,25 @@ import matplotlib.pyplot as plt
 import os
 from config import results_path
 
-def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options, profile=False, prof_layers=None):
+def make_TMM_lookuptable(layers, transmission, incidence, options):
 
+    surf_name = options['surf_name']
     wavelengths = options['wavelengths']
     #pol = options['pol']
     coherent = options['coherent']
     coherency_list = options['coherency_list']
     n_angles = options['lookuptable_angles']
     thetas = np.linspace(0, np.pi/2, n_angles)
+    if options['prof_layers'] is not None:
+        profile = True
+        prof_layers = options['prof_layers']
+    else:
+        profile = False
+        prof_layers = None
 
     n_layers = len(layers)
-    optlayers = OptiStack(layers, substrate=substrate, incidence=incidence)
-    optlayers_flip = OptiStack(layers[::-1], substrate=incidence, incidence=substrate)
+    optlayers = OptiStack(layers, substrate=transmission, incidence=incidence)
+    optlayers_flip = OptiStack(layers[::-1], substrate=incidence, incidence=transmission)
     optstacks = [optlayers, optlayers_flip]
 
     if coherency_list is not None:
@@ -46,21 +53,21 @@ def make_TMM_lookuptable(layers, substrate, incidence, surf_name, options, profi
                                   'layer': range(1, n_layers + 1)}, name='Alayer')
 
     if profile:
-        Aprof = xr.DataArray(np.empty((2, 2, n_angles, 5, len(prof_layers), len(wavelengths))),
+        Aprof = xr.DataArray(np.empty((2, 2, n_angles, 6, len(prof_layers), len(wavelengths))),
                               dims=['side', 'pol', 'angle', 'coeff', 'layer', 'wl'],
                           coords={'side': [1, -1], 'pol': pols,
                                   'wl': wavelengths,
                                   'angle': thetas,
                                   'layer': prof_layers,
-                                  'coeff': ['A1', 'A2', 'A3', 'a1', 'a3']}, name='Aprof')
+                                  'coeff': ['A1', 'A2', 'A3_r', 'A3_i', 'a1', 'a3']}, name='Aprof')
 
 
     for i1, side in enumerate(sides):
         R_loop = np.empty((len(wavelengths), n_angles))
         T_loop = np.empty((len(wavelengths), n_angles))
-        Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
+        Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers),dtype=np.complex_)
         if profile:
-            Aprof_loop = np.empty((n_angles, 5, len(prof_layers), len(wavelengths)))
+            Aprof_loop = np.empty((n_angles, 6, len(prof_layers), len(wavelengths)))
 
         for i2, pol in enumerate(pols):
 

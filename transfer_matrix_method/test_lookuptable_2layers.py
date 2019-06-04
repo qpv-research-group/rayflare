@@ -7,22 +7,23 @@ import matplotlib.pyplot as plt
 from transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from transfer_matrix_method.tmm_core_vec import absorp_analytic_fn
 
-wavelengths = np.linspace(600, 1200, 600)
+wavelengths = np.linspace(500, 1200, 600)
 options =  {'wavelengths': wavelengths, 'I_thresh': 1e-4,
             'nx': 5, 'ny': 5, 'max_passes': 100, 'parallel': False, 'n_rays': 40000,
             'phi_symmetry': np.pi/2, 'n_theta_bins': 100, 'c_azimuth': 0.25,
             'random_angles': True, 'lookuptable_angles': 1000, 'pol': 's',
-            'coherent': True, 'coherency_list': ['c'], 'struct_name': 'testing',
-            'prof_layers': [1], 'surf_name': 'GaAsonSi'}#,
+            'coherent': True, 'coherency_list': ['c', 'c'], 'struct_name': 'testing',
+            'prof_layers': [1,2], 'surf_name': 'GaInPGaAsonSi'}#,
 
 
 Ge = material('Ge')()
 GaAs = material('GaAs')()
+GaInP = material('GaInP')(In=0.5)
 Air = material('Air')()
 Si = material('Si')()
 
 #layers = [Layer(100e-9, GaAs), Layer(500e-9, Ge)]
-layers = [Layer(500e-9, GaAs)]
+layers = [Layer(500e-9, GaInP), Layer(700e-9, GaAs)]
 
 n_layers = len(layers)
 
