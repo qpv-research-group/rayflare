@@ -1,1 +1,1 @@
-results_path = 'C:\\Users\\pmpea\\Box Sync\\Optics package\\results'
+results_path = 'C:\\Users\\pmpea\\Box Sync\\RayFlare\\results'

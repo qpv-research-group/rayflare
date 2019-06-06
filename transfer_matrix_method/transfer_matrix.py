@@ -299,7 +299,6 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
     num_wl = len(wavelength)
-
     if not coherent:
         if coherency_list is not None:
             assert len(coherency_list) == stack.num_layers, \
@@ -375,6 +374,7 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
                                                     np.empty((0, num_wl)), np.empty((0, num_wl))
 
                 for l in layers:
+
                     if coherency_list[l] == 'c':
                         fn_l = tmm.inc_find_absorp_analytic_fn(l, out)
                         fn.a1 = np.vstack((fn.a1, fn_l.a1))

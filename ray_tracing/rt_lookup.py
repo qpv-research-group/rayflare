@@ -2,15 +2,13 @@ import numpy as np
 import numpy.matlib
 import os
 from scipy.spatial import Delaunay
-from cmath import sin, cos, asin, sqrt, acos, atan
-from math import atan2, ceil
+from cmath import sin, cos, sqrt, acos, atan
+from math import atan2
 from random import random
-import matplotlib.pyplot as plt
 from itertools import product
-from functools import partial
 import xarray as xr
 from angles import fold_phi, make_angle_vector
-from sparse import COO, save_npz, stack
+from sparse import COO, save_npz, load_npz, stack
 from config import results_path
 from joblib import Parallel, delayed
 
@@ -18,120 +16,130 @@ from joblib import Parallel, delayed
 # the return from scipy.spatial.Delaunaytheta_t = np.asin((n1/n2)*np.sin(theta)), but contains 3D rather than 2D coordinates,
 # i.e. a 2D surface in 3D space.
 
-def RT(group, incidence, transmission, options):
+def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
+       n_absorbing_layers=0, calc_profile = True):
 
-    surf_name = options['surf_name']
-    front_or_rear = options['front_or_rear']
-    prof_indices = options['prof_indices']
-    structpath = os.path.join(results_path, options['struct_name'])
+    structpath = os.path.join(results_path, options['project_name'])
     if not os.path.isdir(structpath):
         os.mkdir(structpath)
 
-    wavelengths = options['wavelengths']
-    n_rays = options['n_rays']
-    nx = options['nx']
-    ny = options['ny']
-    n_angles = int(np.ceil(n_rays/(nx*ny)))
-
-    phi_sym = options['phi_symmetry']
-    n_theta_bins = options['n_theta_bins']
-    c_az = options['c_azimuth']
-    pol = options['pol']
-    Fr_or_TMM = options['Fr_or_TMM']
-    n_absorbing_layers = options['n_absorbing_layers']
-
-
-    if Fr_or_TMM == 1:
-        lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + '.nc'))
-        if front_or_rear == 'rear':
-            lookuptable = lookuptable.assign_coords(side=np.flip(lookuptable.side))
-    else:
-        lookuptable = None
-
-    theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
-
-    if options['random_angles']:
-        thetas_in = np.random.random(n_angles)*np.pi/2
-        phis_in = np.random.random(n_angles)*2*np.pi
-    else:
-        angles_in = angle_vector[:int(len(angle_vector)/2),:]
-        n_reps = int(np.ceil(n_angles/len(angles_in)))
-        thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
-        phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
-
-    mats = [incidence]
-    for i1 in range(len(group.materials)):
-        mats.append(group.materials[i1])
-    mats.append(transmission)
-
-    surfaces = group.textures
-
-    I_thresh = options['I_thresh']
-
-    widths = group.widths[:]
-    widths.insert(0, 0)
-    widths.append(0)
-    widths = 1e6*np.array(widths)  # convert to um
-
-    z_space = 1e6*group.depth_spacing
-    z_pos = np.arange(0, sum(widths), z_space)
-
-    nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
-    alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
-
-    for i1, mat in enumerate(mats):
-        nks[i1] = mat.n(wavelengths) + 1j*mat.k(wavelengths)
-        alphas[i1] = mat.k(wavelengths)*4*np.pi/(wavelengths*1e6)
-
-    h = max(surfaces[0].Points[:, 2])
-    x_lim = surfaces[0].Lx
-    y_lim = surfaces[0].Ly
-
-    xs = np.linspace(x_lim/100, x_lim-(x_lim/100), nx)
-    ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
-
-    #allArrays = [RT_wl(i1, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
-    #      I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector) for i1 in range(len(wavelengths))]
-    if options['parallel']:
-        allres = Parallel(n_jobs=options['n_jobs'])(delayed(RT_wl)
-                                       (i1, wavelengths[i1], n_angles, nx, ny, z_pos,
-                                        widths, thetas_in, phis_in, h,
-                                        xs, ys, nks, alphas, surfaces,
-                                        I_thresh, pol, phi_sym, theta_intv,
-                                        phi_intv, angle_vector, Fr_or_TMM, n_absorbing_layers,
-                                        lookuptable, prof_indices)
-                                   for i1 in range(len(wavelengths)))
-
-    else:
-        allres = [RT_wl(i1, wavelengths[i1], n_angles, nx, ny, z_pos, widths,
-                        thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
-                                 I_thresh, pol, phi_sym, theta_intv, phi_intv,
-                        angle_vector, Fr_or_TMM, n_absorbing_layers, lookuptable, prof_indices)
-                  for i1 in range(len(wavelengths))]
-
-    allArrays = stack([item[0] for item in allres])
-    print(allArrays.shape)
-    absArrays = stack([item[1] for item in allres])
-
-    structpath = os.path.join(results_path, options['struct_name'])
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    save_npz(savepath_RT, allArrays)
-    save_npz(savepath_A, absArrays)
 
-    if len(prof_indices) > 0:
-        local_angles = stack([item[2] for item in allres])
+    if calc_profile > 0:
         savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')
-        save_npz(savepath_prof, local_angles)
-        return allArrays, absArrays, local_angles
+
+    if os.path.isfile(savepath_RT):
+        print('Existing angular redistribution matrices found')
+        allArrays = load_npz(savepath_RT)
+        absArrays = load_npz(savepath_A)
+        if calc_profile > 0:
+            local_angles = load_npz(savepath_prof)
+            return allArrays, absArrays, local_angles
+
+        else:
+            return allArrays, absArrays
+
     else:
-        return allArrays, absArrays
+        wavelengths = options['wavelengths']
+        n_rays = options['n_rays']
+        nx = options['nx']
+        ny = options['ny']
+        n_angles = int(np.ceil(n_rays/(nx*ny)))
+
+        phi_sym = options['phi_symmetry']
+        n_theta_bins = options['n_theta_bins']
+        c_az = options['c_azimuth']
+        pol = options['pol']
+
+
+        if Fr_or_TMM == 1:
+            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + '.nc'))
+            if front_or_rear == 'rear':
+                lookuptable = lookuptable.assign_coords(side=np.flip(lookuptable.side))
+        else:
+            lookuptable = None
+
+        theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
+
+        if options['random_angles']:
+            thetas_in = np.random.random(n_angles)*np.pi/2
+            phis_in = np.random.random(n_angles)*2*np.pi
+        else:
+            angles_in = angle_vector[:int(len(angle_vector)/2),:]
+            n_reps = int(np.ceil(n_angles/len(angles_in)))
+            thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
+            phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
+
+        mats = [incidence]
+        for i1 in range(len(group.materials)):
+            mats.append(group.materials[i1])
+        mats.append(transmission)
+
+        surfaces = group.textures
+
+        I_thresh = options['I_thresh']
+
+        widths = group.widths[:]
+        widths.insert(0, 0)
+        widths.append(0)
+        widths = 1e6*np.array(widths)  # convert to um
+
+        z_space = 1e6*group.depth_spacing
+        z_pos = np.arange(0, sum(widths), z_space)
+
+        nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
+        alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
+
+        for i1, mat in enumerate(mats):
+            nks[i1] = mat.n(wavelengths) + 1j*mat.k(wavelengths)
+            alphas[i1] = mat.k(wavelengths)*4*np.pi/(wavelengths*1e6)
+
+        h = max(surfaces[0].Points[:, 2])
+        x_lim = surfaces[0].Lx
+        y_lim = surfaces[0].Ly
+
+        xs = np.linspace(x_lim/100, x_lim-(x_lim/100), nx)
+        ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
+
+        #allArrays = [RT_wl(i1, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
+        #      I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector) for i1 in range(len(wavelengths))]
+        if options['parallel']:
+            allres = Parallel(n_jobs=options['n_jobs'])(delayed(RT_wl)
+                                           (i1, wavelengths[i1], n_angles, nx, ny, z_pos,
+                                            widths, thetas_in, phis_in, h,
+                                            xs, ys, nks, alphas, surfaces,
+                                            I_thresh, pol, phi_sym, theta_intv,
+                                            phi_intv, angle_vector, Fr_or_TMM, n_absorbing_layers,
+                                            lookuptable, calc_profile)
+                                       for i1 in range(len(wavelengths)))
+
+        else:
+            allres = [RT_wl(i1, wavelengths[i1], n_angles, nx, ny, z_pos, widths,
+                            thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
+                                     I_thresh, pol, phi_sym, theta_intv, phi_intv,
+                            angle_vector, Fr_or_TMM, n_absorbing_layers, lookuptable, calc_profile)
+                      for i1 in range(len(wavelengths))]
+
+        allArrays = stack([item[0] for item in allres])
+        print(allArrays.shape)
+        absArrays = stack([item[1] for item in allres])
+
+        save_npz(savepath_RT, allArrays)
+        save_npz(savepath_A, absArrays)
+
+        if calc_profile > 0:
+            local_angles = stack([item[2] for item in allres])
+            save_npz(savepath_prof, local_angles)
+            #make_profile_data(options, np.unique(angle_vector[:,1]), int(len(angle_vector) / 2),
+            #                  front_or_rear, surf_name, n_absorbing_layers, widths)
+            return allArrays, absArrays, local_angles
+        else:
+            return allArrays, absArrays
 
 
 def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys, nks, alphas, surfaces,
-          I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_abs_layers, lookuptable, prof_indices):
+          I_thresh, pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_abs_layers, lookuptable, calc_profile):
     print('wavelength = ', wl)
     #n_prof_layers = len(prof_indices)
     theta_out = np.zeros((n_angles, nx * ny))
@@ -713,3 +721,85 @@ def check_intersect(r_a, d, tri):
         return False
 
 
+def make_profile_data(options, unique_thetas, n_a_in, side, layer_name, n_layers, widths):
+
+    if side == 1:
+        side_str = 'front'
+    else:
+        side_str = 'rear'
+
+    prof_mat_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'profmat.nc')
+    #int_mat_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'intmat.nc')
+
+    if os.path.isfile(prof_mat_path):
+        print('Existing absorption profile calculation data found')
+        allres = xr.open_dataset(prof_mat_path)
+        intgr = allres['intgr']
+        profile = allres['profile']
+
+    else:
+        angle_dist_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'Aprof.npz')
+
+        angle_distmat = load_npz(angle_dist_path)
+        num_wl = len(options['wavelengths'])
+        pr = xr.DataArray(angle_distmat.todense(), dims=['wl', 'local_theta', 'global_index'],
+                          coords={'wl': options['wavelengths'] * 1e9, 'local_theta': unique_thetas,
+                                  'global_index': np.arange(0, n_a_in)})
+
+        lookuptable = xr.open_dataset(
+            os.path.join(results_path, options['project_name'], layer_name + '.nc'))
+        data = lookuptable.loc[dict(side=side, pol=options['pol'])].sel(angle=pr.coords['local_theta'],
+                                                                        wl=pr.coords['wl'], method='nearest')
+
+        params = data['Aprof'].drop(['layer', 'side', 'angle', 'pol']).transpose('wl', 'local_theta', 'layer', 'coeff')
+
+        s_params = params.loc[
+            dict(coeff=['A1', 'A2', 'A3_r',
+                        'A3_i'])]  # have to scale these to make sure integrated absorption is correct
+        c_params = params.loc[dict(coeff=['a1', 'a3'])]  # these should not be scaled
+
+        scale_res = pr.groupby('global_index').apply(scale_func, scale_params=s_params)
+        const_res = pr.groupby('global_index').apply(select_func, const_params=c_params)
+
+        params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=np.arange(0, n_layers))
+
+        #total_width = np.sum(layer_widths[i1])
+
+        z_list = []
+        for l_w in widths:
+            z_list.append(xr.DataArray(np.arange(0, l_w, options['nm_spacing'])))
+
+        offsets = np.cumsum([0] + widths)[:-1]
+        start = time()
+        ans = params.groupby('wl').apply(scaled_profile, z=z_list, offset=offsets, side=side).drop('coeff')
+        ans = ans.fillna(0)
+
+        print('Took ' + str(time() - start) + ' seconds')
+
+        profile = ans.reduce(np.sum, 'layer')
+
+        intgr = xr.DataArray(np.zeros((n_layers, num_wl, len(params.global_index))),
+                           dims=['layer', 'wl', 'global_index'],
+                           coords={'wl': params.wl, 'global_index': params.global_index})
+
+        for i2, width in enumerate(widths):
+            A1 = params.loc[dict(coeff='A1', layer=i2)]
+            A2 = params.loc[dict(coeff='A2', layer=i2)]
+            A3_r = params.loc[dict(coeff='A3_r', layer=i2)]
+            A3_i = params.loc[dict(coeff='A3_i', layer=i2)]
+            a1 = params.loc[dict(coeff='a1', layer=i2)]
+            a3 = params.loc[dict(coeff='a3', layer=i2)]
+
+            intgr_width = ((A1 / a1) * (np.exp(a1 * width) - 1) - (A2 / a1) * (np.exp(-a1 * width) - 1) - \
+                         1j * ((A3_r + 1j * A3_i) / a3) * (np.exp(1j * a3 * width) - 1) + 1j * (
+                                 (A3_r - 1j * A3_i) / a3) * (
+                                 np.exp(-1j * a3 * width) - 1)).fillna(0)
+
+            intgr[i2] = intgr_width.reduce(np.sum, 'local_theta')
+
+        intgr = intgr.reduce(np.sum, 'layer')
+        intgr.name = 'intgr'
+        profile.name = 'profile'
+        allres = xr.merge([intgr, profile])
+        allres.to_netcdf(prof_mat_path)
+    return profile, intgr

@@ -8,31 +8,31 @@ class Structure(list):
         self.__dict__.update(kwargs)
         self.labels = [None] * len(self)
 
-    def append(self, new_layer, layer_label=None, repeats=1):
-        # Pass the arguments to the superclass for extending
-        for i in range(repeats):
-            # Extend the structure labels
-            self.labels.append(layer_label)
-            super(Structure, self).append(new_layer)
-
-    def append_multiple(self, layers, layer_labels=None, repeats=1):
-
-        assert type(layers) == type([]), "`append_multiple` only accepts lists for the first argument."
-
-        if layer_labels is not None:
-            assert len(layers) == len(
-                layer_labels), "When using `layer_labels` keyword a label must be specified for each layer added i.e. layers and layer_labels must have the same number of elements.  Either fix this or simply do not assign any labels (i.e. layer_labels=None)."
-
-        for i in range(repeats):
-            # Extend the structure by appending layers
-            self.extend(layers)
-
-            # Extend the structure labels by appending an equal number of None values
-            # or by appending the actual labels.
-            if layer_labels is None:
-                self.labels.extend([None] * len(layers))
-            else:
-                self.labels.extend(layer_labels)
+    # def append(self, new_layer, layer_label=None, repeats=1):
+    #     # Pass the arguments to the superclass for extending
+    #     for i in range(repeats):
+    #         # Extend the structure labels
+    #         self.labels.append(layer_label)
+    #         super(Structure, self).append(new_layer)
+    #
+    # def append_multiple(self, layers, layer_labels=None, repeats=1):
+    #
+    #     assert type(layers) == type([]), "`append_multiple` only accepts lists for the first argument."
+    #
+    #     if layer_labels is not None:
+    #         assert len(layers) == len(
+    #             layer_labels), "When using `layer_labels` keyword a label must be specified for each layer added i.e. layers and layer_labels must have the same number of elements.  Either fix this or simply do not assign any labels (i.e. layer_labels=None)."
+    #
+    #     for i in range(repeats):
+    #         # Extend the structure by appending layers
+    #         self.extend(layers)
+    #
+    #         # Extend the structure labels by appending an equal number of None values
+    #         # or by appending the actual labels.
+    #         if layer_labels is None:
+    #             self.labels.extend([None] * len(layers))
+    #         else:
+    #             self.labels.extend(layer_labels)
 
     def __str__(self):
 
@@ -60,7 +60,7 @@ class BulkLayer:
 
 class Interface:
 
-    def __init__(self, method, layers=None, texture=None, **kwargs):
+    def __init__(self, method, layers=[], texture=None, **kwargs):
         """ Layer class constructor.
 
         """

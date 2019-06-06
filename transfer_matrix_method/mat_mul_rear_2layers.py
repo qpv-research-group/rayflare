@@ -11,7 +11,7 @@ from time import time
 from solcore import material
 from solcore.structure import Layer
 
-lookuptable = xr.open_dataset('C://Users//pmpea//Box Sync//Optics package//results//testing//GaInPGaAsonSi.nc')
+lookuptable = xr.open_dataset('C://Users//pmpea//Box Sync//RayFlare//results//testing//GaInPGaAsonSi.nc')
 
 
 GaAs = material('GaAs')()
@@ -165,9 +165,9 @@ plt.legend(['R', 'A', 'Af', 'Ab', 'T'])
 #plt.plot(wls, a_l_front[:,1])
 #plt.legend(np.arange(2))
 
-pr = load_npz('C://Users//pmpea//Box Sync//Optics package//results//testing//GaInPGaAsonSifrontAprof.npz')
+pr = load_npz('C://Users//pmpea//Box Sync//RayFlare//results//testing//GaInPGaAsonSifrontAprof.npz')
 
-lookuptable = xr.open_dataset('C://Users//pmpea//Box Sync//Optics package//results//testing//GaInPGaAsonSi.nc')
+lookuptable = xr.open_dataset('C://Users//pmpea//Box Sync//RayFlare//results//testing//GaInPGaAsonSi.nc')
 
 thetas = np.unique(thetas)
 pr = xr.DataArray(pr.todense(), dims = ['wl', 'local_theta', 'global_index'],
@@ -204,25 +204,21 @@ for i1, layer in enumerate(layers):
     z_list.append(xr.DataArray(np.arange(0, layer.width*1e9, 0.5)))
 
 def profile_per_layer(x, z, offset, side):
+
     layer_index = x.coords['layer'].item(0)
-    #print(z[layer_index])
-    non_zero = x[np.all(x, axis=1)]
-    A1 = non_zero.loc[dict(coeff='A1')]
-    A2 = non_zero.loc[dict(coeff='A2')]
-    A3_r = non_zero.loc[dict(coeff='A3_r')]
-    A3_i = non_zero.loc[dict(coeff='A3_i')]
-    a1 = non_zero.loc[dict(coeff='a1')]
-    a3 = non_zero.loc[dict(coeff='a3')]
-    #print(A1.shape, a1.shape, z[layer_index].shape)
-    part1 = A1* np.exp(a1 * z[layer_index])
-    part2 = A2* np.exp(-a1 * z[layer_index])
-    part3 = (A3_r + 1j*A3_i)* np.exp(1j * a3 * z[layer_index])
-    part4 = (A3_r - 1j*A3_i) * np.exp(-1j * a3 * z[layer_index])
+    nz = x.where(x != 0, drop=True)
+    # print(z[layer_index])
+    part1 = nz.loc[dict(coeff='A1')] * np.exp(nz.loc[dict(coeff='a1')] * z[layer_index])
+    part2 = nz.loc[dict(coeff='A2')] * np.exp(-nz.loc[dict(coeff='a1')] * z[layer_index])
+    part3 = (nz.loc[dict(coeff='A3_r')] + 1j * nz.loc[dict(coeff='A3_i')]) * np.exp(
+        1j * nz.loc[dict(coeff='a3')] * z[layer_index])
+    part4 = (nz.loc[dict(coeff='A3_r')] - 1j * nz.loc[dict(coeff='A3_i')]) * np.exp(
+        -1j * nz.loc[dict(coeff='a3')] * z[layer_index])
     result = np.real(part1 + part2 + part3 + part4)
     if side == -1:
-        result = np.flip(result, 1)
-    #print(result)
-    return result.reduce(np.sum, axis=0).assign_coords(dim_0=z[layer_index]+offset[layer_index])
+         result = np.flip(result, 1)
+        # print(result)
+    return result.reduce(np.sum, 'local_theta').assign_coords(dim_0=z[layer_index]+offset[layer_index])
 
 def profile_per_angle(x, z, offset, side):
     # print(x)
@@ -242,7 +238,8 @@ def profile_per_angle(x, z, offset, side):
 
 def scaled_profile(x, z, offset, side):
     print('wl')
-    by_angle = x.groupby('global_index').apply(profile_per_angle, z=z_list, offset=offset, side=side)
+    print(x)
+    by_angle = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
     return by_angle
 
 widths = [layer.width*1e9 for layer in layers]
