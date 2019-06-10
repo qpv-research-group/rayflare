@@ -17,7 +17,7 @@ from joblib import Parallel, delayed
 # i.e. a 2D surface in 3D space.
 
 def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
-       n_absorbing_layers=0, calc_profile = True):
+       n_absorbing_layers=0, calc_profile = True, only_incidence_angle=False):
 
     structpath = os.path.join(results_path, options['project_name'])
     if not os.path.isdir(structpath):
@@ -62,14 +62,29 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
-        if options['random_angles']:
-            thetas_in = np.random.random(n_angles)*np.pi/2
-            phis_in = np.random.random(n_angles)*2*np.pi
+        if only_incidence_angle:
+            print('Calculating matrix only for incidence theta/phi')
+            angles_in = angle_vector[:int(len(angle_vector) / 2), :]
+            n_reps = int(np.ceil(n_angles / len(angles_in)))
+            thetas_in = np.tile(options['theta_in'], n_reps)
+            n_angles = n_reps
+            print(n_reps, n_angles)
+
+            if options['phi_in'] == 'all':
+                # get relevant phis
+                phis_in = np.tile(options['phi_in'], n_reps)
+            else:
+                phis_in = np.tile(options['phi_in'], n_reps)
+
         else:
-            angles_in = angle_vector[:int(len(angle_vector)/2),:]
-            n_reps = int(np.ceil(n_angles/len(angles_in)))
-            thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
-            phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
+            if options['random_angles']:
+                thetas_in = np.random.random(n_angles)*np.pi/2
+                phis_in = np.random.random(n_angles)*2*np.pi
+            else:
+                angles_in = angle_vector[:int(len(angle_vector)/2),:]
+                n_reps = int(np.ceil(n_angles/len(angles_in)))
+                thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
+                phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
 
         mats = [incidence]
         for i1 in range(len(group.materials)):

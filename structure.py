@@ -1,4 +1,5 @@
 from ray_tracing.rt import RTSurface
+from solcore.structure import Layer
 
 class Structure(list):
     # both interfaces and bulk layers
@@ -76,11 +77,14 @@ class Interface:
 
         if layers is not None:
             for i, element in enumerate(layers):
-                #if type(element) == Layer:
-                cum_width = cum_width + element.width*1e6
-                self.materials.append(element.material)
+                if type(element) == Layer:
+                    cum_width = cum_width + element.width*1e6
+                    self.materials.append(element.material)
                 #self.n_depths.append(element.n_depths)
-                self.widths.append(element.width)
+                    self.widths.append(element.width)
+                else:
+                    self.widths.append(element[0])
+                    self.materials.append(element[1:3])
 
         Points = texture.Points
         Points[:, 2] = Points[:, 2] - cum_width

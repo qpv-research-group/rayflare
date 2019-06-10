@@ -25,21 +25,21 @@ import matplotlib.pyplot as plt
 # Air
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1150, 100)*1e-9
+wavelengths = np.linspace(300, 1150, 4)*1e-9
 options = {'nm_spacing': 0.5,
-           'project_name': 'UC_PC',
+           'project_name': 'testing2',
            'calc_profile': True,
            'n_theta_bins': 50,
            'c_azimuth': 0.25,
            'pol': 'u',
            'wavelengths': wavelengths,
            'theta_in': 1e-6, 'phi_in': 1e-6,
-           'I_thresh': 1e-4,
+           'I_thresh': 1e-3,
            'coherent': True,
            'coherency_list': None,
            'lookuptable_angles': 500,
            #'prof_layers': [1,2],
-           'n_rays': 100000,
+           'n_rays': 5000,
            'random_angles': False,
            'nx': 2, 'ny': 2,
            'parallel': True, 'n_jobs': -1,
@@ -104,9 +104,9 @@ front_materials = [Layer(100e-9, MgF2), Layer(110e-9, IZO),
 back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_back)]
 
 
-front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_1e6',
+front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_sm',
                        coherent=True, prof_layers = [1,2,3,4,5,6,7,8,9])
-back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_1e6',
+back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_sm',
                       coherent=True, prof_layers = [1,2,3])
 
 
@@ -245,8 +245,15 @@ if options['calc_profile']:
             layer_widths.append((np.array(struct.widths)*1e9).tolist())
 
 
-RAT, profile, results_per_pass = matrix_multiplication(bulk_mats, bulk_widths, options,
+RAT, profile, results_per_pass, bpf = matrix_multiplication(bulk_mats, bulk_widths, options,
                                                            layer_widths, n_layers, layer_names)
+
+profile_bulk = np.sum(bpf, (0,1))
+zb = np.arange(0, 260e-6, 0.5e-9)
+plt.figure()
+plt.plot(zb, profile_bulk[3])
+
+print(np.trapz(profile_bulk, zb))
 
 R_per_pass = np.sum(results_per_pass['r'][0], 2)
 R_0 = R_per_pass[0]
@@ -302,7 +309,7 @@ material_labels = ['MgF$_2$', 'IZO', 'SnO$_2$', 'C$_{60}$', 'LiF', 'Perovskite',
 pal2 = sns.cubehelix_palette(5, start = 0)
 plt.figure()
 j1=0
-for i1 in [0,24,49,74,99]:
+for i1 in [0,1,2,3]:
       z = np.arange(0, np.sum(layer_widths[0]), options['nm_spacing'])
       plt.plot(z, prof_plot[i1,:], color=pal2[4-j1], label = str(round(options['wavelengths'][i1]*1e9,1)))
       j1+=1

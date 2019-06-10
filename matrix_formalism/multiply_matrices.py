@@ -61,6 +61,7 @@ def make_profile_data(options, unique_thetas, n_a_in, side, layer_name, n_layers
 
         offsets = np.cumsum([0] + widths)[:-1]
         start = time()
+        print(params)
         ans = params.groupby('wl').apply(scaled_profile, z=z_list, offset=offsets, side=side).drop('coeff')
         ans = ans.fillna(0)
 
@@ -155,7 +156,6 @@ def select_func(x, const_params):
 
 def profile_per_layer(x, z, offset, side):
     layer_index = x.coords['layer'].item(0)
-
     non_zero = x[np.all(x, axis=1)]
     A1 = non_zero.loc[dict(coeff='A1')]
     A2 = non_zero.loc[dict(coeff='A2')]
@@ -179,10 +179,42 @@ def profile_per_angle(x, z, offset, side):
     return by_layer
 
 def scaled_profile(x, z, offset, side):
-    print('wl')
+    print(x)
+    print('wl1')
     by_angle = x.groupby('global_index').apply(profile_per_angle, z=z, offset=offset, side=side)
     return by_angle
 
+def bulk_profile(x, ths):
+    print('wl2')
+    return np.exp(-x/ths)
+
+
+
+# def profile_per_layer(x, z, offset, side):
+#
+#     layer_index = x.coords['layer'].item(0)
+#     nz = x.where(x != 0, drop=True)
+#     # print(z[layer_index])
+#     part1 = nz.loc[dict(coeff='A1')] * np.exp(nz.loc[dict(coeff='a1')] * z[layer_index])
+#     part2 = nz.loc[dict(coeff='A2')] * np.exp(-nz.loc[dict(coeff='a1')] * z[layer_index])
+#     part3 = (nz.loc[dict(coeff='A3_r')] + 1j * nz.loc[dict(coeff='A3_i')]) * np.exp(
+#         1j * nz.loc[dict(coeff='a3')] * z[layer_index])
+#     part4 = (nz.loc[dict(coeff='A3_r')] - 1j * nz.loc[dict(coeff='A3_i')]) * np.exp(
+#         -1j * nz.loc[dict(coeff='a3')] * z[layer_index])
+#     result = np.real(part1 + part2 + part3 + part4)
+#     if side == -1:
+#          result = np.flip(result, 1)
+#         # print(result)
+#     return result.reduce(np.sum, 'local_theta').assign_coords(dim_0=z[layer_index]+offset[layer_index])
+#
+# def profile_per_angle(x, z, offset, side):
+#     by_layer = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
+#     return by_layer
+#
+# def scaled_profile(x, z, offset, side):
+#     print('wl')
+#     by_angle = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
+#     return by_angle
 
 def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_layers=[], layer_names=[]):
     n_bulks = len(bulk_mats)
@@ -208,6 +240,36 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         D.append(make_D(bulk_mats[i1].alpha(options['wavelengths']), bulk_thick[i1], thetas))
 
     unique_thetas = np.unique(thetas)
+
+    # Adown = []
+    #
+    # for i1 in range(n_bulks):
+    #     prof_mat_path = os.path.join(results_path, options['project_name'], 'bulk' + str(i1)+ 'profmat.nc')
+    #     # int_mat_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'intmat.nc')
+    #
+    #     if os.path.isfile(prof_mat_path):
+    #         print('Existing bulk absorption profile calculation data found')
+    #         bulk_prof = xr.open_dataset(prof_mat_path)['bulk_prof']
+    #
+    #     else:
+    #         alphas = xr.DataArray(bulk_mats[i1].alpha(options['wavelengths']),
+    #                               dims=['wl'], coords={'wl': options['wavelengths']})
+    #         thetas = xr.DataArray(thetas, dims=['global_index'],
+    #                               coords={'global_index': np.arange(0, n_a_in)})
+    #         z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing'] * 1e-9),
+    #                          dims=['z'],
+    #                          coords={'z': np.arange(0, bulk_thick[i1], options['nm_spacing'] * 1e-9)})
+    #
+    #         OD = alphas * z
+    #         print(OD)
+    #         bulk_prof = OD.groupby('wl').apply(bulk_profile, ths=thetas)
+    #         bulk_prof = bulk_prof.rename('bulk_prof')
+    #         bulk_prof.to_netcdf(prof_mat_path)
+    #         print(bulk_prof.shape)
+    #
+    #     Adown.append(bulk_prof)
+
+
     # front incidence matrices
     Rf = []
     Tf = []
@@ -268,6 +330,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         vr = [[] for _ in range(n_bulks)]
         vt = [[] for _ in range(n_bulks)]
         A = [[] for _ in range(n_bulks)]
+        A_prof = [[] for _ in range(n_bulks)]
 
         vf_1 = [[] for _ in range(n_interfaces)]
         vb_1 = [[] for _ in range(n_interfaces)]
@@ -276,6 +339,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
 
 
         for i1 in range(n_bulks):
+
+            z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing']*1e-9), dims='z')
 
             vf_1[i1] = dot_wl(Tf[i1], v0) # pass through front surface
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
@@ -306,6 +371,20 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
 
                 #remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
+
+                nz_thetas = vf_1[i1] != 0
+
+                Aprof_loop = np.zeros((num_wl, len(z)))
+                for k1, wl in enumerate(options['wavelengths']):
+                    th_wl = thetas[nz_thetas[k1]]
+                    cs = xr.DataArray(np.cos(th_wl), dims='theta')
+                    #print(cs)
+                    pref_wl = xr.DataArray(vf_1[i1][k1][nz_thetas[k1]], dims='theta')
+                    alpha = bulk_mats[i1].alpha(wl)
+                    Aprof_loop[k1, :] = np.sum(pref_wl*(alpha/cs)*np.exp(-alpha*z/cs), 0)
+
+                A_prof[i1].append(Aprof_loop)
+
                 vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
 
@@ -320,6 +399,19 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
                 power = np.sum(vf_1[i1], axis=1)
+
+                nz_thetas = vb_2[i1] != 0
+
+                Aprof_loop = np.zeros((num_wl, len(z)))
+                for k1, wl in enumerate(options['wavelengths']):
+                    th_wl = thetas[nz_thetas[k1]]
+                    cs = xr.DataArray(np.cos(th_wl), dims='theta')
+                    #print(cs)
+                    pref_wl = xr.DataArray(vb_2[i1][k1][nz_thetas[k1]], dims='theta')
+                    alpha = bulk_mats[i1].alpha(wl)
+                    Aprof_loop[k1, :] = np.flip(np.sum(pref_wl*alpha*np.exp(-alpha*z/cs), 0))
+
+                A_prof[i1].append(Aprof_loop)
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
                 vt[i1].append(dot_wl(Tf[i1+1], vb_1[i1]))  # transmitted into medium below through back surface
@@ -362,6 +454,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
                    dims=['wl', 'z'], coords = {'wl': options['wavelengths']},
                                         name = 'A_profile' + str(j1))) # not necessarily same number of z coords per layer stack
 
+        bulk_profile = np.array(A_prof)
+
         RAT = xr.merge([R, A_bulk, A_interface, T])
         # for i2 in range(num_wl):
         #     plt.figure()
@@ -387,7 +481,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         # plt.show()
 
         #return R, T, A_bulk, A_interface, profile
-        return RAT, profile, results_per_pass
+        return RAT, profile, results_per_pass, bulk_profile
 
     else:
         a = [[] for _ in range(n_interfaces)]
@@ -440,7 +534,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         T = np.array([np.sum(item, (0, 2)) for item in vt])
         A_bulk = np.array([np.sum(item, 0) for item in A])
         A_interface = np.array([np.sum(item, (0, 2)) for item in a])
-
 
         # plt.figure()
         # plt.plot(options['wavelengths'], R.T)
