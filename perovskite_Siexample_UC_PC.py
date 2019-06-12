@@ -25,27 +25,28 @@ import matplotlib.pyplot as plt
 # Air
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1150, 4)*1e-9
+wavelengths = np.linspace(300, 1200, 112)*1e-9
 options = {'nm_spacing': 0.5,
-           'project_name': 'testing2',
-           'calc_profile': True,
-           'n_theta_bins': 50,
+           'project_name': 'UC_PC',
+           'calc_profile': False,
+           'n_theta_bins': 100,
            'c_azimuth': 0.25,
            'pol': 'u',
            'wavelengths': wavelengths,
            'theta_in': 1e-6, 'phi_in': 1e-6,
-           'I_thresh': 0.1,
+           'I_thresh': 1e-4,
            'coherent': True,
            'coherency_list': None,
            'lookuptable_angles': 500,
            #'prof_layers': [1,2],
-           'n_rays': 5000,
+           'n_rays': 1000000,
            'random_angles': False,
-           'nx': 2, 'ny': 2,
+           'nx': 5, 'ny': 5,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
            'only_incidence_angle': True
            }
+
 
 #create_new_material('Perovskite_CsBr', 'examples/CsBr10p_1to2_n.txt', 'examples/CsBr10p_1to2_k.txt')
 #create_new_material('ITO_lowdoping', 'examples/model_back_ito_n.txt', 'examples/model_back_ito_k.txt')
@@ -104,11 +105,10 @@ front_materials = [Layer(100e-9, MgF2), Layer(110e-9, IZO),
 back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_back)]
 
 
-front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_sm',
+front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_1e6',
                        coherent=True, prof_layers = [1,2,3,4,5,6,7,8,9])
-back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_sm',
+back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_1e6',
                       coherent=True, prof_layers = [1,2,3])
-
 
 
 
@@ -248,14 +248,6 @@ if options['calc_profile']:
 RAT, profile, results_per_pass, bpf = matrix_multiplication(bulk_mats, bulk_widths, options,
                                                            layer_widths, n_layers, layer_names)
 
-
-from solcore.light_source import LightSource
-from solcore.constants import q
-light_source = LightSource(source_type='standard', version='AM1.5d', x=options['wavelengths'],
-                           output_units='photon_flux_per_m', concentration=1) # define the input light source as AM1.5G
-
-
-
 profile_bulk = np.sum(bpf, (0,1))
 zb = np.arange(0, 260e-6, 0.5e-9)
 plt.figure()
@@ -286,10 +278,6 @@ plt.ylabel('Absorption')
 plt.xlim(300, 1150)
 plt.ylim(0, 1)
 plt.show()
-
-photon_flux = light_source._get_photon_flux_per_m(options['wavelengths'])
-Jph_Si = q*np.trapz(photon_flux*RAT['A_bulk'], options['wavelengths'])*1000/(100**2)  # A/m^2
-Jph_Perovskite = q*np.trapz(photon_flux*results_per_layer_front[:,5], options['wavelengths'])*1000/(100**2)
 #
 # plt.figure()
 # plt.plot(options['wavelengths'], RAT['R'].T)
@@ -307,33 +295,24 @@ Jph_Perovskite = q*np.trapz(photon_flux*results_per_layer_front[:,5], options['w
 #      z = np.arange(0, np.sum(layer_widths[i1]), options['nm_spacing'])
 #      plt.plot(prof[0,:])
 #plt.show()
-import matplotlib
-font = {'family' : 'Lato Medium',
-        'size'   : 14}
-matplotlib.rc('font', **font)
 offset = np.cumsum([0]+layer_widths[0])
 prof_plot = profile[0]
 prof_plot = prof_plot.assign_coords(z=np.arange(0, np.sum(layer_widths[0]), options['nm_spacing']))
 material_labels = ['MgF$_2$', 'IZO', 'SnO$_2$', 'C$_{60}$', 'LiF', 'Perovskite', 'Spiro-TTB', 'aSi-n', 'aSi-i']
-
-pal2 = sns.cubehelix_palette(4, start=.5, rot=-.9)
-
-fig = plt.figure()
-ax = plt.subplot(111)
+pal2 = sns.cubehelix_palette(5, start = 0)
+plt.figure()
 j1=0
-for i1 in [0,1,2]:
+for i1 in [0,1,2,3]:
       z = np.arange(0, np.sum(layer_widths[0]), options['nm_spacing'])
-      ax.plot(z, prof_plot[i1,:], color=pal2[i1+1], label = str(round(options['wavelengths'][i1]*1e9,1)))
+      plt.plot(z, prof_plot[i1,:], color=pal2[4-j1], label = str(round(options['wavelengths'][i1]*1e9,1)))
       j1+=1
-ax.set_ylabel('Absorbed energy density (nm$^{-1}$)')
-ax.legend(title='Wavelength (nm)')
-ax.set_xlabel('Distance into surface (nm)')
-ax.set_ylim(0,0.017)
-ax.set_xlim(0,750)
+plt.ylabel('Absorbed energy density (nm$^{-1}$)')
+plt.legend(title='Wavelength (nm)')
+plt.xlabel('Distance into surface (nm)')
+plt.ylim(0,0.0165)
+plt.xlim(0,750)
 for i1 in [0,1,3,5,7]:
-    ax.text(offset[i1], np.max(prof_plot[0].sel(z=offset[i1]))+0.0003, material_labels[i1], rotation=0)
-
-fig.savefig('profiles', bbox_inches='tight')
+    plt.text(offset[i1], np.max(prof_plot[0].sel(z=offset[i1]))+0.0005, material_labels[i1], rotation=0)
 plt.show()
 #
 #
