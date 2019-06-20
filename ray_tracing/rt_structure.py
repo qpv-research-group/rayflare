@@ -1,2 +1,0 @@
-from solcore import material
-
