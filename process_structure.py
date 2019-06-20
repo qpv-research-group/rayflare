@@ -1,19 +1,119 @@
-# if a bulk layer, assume full absorption profile
-# also for full RT or full TMM structures
-# if mixed, specify for interface layers
+import numpy as np
+from transfer_matrix_method.lookup_table import make_TMM_lookuptable
+from structure import Interface, RTgroup, BulkLayer
+from ray_tracing.rt_lookup import RTSurface, RT
+from matrix_formalism.multiply_matrices import matrix_multiplication
 
 
+def process_structure(SC, options):
 
-if full_RT:
-    # need to send a 'group' structure to the RT
+    for i1, struct in enumerate(SC):
+        if type(struct) == Interface:
+            # is this an interface type which requires a lookup table?
+            if struct.method == 'RT_TMM':
+                print('Making lookuptable for element ' + str(i1) + ' in structure')
+                if i1 == 0:
+                    incidence = SC.incidence
+                else:
+                    incidence = SC[i1-1].material # bulk material above
 
-elif full_TMM:
-    # send OptiStack to TMM
+                if i1 == (len(SC) - 1):
+                    substrate = SC.transmission
+                else:
+                    substrate = SC[i1+1].material # bulk material below
 
-elif full_RCWA:
-    # send relevant struct to RCWA solver
+                coherent = struct.coherent
+                if not coherent:
+                    coherency_list = struct.coherency_list
+                else:
+                    coherency_list = None
+                prof_layers = struct.prof_layers
 
-elif matrix_method:
-    # need to scan through each surface and determine method (for now, have the method be specified explicitly)
+                make_TMM_lookuptable(struct.layers, substrate, incidence, struct.name,
+                                              options, coherent, coherency_list, prof_layers)
 
 
+    # make matrices by ray tracing
+
+    for i1, struct in enumerate(SC):
+        if type(struct) == Interface:
+            # is this an interface type which requires a lookup table?
+            if struct.method == 'RT_TMM':
+                print('Ray tracing with TMM lookup table for element ' + str(i1) + ' in structure')
+                if i1 == 0:
+                    incidence = SC.incidence
+                else:
+                    incidence = SC[i1-1].material # bulk material above
+
+                if i1 == (len(SC) - 1):
+                    substrate = SC.transmission
+                    which_sides = ['front']
+                else:
+                    substrate = SC[i1+1].material # bulk material below
+                    which_sides = ['front', 'rear']
+
+                coherent = struct.coherent
+                if not coherent:
+                    coherency_list = struct.coherency_list
+                else:
+                    coherency_list = None
+
+                if len(struct.prof_layers) > 0:
+                    prof = True
+                else:
+                    prof = False
+
+                n_abs_layers = len(struct.layers)
+
+                group = RTgroup(textures=[struct.texture])
+                for side in which_sides:
+                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
+                        only_incidence_angle = True
+                    else:
+                        only_incidence_angle = False
+                    #print(only_incidence_angle)
+                    RT(group, incidence, substrate, struct.name, options, 1, side,
+                       n_abs_layers, prof, only_incidence_angle)
+
+            if struct.method == 'RT_Fresnel':
+                print('Ray tracing with Fresnel equations for element ' + str(i1) + ' in structure')
+                if i1 == 0:
+                    incidence = SC.incidence
+                else:
+                    incidence = SC[i1-1].material # bulk material above
+
+                if i1 == (len(SC) - 1):
+                    substrate = SC.transmission
+                    which_sides = ['front']
+                else:
+                    substrate = SC[i1+1].material # bulk material below
+                    which_sides = ['front', 'rear']
+
+                group = RTgroup(textures=[struct.texture])
+                for side in which_sides:
+                    RT(group, incidence, substrate, struct.name, options, 0, side, 0, False)
+
+
+def calculate_RAT(SC, options):
+    bulk_mats = []
+    bulk_widths = []
+    layer_widths = []
+    n_layers = []
+    layer_names = []
+
+    for i1, struct in enumerate(SC):
+        if type(struct) == BulkLayer:
+            bulk_mats.append(struct.material)
+            bulk_widths.append(struct.width)
+        if type(struct) == Interface:
+            layer_names.append(struct.name)
+
+    if options['calc_profile']:
+            n_layers.append(len(struct.layers))
+            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+
+
+    results = matrix_multiplication(bulk_mats, bulk_widths, options,
+                                                               layer_widths, n_layers, layer_names)
+
+    return results
