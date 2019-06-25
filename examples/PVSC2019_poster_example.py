@@ -1,5 +1,5 @@
 import numpy as np
-
+import os
 # solcore imports
 from solcore.structure import Layer
 from solcore import material
@@ -18,7 +18,7 @@ import seaborn as sns
 wavelengths = np.linspace(300, 1200, 112)*1e-9
 options = {'nm_spacing': 0.5,
            'project_name': 'UC_PC',
-           'calc_profile': True,
+           'calc_profile': False,
            'n_theta_bins': 100,
            'c_azimuth': 0.25,
            'pol': 'u',
@@ -37,16 +37,17 @@ options = {'nm_spacing': 0.5,
            'only_incidence_angle': True
            }
 
+cur_path = os.path.dirname(os.path.abspath(__file__))
 # new materials from data
-create_new_material('Perovskite_CsBr', 'examples/data/CsBr10p_1to2_n.txt', 'examples/data/CsBr10p_1to2_k.txt')
-create_new_material('ITO_lowdoping', 'examples/data/model_back_ito_n.txt', 'examples/data/model_back_ito_k.txt')
-create_new_material('Ag_Jiang', 'examples/data/Ag_UNSW_n.txt', 'examples/data/Ag_UNSW_k.txt')
-create_new_material('aSi_i', 'examples/data/model_i_a_silicon_n.txt', 'examples/data/model_i_a_silicon_k.txt')
-create_new_material('aSi_p', 'examples/data/model_p_a_silicon_n.txt', 'examples/data/model_p_a_silicon_k.txt')
-create_new_material('aSi_n', 'examples/data/model_n_a_silicon_n.txt', 'examples/data/model_n_a_silicon_k.txt')
-create_new_material('MgF2_RdeM', 'examples/data/MgF2_RdeM_n.txt', 'examples/data/MgF2_RdeM_k.txt')
-create_new_material('C60', 'examples/data/C60_Ren_n.txt', 'examples/data/C60_Ren_k.txt')
-create_new_material('IZO', 'examples/data/IZO_Ballif_rO2_10pcnt_n.txt', 'examples/data/IZO_Ballif_rO2_10pcnt_k.txt')
+create_new_material('Perovskite_CsBr', os.path.join(cur_path, 'data/CsBr10p_1to2_n.txt'), os.path.join(cur_path, 'data/CsBr10p_1to2_k.txt'))
+create_new_material('ITO_lowdoping', os.path.join(cur_path, 'data/model_back_ito_n.txt'), os.path.join(cur_path, 'data/model_back_ito_k.txt'))
+create_new_material('Ag_Jiang', os.path.join(cur_path, 'data/Ag_UNSW_n.txt'), os.path.join(cur_path, 'data/Ag_UNSW_k.txt'))
+create_new_material('aSi_i', os.path.join(cur_path, 'data/model_i_a_silicon_n.txt'),os.path.join(cur_path, 'data/model_i_a_silicon_k.txt'))
+create_new_material('aSi_p', os.path.join(cur_path, 'data/model_p_a_silicon_n.txt'), os.path.join(cur_path, 'data/model_p_a_silicon_k.txt'))
+create_new_material('aSi_n', os.path.join(cur_path, 'data/model_n_a_silicon_n.txt'), os.path.join(cur_path, 'data/model_n_a_silicon_k.txt'))
+create_new_material('MgF2_RdeM', os.path.join(cur_path, 'data/MgF2_RdeM_n.txt'), os.path.join(cur_path, 'data/MgF2_RdeM_k.txt'))
+create_new_material('C60', os.path.join(cur_path, 'data/C60_Ren_n.txt'), os.path.join(cur_path, 'data/C60_Ren_k.txt'))
+create_new_material('IZO', os.path.join(cur_path, 'data/IZO_Ballif_rO2_10pcnt_n.txt'), os.path.join(cur_path, 'data/IZO_Ballif_rO2_10pcnt_k.txt'))
 
 
 Si = material('Si')()

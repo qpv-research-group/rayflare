@@ -1,4 +1,4 @@
-from ray_tracing.rt import RTSurface
+from ray_tracing.rt_lookup import RTSurface
 from solcore.structure import Layer
 
 class Structure(list):

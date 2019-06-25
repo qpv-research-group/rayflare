@@ -28,7 +28,6 @@ so you can call them with tmm.coh_tmm(...) etc.
 # from __future__ import division, print_function, absolute_import
 
 from numpy import cos, inf, zeros, array, exp, conj, nan, isnan
-from pytest import approx
 import scipy as sp
 import numpy as np
 
