@@ -1,10 +1,11 @@
 import numpy as np
 import tmm
-from solcore.structure import Layer
 from solcore.absorption_calculator import OptiStack
 from joblib import Parallel, delayed
 from angles import make_angle_vector
-import copy
+import os
+from sparse import COO, save_npz
+from config import results_path
 
 try:
     import S4
@@ -13,7 +14,7 @@ except ModuleNotFoundError:
 
 
 def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, only_incidence_angle=False,
-                       front_or_rear='front'):
+                       front_or_rear='front', surf_name=''):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
 
@@ -27,6 +28,13 @@ def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, o
     :param substrate: semi-infinite transmission medium
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
+
+    structpath = os.path.join(results_path, options['project_name'])
+    if not os.path.isdir(structpath):
+        os.mkdir(structpath)
+
+    savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
+    savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
 
     wavelengths = options['wavelengths']
 
@@ -47,7 +55,7 @@ def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, o
     widths = stack_OS.get_widths()
     layers_oc = np.zeros((len(wavelengths), len(structure)+2), dtype=complex)
 
-    layers_oc[:, 0] = (incidence.n(wavelengths) + 1j*incidence.k(wavelengths))**2
+    layers_oc[:, 0] = (incidence.n(wavelengths))**2#+ 1j*incidence.k(wavelengths))**2
     layers_oc[:, -1] = (substrate.n(wavelengths) + 1j*substrate.k(wavelengths))**2
 
     for i1, x in enumerate(structure):
@@ -71,75 +79,196 @@ def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, o
         thetas_in = angles_in[:, 1]
         phis_in = angles_in[:, 2]
 
+    # angle in degrees
+    thetas_in = thetas_in*180/np.pi
+    phis_in = phis_in*180/np.pi
     # initialise_S has to happen inside parallel job (get Pickle errors otherwise); just pass relevant optical constants for each wavelength, like for RT
+
+    angle_vector_0 = angle_vector[:int(len(angle_vector)/2), 0]
 
     if options['parallel']:
         allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl)
-                                                    (wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size, orders)
+                                                    (wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size,
+                                                     orders, phi_sym, theta_intv, phi_intv, angle_vector_0)
                                                     for i1 in range(len(wavelengths)))
 
     else:
-        allres = [RCWA_wl(wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, theta, phi, widths, size, orders)
+        allres = [RCWA_wl(wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size, orders, phi_sym, theta_intv, phi_intv,
+                          angle_vector_0)
                   for i1 in range(len(wavelengths))]
 
     R = np.stack([item[0] for item in allres])
     T = np.stack([item[1] for item in allres])
-    A_layer = np.stack([item[2] for item in allres])
+    A_mat = np.stack([item[2] for item in allres])
+    R_mat = np.stack([item[3] for item in allres])
+    T_mat = np.stack([item[4] for item in allres])
 
-    return {'R': R, 'T':T, 'A_layer': A_layer}
+    full_mat = np.hstack((R_mat, T_mat))
+    full_mat = COO(full_mat)
+    A_mat = COO(A_mat)
+
+    save_npz(savepath_RT, full_mat)
+    save_npz(savepath_A, A_mat)
+
+    #R_pfbo = np.stack([item[3] for item in allres])
+    #T_pfbo = np.stack([item[4] for item in allres])
+    #phi_rt = np.stack([item[5] for item in allres])
+    #theta_r = np.stack([item[6] for item in allres])
+    #theta_t = np.stack([item[7] for item in allres])
+    #R_pfbo_2 = np.stack([item[8] for item in allres])
+
+
+    return {'R': R, 'T':T, 'A_layer': A_mat, 'R_mat': R_mat, 'T_mat': T_mat}#'R_pfbo': R_pfbo, 'T_pfbo': T_pfbo, 'phi_rt': phi_rt, 'theta_r': theta_r, 'theta_t': theta_t}#, 'R_pfbo_2': R_pfbo_2}
 
 
 
-def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders):
-
+def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym, theta_intv, phi_intv, angle_vector_0):
+    print(wl)
     S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths)
+
+    #print(l_oc[0])
+
+    G_basis = np.array(S.GetBasisSet())
+    #print('G_basis', G_basis)
+    f_mat = S.GetReciprocalLattice()
+    #print('f_mat', f_mat)
+    fg_1x = f_mat[0][0]
+    fg_1y = f_mat[0][1]
+    fg_2x = f_mat[1][0]
+    fg_2y = f_mat[1][1]
+
     R = np.zeros((len(theta)))
     T = np.zeros((len(theta)))
     A_layer = np.zeros((len(theta), len(widths)-2))
-    if pol in 'sp':
-        if pol == 's':
-            s = 1
-            p = 0
-        elif pol == 'p':
-            s = 0
-            p = 1
-        for i1 in range(len(theta)):
+
+    mat_R = np.zeros((len(angle_vector_0), len(angle_vector_0)))
+    mat_T = np.zeros((len(angle_vector_0), len(angle_vector_0)))
+
+    for i1 in range(len(theta)):
+        if pol in 'sp':
+            if pol == 's':
+                s = 1
+                p = 0
+            elif pol == 'p':
+                s = 0
+                p = 1
+
             S.SetExcitationPlanewave((theta[i1], phi[i1]), s, p, 0)
             S.SetFrequency(1 / wl)
-            out = rcwa_rat(S, len(widths))
+            out, R_pfbo, T_pfbo, R_pfbo_2 = rcwa_rat(S, len(widths))
             R[i1] = out['R']
             T[i1] = out['T']
             A_layer[i1] = rcwa_absorption_per_layer(S, len(widths))
 
-    else:
-        for i1 in range(len(theta)):
+        else:
+
+            print(theta[i1])
             S.SetFrequency(1 / wl)
             S.SetExcitationPlanewave((theta[i1], phi[i1]), 0, 1, 0)  # p-polarization
-            out_p = rcwa_rat(S, len(widths))
+            out_p, R_pfbo_p, T_pfbo_p = rcwa_rat(S, len(widths))
             S.SetExcitationPlanewave((theta[i1], phi[i1]), 1, 0, 0)  # s-polarization
-            out_s = rcwa_rat(S, len(widths))
+            out_s, R_pfbo_s, T_pfbo_s = rcwa_rat(S, len(widths))
+
+            R_pfbo = (R_pfbo_s + R_pfbo_p)/2
+            T_pfbo = (T_pfbo_s + T_pfbo_p)/2
+                #R_pfbo_2 = (R_pfbo_2s + R_pfbo_2p)/2
 
             R[i1] = 0.5 * (out_p['R'] + out_s['R'])  # average
             T[i1] = 0.5 * (out_p['T'] + out_s['T'])
-            # output['all_p'].append(out_p['power_entering_list'])
-            # output['all_s'].append(out_s['power_entering_list'])
+                # output['all_p'].append(out_p['power_entering_list'])
+                # output['all_s'].append(out_s['power_entering_list'])
             A_layer[i1] = rcwa_absorption_per_layer(S, len(widths))
 
-    return R, T, A_layer
+                #fi_z = (l_oc[0] / wl) * np.cos(theta[i1] * np.pi / 180)
+            fi_x = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(theta[i1] * np.pi / 180) * np.sin(phi[i1] * np.pi / 180))
+            fi_y = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(theta[i1] * np.pi / 180) * np.cos(phi[i1] * np.pi / 180))
+
+                #print('inc', fi_x, fi_y)
+
+            fr_x = fi_x + G_basis[:,0]*fg_1x + G_basis[:,1]*fg_2x
+            fr_y = fi_y + G_basis[:,0]*fg_1y + G_basis[:,1]*fg_2y
+
+            #print('eps/lambda', l_oc[0]/(wl**2))
+            fr_z = np.sqrt((l_oc[0]/(wl**2))-fr_x**2 - fr_y**2)
+
+            ft_z = np.sqrt((l_oc[-1]/(wl**2))-fr_x**2 - fr_y**2)
+
+                #print('ref', fr_x, fr_y, fr_z)
+
+            phi_rt = np.nan_to_num(np.arctan(fr_x/fr_y))
+            phi_rt = fold_phi(phi_rt, phi_sym)
+            theta_r = np.real(np.arccos(fr_z/np.sqrt(fr_x**2 + fr_y**2 + fr_z**2)))
+            theta_t = np.real(np.arccos(ft_z/np.sqrt(fr_x**2 + fr_y**2 + ft_z**2)))
+
+            np_r = theta_r == np.pi/2 # non-propagating reflected orders
+            np_t = theta_t == np.pi/2 # non-propagating transmitted orders
+
+            R_pfbo[np_r] = 0
+            T_pfbo[np_t] = 0
+
+            R_pfbo[np.abs(R_pfbo < 1e-16)] = 0 # sometimes get very small negative valyes
+            T_pfbo[np.abs(T_pfbo < 1e-16)] = 0
+
+            theta_r_bin = np.digitize(theta_r, theta_intv, right=True) - 1
+            theta_t_bin = np.digitize(theta_t, theta_intv, right=True) - 1
+
+            for i2 in np.nonzero(R_pfbo)[0]:
+                #print(i2)
+                #print(theta_r_bin[i2])
+                phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_r_bin[i2]], right=True) - 1
+                bin = np.argmin(abs(angle_vector_0 -theta_r_bin[i2])) + phi_ind
+                mat_R[bin, i1] = R_pfbo[i2]
+
+            for i2 in np.nonzero(T_pfbo)[0]:
+                phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_t_bin[i2]], right=True) - 1
+                bin = np.argmin(abs(angle_vector_0 -theta_t_bin[i2])) + phi_ind
+                mat_T[bin, i1] = T_pfbo[i2]
+
+
+
+    # want to output R, T, A_layer (in case doing single angle of incidence)
+    # also want to output transmission and reflection efficiency/power flux per order and the angles (theta and phi)
+    # relating to that order.
+    # Theta depends on the medium and so is different for transmisson and reflection. Phi is the same.
+
+    return R, T, A_layer.T, mat_R, mat_T
+
+def fold_phi(phis, phi_sym):
+    return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
 
 
 def rcwa_rat(S, n_layers):
     below = 'layer_' + str(n_layers)  # identify which layer is the transmission medium
-    R = 1 - sum(
-        S.GetPowerFlux('layer_2'))  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+
+    #print('sum', np.sum(R_pfbo))
+
+    # power flux by order backwards in layer_1: if incidence medium has n=1, this gives a (real part of) sum equal to R calculated through 1-sum(S.GetPowerFlux('layer_2')
+    # not so if incidence medium has different n
+
+    # transmission power flux by order always sums to T, regardless of optical constants of transmission/incidence medium
+    R = 1 - sum(S.GetPowerFlux('layer_2'))  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+    # this should be correct answer in 'far field': anythng that doesn't go into the surface must be reflected. but if n_incidence != 1
+    # can get odd effects.
+
+    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow
+    Nrm = np.real(np.sum(R_pfbo))
+    R_pfbo = np.real((R/Nrm)*R_pfbo)
+
+    #R_pfbo_2 = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1]
+    #Nrm = np.real(np.sum(R_pfbo_2))
+    #R_pfbo_2 = (R/Nrm)*R_pfbo_2
+
+    #print('R', R)
     # layer_2 is the top layer of the structure (layer_1 is incidence medium)
     T = sum(S.GetPowerFlux(below))
-    return {'R': np.real(R), 'T': np.real(T)}
+
+    T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1))
+    return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo#, R_pfbo_2
 
 
 def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths):
     # pass widths
-    print(widths)
+    #print(widths)
     S = S4.New(size, orders)
     S.SetOptions(  # these are the default
         LatticeTruncation='Circular',
@@ -151,7 +280,7 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
 
     for i1 in range(len(shapes_oc)):  # create the materials needed for all the shapes in S4
         S.SetMaterial('shape_mat_' + str(i1 + 1), shapes_oc[i1])
-        print('shape_mat_' + str(i1+1), shapes_oc[i1])
+        #print('shape_mat_' + str(i1+1), shapes_oc[i1])
 
     ## Make the layers
     #stack_OS = OptiStack(stack, no_back_reflexion=False, substrate=substrate)
@@ -160,13 +289,13 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
     for i1 in range(len(widths)):  # create 'dummy' materials for base layers including incidence and transmission media
         S.SetMaterial('layer_' + str(i1 + 1), mats_oc[i1])  # This is not strictly necessary but it means S.SetExcitationPlanewave
         # can be done outside the wavelength loop in calculate_rat_rcwa
-        print('layer_' + str(i1 + 1), mats_oc[i1])
+        #print('layer_' + str(i1 + 1), mats_oc[i1])
 
     for i1 in range(len(widths)):  # set base layers
         layer_name = 'layer_' + str(i1 + 1)
-        print(layer_name)
+        #print(layer_name)
         if widths[i1] == float('Inf'):
-            print('zero width')
+            #print('zero width')
             S.AddLayer(layer_name, 0, layer_name)  # Solcore4 has incidence and transmission media widths set to Inf;
             # in S4 they have zero width
         else:
@@ -177,17 +306,16 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
         if bool(geometry):
             for shape in geometry:
                 mat_name = 'shape_mat_' + str(shape_mats.index(str(shape['mat'])) + 1)
-                print(str(shape['mat']), mat_name)
+                #print(str(shape['mat']), mat_name)
                 if shape['type'] == 'circle':
                     S.SetRegionCircle(layer_name, mat_name, shape['center'], shape['radius'])
                 elif shape['type'] == 'ellipse':
                     S.SetRegionEllipse(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'rectangle':
-                    print('rect')
+                    #print('rect')
                     S.SetRegionRectangle(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'polygon':
                     S.SetRegionPolygon(layer_name, mat_name, shape['center'], shape['angle'], shape['vertices'])
-
 
     return S
 
