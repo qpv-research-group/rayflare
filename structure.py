@@ -68,7 +68,7 @@ class Interface:
         self.method = method
         self.__dict__.update(kwargs)
         self.layers = layers
-        self.texture = texture
+        self.texture = texture # for ray tracing
         self.materials = []
         self.n_depths = []
         self.widths = []
@@ -86,10 +86,10 @@ class Interface:
                     self.widths.append(element[0])
                     self.materials.append(element[1:3])
 
-        if texture is not None:
-            Points = texture.Points
-            Points[:, 2] = Points[:, 2] - cum_width
-            self.texture = RTSurface(Points)
+        #if texture is not None:
+        #    Points = texture.Points
+        #    Points[:, 2] = Points[:, 2] - cum_width
+        #    self.texture = RTSurface(Points)
 
 
 class Texture:

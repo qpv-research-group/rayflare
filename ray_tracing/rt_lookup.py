@@ -87,12 +87,30 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
                 thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
                 phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
 
-        mats = [incidence]
+        if front_or_rear == 'front':
+            mats = [incidence]
+        else:
+            mats = [transmission]
+
         for i1 in range(len(group.materials)):
             mats.append(group.materials[i1])
-        mats.append(transmission)
 
-        surfaces = group.textures
+        if front_or_rear == 'front':
+            mats.append(transmission)
+        else:
+            mats.append(incidence)
+
+        # list of lists: first in tuple is front incidence
+        if front_or_rear == 'front':
+            print('front')
+            surfaces = [x[0] for x in group.textures]
+            print(surfaces[0].Points)
+        else:
+            print('rear')
+            surfaces = [x[1] for x in group.textures]
+            print(surfaces[0])
+
+
 
         I_thresh = options['I_thresh']
         nm_spacing = options['nm_spacing']
@@ -689,7 +707,6 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
     R = np.real(data['R'].data.item(0))
     T = np.real(data['T'].data.item(0))
     A_per_layer = np.real(data['Alayer'].data)
-    A_params = np.real(data['Aprof'].data)
 
     #print('side, pol, wl, theta', side, pol, wl, theta)
 
