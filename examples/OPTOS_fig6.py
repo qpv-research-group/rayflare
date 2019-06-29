@@ -1,106 +1,91 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
-from solcore import si, material
-from solcore.structure import Junction, Layer
-from solcore.solar_cell import SolarCell
-from solcore.solar_cell_solver import solar_cell_solver, default_options
+import os
+# solcore imports
+from solcore.structure import Layer
+from solcore import material
 from solcore.light_source import LightSource
-from rigorous_coupled_wave_analysis.rcwa import calculate_rat_rcwa
-from solcore.absorption_calculator.nk_db import download_db, search_db
+from solcore.constants import q
 from solcore.material_system.create_new_material import create_new_material
-import xarray as xr
+from solcore import si
+from textures.standard_rt_textures import regular_pyramids
+from structure import Interface, BulkLayer, Structure
+from process_structure import process_structure, calculate_RAT
 
-from angles import make_angle_vector, theta_summary
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-GaAs = material('GaAs')()
-Air = material('Air')()
-TiO2 = material('TiO2', sopra=True)()  # for the nanoparticles
-Ag = material('Ag_J')()
-# Materials for the anti-reflection coating
-MgF2 = material('MgF2')()
-TiO2 = material('TiO2')()
-Ta2O5 = material('410', nk_db = True)()
-Ag = material('Ag_J')()
-Si = material('Si')()
-
-#x = 500
-x=1000
-# anti-reflection coating
-ARC = [Layer(si('78nm'), material = MgF2), Layer(si('48nm'), material = Ta2O5)]
-
-size = ((x, 0),(0,x))
-# The layer with nanoparticles
-#struct_mirror = [Layer(si('120nm'), TiO2, geometry=[{'type': 'rectangle', 'mat': Ag, 'center': (x/2, x/2),
-                                                   #  'halfwidths': (210,210), 'angle': 0}])]
-
-grating =  [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': Ag, 'center': (x/2, x/2),
-                                                     'halfwidths': (np.sqrt(2*(500**2))/2, np.sqrt(2*(500**2))/2), 'angle': 45}])]
-# NP_layer=[Layer(si('50nm'), Ag)]
-
-
-#solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('300nm'))] + struct_mirror)
-
-solar_cell = SolarCell(grating)
-
-orders = 70
-wavelengths = np.linspace(600, 1100, 4)*1e-9
-
+# matrix multiplication
+wavelengths = np.linspace(900, 1200, 20)*1e-9
 options = {'nm_spacing': 0.5,
-           'project_name': 'RCWA_test',
+           'project_name': 'tmm_rcwa',
            'calc_profile': False,
-           'n_theta_bins': 15,
+           'n_theta_bins': 100,
            'c_azimuth': 0.25,
            'pol': 'u',
            'wavelengths': wavelengths,
-           'theta_in': 0, 'phi_in': 0,
+           'theta_in': 1e-6, 'phi_in': 1e-6,
+           'I_thresh': 0.001,
+           'coherent': True,
+           'coherency_list': None,
+           'lookuptable_angles': 200,
+           #'prof_layers': [1,2],
+           'n_rays': 100000,
+           'random_angles': False,
+           'nx': 5, 'ny': 5,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
+           'only_incidence_angle': True
            }
 
-output = calculate_rat_rcwa(solar_cell, size, orders, options, incidence=Si, substrate=Air, only_incidence_angle=False,
-                       front_or_rear='front', surf_name='OPTOS')
 
-#plt.plot(wavelengths, output['A_layer'][:, 0, 0])
-#plt.plot(wavelengths, output['A_layer'][:, 0, 1])
-#plt.plot(wavelengths, output['A_layer'][:, 0, 2])
-#plt.plot(wavelengths, output['A_layer'][:, 0, 3])
-plt.plot(wavelengths, output['R'][:,0])
-plt.plot(wavelengths, output['T'][:,0])
-plt.legend(['ARC1', 'ARC2', 'GaAs', 'struct mirror', 'R', 'T'])
-plt.show()
-#
-# #plt.figure()
-# #plt.plot(output['theta_r'][0], output['R_pfbo'][0], 'o')
-# #plt.plot(output['theta_r'][0], output['R_pfbo_2'][0], 'o')
-#
-#
-# theta_intv, phi_intv, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
-#
-# binned_theta_out, _ = np.histogram(output['theta_r'][0], bins=theta_intv, weights=output['R_pfbo'][0])
-# binned_theta_t, _ = np.histogram(output['theta_t'][0], bins=theta_intv, weights=output['T_pfbo'][0])
-# plt.figure()
-# plt.plot(binned_theta_out, 'o')
-# plt.plot(binned_theta_t, 'o')
-#
-# print(output['T'][7])
-# print(np.sum(output['T_pfbo'][7]))
+Si = material('Si')()
+Air = material('Air')()
+MgF2 = material('MgF2_RdeM')()
+ITO_back = material('ITO_lowdoping')()
+Perovskite = material('Perovskite_CsBr')()
+Ag = material('Ag_Jiang')()
+aSi_i = material('aSi_i')()
+aSi_p = material('aSi_p')()
+aSi_n = material('aSi_n')()
+LiF = material('LiF')()
+IZO = material('IZO')()
+C60 = material('C60')()
 
-theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'], options['c_azimuth'])
+# materials with constant n, zero k
+Spiro = [12e-9, np.array([0,1]), np.array([1.65, 1.65]), np.array([0,0])]
+SnO2 = [10e-9, np.array([0,1]), np.array([2, 2]), np.array([0,0])]
 
-R_mat = output['R_mat'][3]
-T_mat = output['T_mat'][3]
+x = 1000
 
-fullmat = np.hstack((R_mat, T_mat))
+d_vectors = ((x, 0),(0,x))
 
-sum_mat, R, T = theta_summary(R_mat, angle_vector)
+front_materials = []
+back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': Air, 'center': (x/2, x/2),
+                                                     'halfwidths': (np.sqrt(2*(500**2))/2, np.sqrt(2*(500**2))/2), 'angle': 45}])]
 
-sum_mat = xr.DataArray(sum_mat, dims=['sin_out', 'sin_in'], coords={'sin_out': np.linspace(0,1,options['n_theta_bins']),
-                       'sin_in': np.linspace(0,1,options['n_theta_bins'])})
-
-fig = plt.figure()
-ax = plt.subplot(111)
-sum_mat.plot.imshow(ax=ax, vmax=5)
+# whether pyramids are upright or inverted is relative to front incidence.
+# so if the same etch is applied to both sides of a slab of silicon, one surface
+# will have 'upright' pyramids and the other side will have 'not upright' (inverted)
+# pyramids in the model
 
 
+front_surf = Interface('TMM', layers=front_materials, name = 'planar', coherent=True)
+back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating', d_vectors=d_vectors, rcwa_orders=50)
+back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
 
+bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
+
+SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Air)
+
+process_structure(SC, options)
+
+results = calculate_RAT(SC, options)
+
+RAT = results[0]
+results_per_pass = results[1]
+
+plt.figure()
+plt.plot(wavelengths*1e9, RAT['R'][0])
+plt.plot(wavelengths*1e9, RAT['T'][0])
+plt.plot(wavelengths*1e9, RAT['A_bulk'][0])
+plt.legend(['R', 'T', 'A'])

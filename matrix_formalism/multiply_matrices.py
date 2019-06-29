@@ -291,8 +291,9 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         absmat = load_npz(absmat_path)
 
         Rf.append(fullmat[:, :n_a_in, :])
-        Tf.append(fullmat[:, n_a_in:, :])
+        Tf.append(np.flip(fullmat[:, n_a_in:, :],1 ))
         Af.append(absmat)
+
 
         if options['calc_profile']:
             profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
@@ -318,7 +319,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         absmat = load_npz(absmat_path)
 
         Rb.append(fullmat[:, :n_a_in, :])
-        Tb.append(fullmat[:, n_a_in:, :])
+        Tb.append(np.flip(fullmat[:, n_a_in:, :],1 ))
         Ab.append(absmat)
 
         if options['calc_profile']:
@@ -567,11 +568,17 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         sum_coords = {'bulk_index': np.arange(0, n_bulks), 'wl': options['wavelengths']}
         R = xr.DataArray(np.array([np.sum(item, (0,2)) for item in vr]),
                            dims=sum_dims, coords=sum_coords, name = 'R')
-        T = xr.DataArray(np.array([np.sum(item, (0,2)) for item in vt]),
-                           dims=sum_dims, coords=sum_coords, name = 'T')
-        A_bulk = xr.DataArray(np.array([np.sum(item, 0) for item in A]),
-                           dims=sum_dims, coords=sum_coords, name = 'A_bulk')
-        RAT = xr.merge([R, A_bulk, T])
+        if i1 >1 :
+            A_bulk = xr.DataArray(np.array([np.sum(item, 0) for item in A]),
+                               dims=sum_dims, coords=sum_coords, name = 'A_bulk')
+
+            T = xr.DataArray(np.array([np.sum(item, (0,2)) for item in vt]),
+                               dims=sum_dims, coords=sum_coords, name = 'T')
+
+            RAT = xr.merge([R, A_bulk, T])
+
+        else:
+            RAT = xr.merge([R])
 
         return RAT, results_per_pass
 

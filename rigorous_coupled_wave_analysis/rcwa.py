@@ -4,7 +4,7 @@ from solcore.absorption_calculator import OptiStack
 from joblib import Parallel, delayed
 from angles import make_angle_vector
 import os
-from sparse import COO, save_npz
+from sparse import COO, save_npz, load_npz, stack
 from config import results_path
 
 try:
@@ -13,7 +13,7 @@ except ModuleNotFoundError:
     raise
 
 
-def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, only_incidence_angle=False,
+def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_angle=False,
                        front_or_rear='front', surf_name=''):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
@@ -84,7 +84,7 @@ def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, o
     phis_in = phis_in*180/np.pi
     # initialise_S has to happen inside parallel job (get Pickle errors otherwise); just pass relevant optical constants for each wavelength, like for RT
 
-    angle_vector_0 = angle_vector[:int(len(angle_vector)/2), 0]
+    angle_vector_0 = angle_vector[:, 0]
 
     if options['parallel']:
         allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl)
@@ -100,11 +100,11 @@ def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, o
     R = np.stack([item[0] for item in allres])
     T = np.stack([item[1] for item in allres])
     A_mat = np.stack([item[2] for item in allres])
-    R_mat = np.stack([item[3] for item in allres])
-    T_mat = np.stack([item[4] for item in allres])
+    full_mat = stack([item[3] for item in allres])
+    #T_mat = np.stack([item[4] for item in allres])
 
-    full_mat = np.hstack((R_mat, T_mat))
-    full_mat = COO(full_mat)
+    #full_mat = np.hstack((R_mat, T_mat))
+    #full_mat = COO(full_mat)
     A_mat = COO(A_mat)
 
     save_npz(savepath_RT, full_mat)
@@ -118,7 +118,7 @@ def calculate_rat_rcwa(structure, size, orders, options, incidence, substrate, o
     #R_pfbo_2 = np.stack([item[8] for item in allres])
 
 
-    return {'R': R, 'T':T, 'A_layer': A_mat, 'R_mat': R_mat, 'T_mat': T_mat}#'R_pfbo': R_pfbo, 'T_pfbo': T_pfbo, 'phi_rt': phi_rt, 'theta_r': theta_r, 'theta_t': theta_t}#, 'R_pfbo_2': R_pfbo_2}
+    return {'R': R, 'T':T, 'A_layer': A_mat, 'full_mat': full_mat}#'R_pfbo': R_pfbo, 'T_pfbo': T_pfbo, 'phi_rt': phi_rt, 'theta_r': theta_r, 'theta_t': theta_t}#, 'R_pfbo_2': R_pfbo_2}
 
 
 
@@ -141,8 +141,8 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     T = np.zeros((len(theta)))
     A_layer = np.zeros((len(theta), len(widths)-2))
 
-    mat_R = np.zeros((len(angle_vector_0), len(angle_vector_0)))
-    mat_T = np.zeros((len(angle_vector_0), len(angle_vector_0)))
+    mat_RT = np.zeros((len(angle_vector_0), int(len(angle_vector_0)/2)))
+    #mat_T = np.zeros((len(angle_vector_0), len(angle_vector_0)))
 
     for i1 in range(len(theta)):
         if pol in 'sp':
@@ -162,7 +162,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
         else:
 
-            print(theta[i1])
+            #print(theta[i1])
             S.SetFrequency(1 / wl)
             S.SetExcitationPlanewave((theta[i1], phi[i1]), 0, 1, 0)  # p-polarization
             out_p, R_pfbo_p, T_pfbo_p = rcwa_rat(S, len(widths))
@@ -198,7 +198,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             phi_rt = np.nan_to_num(np.arctan(fr_x/fr_y))
             phi_rt = fold_phi(phi_rt, phi_sym)
             theta_r = np.real(np.arccos(fr_z/np.sqrt(fr_x**2 + fr_y**2 + fr_z**2)))
-            theta_t = np.real(np.arccos(ft_z/np.sqrt(fr_x**2 + fr_y**2 + ft_z**2)))
+            theta_t = np.pi-np.real(np.arccos(ft_z/np.sqrt(fr_x**2 + fr_y**2 + ft_z**2)))
 
             np_r = theta_r == np.pi/2 # non-propagating reflected orders
             np_t = theta_t == np.pi/2 # non-propagating transmitted orders
@@ -213,25 +213,23 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             theta_t_bin = np.digitize(theta_t, theta_intv, right=True) - 1
 
             for i2 in np.nonzero(R_pfbo)[0]:
-                #print(i2)
-                #print(theta_r_bin[i2])
                 phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_r_bin[i2]], right=True) - 1
                 bin = np.argmin(abs(angle_vector_0 -theta_r_bin[i2])) + phi_ind
-                mat_R[bin, i1] = R_pfbo[i2]
+                mat_RT[bin, i1] = R_pfbo[i2]
 
             for i2 in np.nonzero(T_pfbo)[0]:
                 phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_t_bin[i2]], right=True) - 1
                 bin = np.argmin(abs(angle_vector_0 -theta_t_bin[i2])) + phi_ind
-                mat_T[bin, i1] = T_pfbo[i2]
+                mat_RT[bin, i1] = T_pfbo[i2]
 
-
+    mat_RT = COO(mat_RT)
 
     # want to output R, T, A_layer (in case doing single angle of incidence)
     # also want to output transmission and reflection efficiency/power flux per order and the angles (theta and phi)
     # relating to that order.
     # Theta depends on the medium and so is different for transmisson and reflection. Phi is the same.
 
-    return R, T, A_layer.T, mat_R, mat_T
+    return R, T, A_layer.T, mat_RT#, mat_T
 
 def fold_phi(phis, phi_sym):
     return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
