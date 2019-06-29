@@ -568,7 +568,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         sum_coords = {'bulk_index': np.arange(0, n_bulks), 'wl': options['wavelengths']}
         R = xr.DataArray(np.array([np.sum(item, (0,2)) for item in vr]),
                            dims=sum_dims, coords=sum_coords, name = 'R')
-        if i1 >1 :
+        if i2 > 1 :
             A_bulk = xr.DataArray(np.array([np.sum(item, 0) for item in A]),
                                dims=sum_dims, coords=sum_coords, name = 'A_bulk')
 
