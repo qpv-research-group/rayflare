@@ -150,9 +150,9 @@ def calculate_RAT(SC, options):
         if type(struct) == Interface:
             layer_names.append(struct.name)
 
-    if options['calc_profile']:
-            n_layers.append(len(struct.layers))
-            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+            if options['calc_profile']:
+                    n_layers.append(len(struct.layers))
+                    layer_widths.append((np.array(struct.widths)*1e9).tolist())
 
 
     results = matrix_multiplication(bulk_mats, bulk_widths, options,
