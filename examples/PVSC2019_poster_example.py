@@ -14,6 +14,11 @@ from process_structure import process_structure, calculate_RAT
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import matplotlib
+font = {'family' : 'Lato Medium',
+        'size'   : 14}
+matplotlib.rc('font', **font)
+
 # matrix multiplication
 wavelengths = np.linspace(300, 1200, 112)*1e-9
 options = {'nm_spacing': 0.5,
@@ -131,14 +136,16 @@ Jph_Perovskite = q*np.trapz(photon_flux*results_per_layer_front[:,3], options['w
 pal = sns.cubehelix_palette(13, start=.5, rot=-.9)
 pal.reverse()
 
-#from scipy.ndimage.filters import gaussian_filter1d
+from scipy.ndimage.filters import gaussian_filter1d
 
-#ysmoothed = gaussian_filter1d(allres, sigma=1, axis=0)
+ysmoothed = gaussian_filter1d(allres, sigma=1, axis=0)
+
+bulk_A_text= ysmoothed[:,4]
 
 # plot total R, A, T
 fig = plt.figure()
 ax = plt.subplot(111)
-ax.stackplot(options['wavelengths']*1e9, allres.T,
+ax.stackplot(options['wavelengths']*1e9, ysmoothed.T,
               labels=['Ag', 'ITO', 'aSi-n', 'aSi-i', 'c-Si (bulk)', 'aSi-i', 'aSi-p',
                       'Perovskite','C$_{60}$','IZO',
             'MgF$_2$', 'R$_{escape}$', 'R$_0$'], colors = pal)
@@ -150,6 +157,7 @@ ax.set_ylim(0, 1)
 ax.text(530, 0.5, 'Perovskite: \n' + str(round(Jph_Perovskite,1)) + ' mA/cm$^2$', ha='center')
 ax.text(900, 0.5, 'Si: \n' + str(round(Jph_Si,1)) + ' mA/cm$^2$', ha='center')
 
+fig.savefig('samplefigure.png', bbox_inches='tight', format='png')
 plt.show()
 
 # plot absorption profiles
@@ -193,5 +201,115 @@ if options['calc_profile']:
 
     plt.show()
 
+from angles import theta_summary, make_angle_vector
+from config import results_path
+from sparse import load_npz
+import xarray as xr
+
+_, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
+                                       options['c_azimuth'])
+
+sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
+
+full = sprs[99].todense()
 
 
+summat, Rsum, Tsum = theta_summary(full, angle_vector)
+
+Rth = summat[0:100,:]
+Tth = summat[100:, :]
+Rth = xr.DataArray(Rth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,100),
+                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,100)})
+Tth = xr.DataArray(Tth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,100),
+                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,100)})
+
+import matplotlib as mpl
+palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+palhf.reverse()
+seamap = mpl.colors.ListedColormap(palhf)
+fig = plt.figure()
+ax = plt.subplot(111)
+ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+#ax = plt.subplot(212)
+fig.savefig('matrix.png', bbox_inches='tight', format='png')
+#ax = Tth.plot.imshow(ax=ax)
+
+
+
+front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_1e6',
+                       coherent=True, prof_layers = np.arange(1,10))
+back_surf = Interface('Mirror', texture = surf_back, layers=back_materials, name = 'mirror')
+
+SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
+
+process_structure(SC, options)
+
+results = calculate_RAT(SC, options)
+RAT = results[0]
+results_per_pass = results[1]
+
+R_per_pass = np.sum(results_per_pass['r'][0], 2)
+R_0 = R_per_pass[0]
+R_escape = np.sum(R_per_pass[1:, :], 0)
+results_per_layer_front = np.sum(results_per_pass['a'][0], 0)[:,[0,1,3,5,7,8]]
+results_per_layer_back = np.sum(results_per_pass['a'][1], 0)
+allres = np.flip(np.hstack((R_0[:,None], R_escape[:,None], results_per_layer_front, RAT['A_bulk'].T,
+                    results_per_layer_back, RAT['T'].T)),1)
+
+ysmoothed = gaussian_filter1d(allres, sigma=1, axis=0)
+bulk_A_flat = ysmoothed[:,1]
+
+
+front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_1e6',
+                       coherent=True, prof_layers = np.arange(1,10))
+back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_1e6',
+
+                      coherent=True, prof_layers = np.arange(1,4))
+
+
+bulk_Si = BulkLayer(360e-6, Si, name = 'Si_bulk') # bulk thickness in m
+
+SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
+
+process_structure(SC, options)
+
+results = calculate_RAT(SC, options)
+
+RAT = results[0]
+results_per_pass = results[1]
+
+
+# only select absorbing layers, sum over passes
+results_per_layer_front = np.sum(results_per_pass['a'][0], 0)[:,[0,1,3,5,7,8]]
+
+results_per_layer_back = np.sum(results_per_pass['a'][1], 0)
+
+
+allres = np.flip(np.hstack((RAT['R'].T, results_per_layer_front, RAT['A_bulk'].T,
+                    results_per_layer_back, RAT['T'].T)),1)
+
+ysmoothed = gaussian_filter1d(allres, sigma=1, axis=0)
+
+bulk_A_text_thicker= ysmoothed[:,4]
+
+
+font = {'family' : 'Lato Medium',
+        'size'   : 16}
+matplotlib.rc('font', **font)
+fig = plt.figure()
+ax = plt.subplot(111)
+ax.plot(options['wavelengths']*1e9, bulk_A_flat, color= pal[0], linewidth=2,
+        label='Perfect back mirror')
+ax.plot(options['wavelengths']*1e9, bulk_A_text, color= pal[5], linewidth=2,
+        label='Textured back surface')
+ax.plot(options['wavelengths']*1e9, bulk_A_text_thicker, color= pal[10], linewidth=2,
+        label=r'Text. back + 360 $\mu$m c-Si')
+
+lgd=ax.legend(loc='bottom left')
+ax.set_xlabel('Wavelength (nm)')
+ax.set_ylabel('Absorption in c-Si')
+ax.set_xlim(900, 1200)
+ax.set_ylim(0, 1)
+
+fig.savefig('textcomp.png', bbox_inches='tight', format='png')
+plt.show()

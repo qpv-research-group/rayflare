@@ -41,6 +41,23 @@ def process_structure(SC, options):
         if type(struct) == Interface:
             # is this an interface type which requires a lookup table?
 
+            if struct.method == 'Mirror':
+                from angles import make_angle_vector
+                from sparse import stack, COO, concatenate, save_npz
+                from config import results_path
+                import os
+                _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
+                                       options['c_azimuth'])
+                diag = np.array([1] * int(len(angle_vector) / 2))
+                Rsp = stack([COO(np.diag(diag)) for _ in range(len(options['wavelengths']))])
+                Tsp = COO([], [], (len(options['wavelengths']), int(len(angle_vector) / 2), int(len(angle_vector) / 2)))
+                RTsp = concatenate((Rsp, Tsp), axis=1)
+                Asp = COO([], [], (len(options['wavelengths']), 0, int(len(angle_vector) / 2)))
+                savepath_RT = os.path.join(results_path, options['project_name'], struct.name + 'front' + 'RT.npz')
+                savepath_A = os.path.join(results_path, options['project_name'], struct.name + 'front' + 'A.npz')
+                save_npz(savepath_RT, RTsp)
+                save_npz(savepath_A, Asp)
+
             if struct.method == 'TMM':
                 print('Making matrix for planar surface using TMM for element ' + str(i1) + ' in structure')
                 if i1 == 0:
