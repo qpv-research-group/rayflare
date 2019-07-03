@@ -346,7 +346,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
 
         for i1 in range(n_bulks):
 
-            z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing']*1e-9), dims='z').chunk({'z': 10000})
+            z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing']*1e-9), dims='z')
 
             vf_1[i1] = dot_wl(Tf[i1], v0) # pass through front surface
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
