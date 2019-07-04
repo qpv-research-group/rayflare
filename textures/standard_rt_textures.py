@@ -24,3 +24,16 @@ def regular_pyramids(elevation_angle=55, upright=True):
     surf_ri = RTSurface(Points_ri)
 
     return [surf_fi, surf_ri]
+
+def planar_surface():
+    Lx = 1
+    Ly = 1
+    x = np.array([0, Lx, Lx, 0])
+    y = np.array([0, Ly, 0, Ly])
+    z = np.array([0, 0, 0, 0])
+
+    Points = np.vstack([x, y, z]).T
+    surf_fi = RTSurface(Points)
+    surf_ri = RTSurface(Points)
+
+    return [surf_fi, surf_ri]
