@@ -436,6 +436,17 @@ class RTSurface:
         self.z_min = min(Points[:, 2])
         self.z_max = max(Points[:, 2])
 
+        xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
+
+        print(xyz.shape)
+
+        cos_theta = np.sum((xyz[0] - xyz[1])*(xyz[2] - xyz[1]), 1)
+
+        theta = np.arccos(cos_theta)
+        print(theta*180/np.pi)
+        self.area = np.sum((0.5*np.linalg.norm(xyz[0] - xyz[1], axis =1)*np.linalg.norm(xyz[2] - xyz[1], axis=1)*np.sin(theta)))/(self.Lx*self.Ly)
+
+
         self.zcov= Points[:,2][np.all(np.array([Points[:,0] == min(Points[:,0]), Points[:,1] == min(Points[:,1])]), axis = 0)]
         #z1 = Points[:,2][np.all(np.array([Points[:,0] == min(Points[:,0]), Points[:,1] == max(Points[:,1])]), axis = 0)]
         #z2 = Points[:,2][np.all(np.array([Points[:,0] == max(Points[:,0]), Points[:,1] == min(Points[:,1])]), axis = 0)]

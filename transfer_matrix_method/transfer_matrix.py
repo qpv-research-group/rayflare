@@ -293,7 +293,6 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
     def make_matrix_wl(wl):
         RT_mat = np.zeros((len(theta_bins_in)*2, len(theta_bins_in)))
-        T_mat = np.zeros((len(theta_bins_in), len(theta_bins_in)))
         A_mat = np.zeros((n_layers, len(theta_bins_in)))
         # print(j1)
         for i1 in range(len(theta_bins_in)):
@@ -323,21 +322,21 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
             RT_mat[bin_out_r, i1] = R_prob
 
             # transmission
-            print(np.sin(theta), transmission.n(wl*1e-9))
-            theta_t = np.pi-np.arcsin((incidence.n(wl * 1e-9) / transmission.n(wl * 1e-9)) * np.sin(theta))
-            print(theta_t)
-            theta_out_bin = np.digitize(theta_t, theta_intv, right=True) - 1
-            #print('thetaout', theta_t, theta_out_bin)
-            print(theta_out_bin)
-            phi_int = phi_intv[theta_out_bin]
+            #print(np.sin(theta), transmission.n(wl*1e-9))
+            theta_t = np.pi-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta))
+            if ~np.isnan(theta_t):
 
-            phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
-            #print('n_phi_bins', len(phi_int)-1)
-            #print('phi_ind', phi_out, phi_ind)
-            bin_out_t = np.argmin(abs(angle_vector[:, 0] - theta_out_bin)) + phi_ind
-            #print('bin_out', bin_out_t)
+                theta_out_bin = np.digitize(theta_t, theta_intv, right=True) - 1
+                #print('thetaout', theta_t, theta_out_bin)
+                phi_int = phi_intv[theta_out_bin]
 
-            RT_mat[bin_out_t, i1] = T_prob
+                phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
+                #print('n_phi_bins', len(phi_int)-1)
+                #print('phi_ind', phi_out, phi_ind)
+                bin_out_t = np.argmin(abs(angle_vector[:, 0] - theta_out_bin)) + phi_ind
+                #print('bin_out', bin_out_t)
+
+                RT_mat[bin_out_t, i1] = T_prob
 
             # absorption
             A_mat[:, i1] = Alayer_prob
@@ -383,10 +382,13 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
         if front_or_rear == 'front':
             optlayers = OptiStack(layers, substrate=transmission, incidence=incidence)
+            trns = transmission
+            inc = incidence
 
         else:
-            optlayers = OptiStack(layers[::-1], substrate=transmission, incidence=incidence) # incidence and transmission should already be correct, just want to flip order of layers
-
+            optlayers = OptiStack(layers[::-1], substrate=incidence, incidence=transmission)
+            trns = incidence
+            inc = transmission
 
         if options['pol'] == 'u':
             pols = ['s', 'p']

@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # matrix multiplication
-wavelengths = np.linspace(900, 1200, 20)*1e-9
+wavelengths = np.linspace(1000, 1200, 20)*1e-9
 options = {'nm_spacing': 0.5,
            'project_name': 'tmm_rcwa',
            'calc_profile': False,
@@ -58,10 +58,12 @@ SnO2 = [10e-9, np.array([0,1]), np.array([2, 2]), np.array([0,0])]
 x = 1000
 
 d_vectors = ((x, 0),(0,x))
+area_fill_factor = 0.36
+hw = np.sqrt(area_fill_factor)*500
 
 front_materials = []
 back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': Air, 'center': (x/2, x/2),
-                                                     'halfwidths': (np.sqrt(2*(500**2))/2, np.sqrt(2*(500**2))/2), 'angle': 45}])]
+                                                     'halfwidths': (hw, hw), 'angle': 45}])]
 
 # whether pyramids are upright or inverted is relative to front incidence.
 # so if the same etch is applied to both sides of a slab of silicon, one surface
@@ -70,8 +72,8 @@ back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': 
 
 
 front_surf = Interface('TMM', layers=front_materials, name = 'planar', coherent=True)
-back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating', d_vectors=d_vectors, rcwa_orders=50)
-back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
+back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating', d_vectors=d_vectors, rcwa_orders=200)
+#back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
 
 bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
@@ -89,3 +91,56 @@ plt.plot(wavelengths*1e9, RAT['R'][0])
 plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0])
 plt.legend(['R', 'T', 'A'])
+
+
+from angles import theta_summary, make_angle_vector
+from config import results_path
+from sparse import load_npz
+import xarray as xr
+
+#_, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
+#                                       options['c_azimuth'])
+
+#sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
+
+#full = sprs[15].todense()
+
+
+#summat, Rsum, Tsum = theta_summary(full, angle_vector)
+
+#Rth = summat[0:100,:]
+#Tth = summat[100:, :]
+#Rth = xr.DataArray(Rth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,100),
+#                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,100)})
+#Tth = xr.DataArray(Tth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,100),
+#                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,100)})
+
+#import matplotlib as mpl
+#palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+#palhf.reverse()
+#seamap = mpl.colors.ListedColormap(palhf)
+#fig = plt.figure()
+#ax = plt.subplot(111)
+#ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+#ax = plt.subplot(212)
+
+#ax = Tth.plot.imshow(ax=ax)
+
+_, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
+                                       options['c_azimuth'])
+
+sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
+
+full = sprs[15].todense()
+
+plt.figure()
+plt.imshow(full)
+plt.colorbar()
+
+sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
+
+full = sprs[15].todense()
+
+plt.figure()
+plt.imshow(full)
+plt.colorbar()
