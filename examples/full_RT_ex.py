@@ -14,7 +14,8 @@ Ge = material('Ge')()
 flat_surf = planar_surface()
 triangle_surf = regular_pyramids(10)
 
-options = {'wavelengths': np.linspace(700, 1700, 10)*1e-9, 'theta': 45*np.pi/180, 'phi': 0, 'I_thresh': 1e-4, 'nx': 5, 'ny': 5,
+options = {'wavelengths': np.linspace(700, 1700, 10)*1e-9, 'theta': 45*np.pi/180, 'phi': 0,
+           'I_thresh': 1e-4, 'nx': 5, 'ny': 5,
            'parallel': False, 'pol': 'p', 'n_rays': 1000}
 #structure = RTgroup(textures=[flat_surf, flat_surf, flat_surf, flat_surf], materials = [GaAs, Si, Ge],
 #                    widths=[si('100um'), si('70um'), si('50um')], depth_spacing=1)

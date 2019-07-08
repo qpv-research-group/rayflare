@@ -10,37 +10,24 @@ from solcore.material_system.create_new_material import create_new_material
 from textures.standard_rt_textures import regular_pyramids
 from structure import Interface, BulkLayer, Structure
 from process_structure import process_structure, calculate_RAT
+from options import default_options
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 import matplotlib
-font = {'family' : 'Lato Medium',
-        'size'   : 14}
-matplotlib.rc('font', **font)
+#font = {'family' : 'Lato Medium',
+#        'size'   : 14}
+#matplotlib.rc('font', **font)
 
 # matrix multiplication
 wavelengths = np.linspace(300, 1200, 112)*1e-9
-options = {'nm_spacing': 0.5,
-           'project_name': 'UC_PC',
-           'calc_profile': False,
-           'n_theta_bins': 100,
-           'c_azimuth': 0.25,
-           'pol': 'u',
-           'wavelengths': wavelengths,
-           'theta_in': 1e-6, 'phi_in': 1e-6,
-           'I_thresh': 0.001,
-           'coherent': True,
-           'coherency_list': None,
-           'lookuptable_angles': 200,
-           #'prof_layers': [1,2],
-           'n_rays': 100000,
-           'random_angles': False,
-           'nx': 5, 'ny': 5,
-           'parallel': True, 'n_jobs': -1,
-           'phi_symmetry': np.pi/2,
-           'only_incidence_angle': True
-           }
+
+options = default_options
+options.nm_spacing = 0.5
+options.wavelengths = wavelengths
+options.project_name = 'UC_PC'
+options.n_rays = 1e6
 
 cur_path = os.path.dirname(os.path.abspath(__file__))
 # new materials from data
@@ -293,9 +280,9 @@ ysmoothed = gaussian_filter1d(allres, sigma=1, axis=0)
 bulk_A_text_thicker= ysmoothed[:,4]
 
 
-font = {'family' : 'Lato Medium',
-        'size'   : 16}
-matplotlib.rc('font', **font)
+#font = {'family' : 'Lato Medium',
+#        'size'   : 16}
+#matplotlib.rc('font', **font)
 fig = plt.figure()
 ax = plt.subplot(111)
 ax.plot(options['wavelengths']*1e9, bulk_A_flat, color= pal[0], linewidth=2,

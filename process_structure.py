@@ -8,6 +8,10 @@ from transfer_matrix_method.transfer_matrix import tmm_matrix
 
 
 def process_structure(SC, options):
+    """Function which takes a list of Interface and BulkLayer objects and carries out the
+    necessary calculations to populate the redistribution matrices.
+    :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
+    :param options: options for the matrix calculations"""
 
     for i1, struct in enumerate(SC):
         if type(struct) == Interface:
@@ -34,8 +38,6 @@ def process_structure(SC, options):
                 make_TMM_lookuptable(struct.layers, substrate, incidence, struct.name,
                                               options, coherent, coherency_list, prof_layers)
 
-
-    # make matrices by ray tracing
 
     for i1, struct in enumerate(SC):
         if type(struct) == Interface:
@@ -79,7 +81,6 @@ def process_structure(SC, options):
                     coherency_list = None
 
                 for side in which_sides:
-                    # print(only_incidence_angle)
                     tmm_matrix(struct.layers, substrate, incidence, struct.name, options,
                                coherent=coherent, coherency_list=coherency_list, prof_layers=None, front_or_rear=side)
 
@@ -111,7 +112,6 @@ def process_structure(SC, options):
                         only_incidence_angle = True
                     else:
                         only_incidence_angle = False
-                    #print(only_incidence_angle)
                     RT(group, incidence, substrate, struct.name, options, 1, side,
                        n_abs_layers, prof, only_incidence_angle)
 
@@ -151,9 +151,11 @@ def process_structure(SC, options):
                          front_or_rear=side, surf_name=struct.name)
 
 
-
-
 def calculate_RAT(SC, options):
+    """After the list of Interface and BulkLayers has been processed by process_structure,
+    this function calculates the R, A and T by calling matrix_multiplication.
+    :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
+    :param options: options for the matrix calculations"""
     bulk_mats = []
     bulk_widths = []
     layer_widths = []
