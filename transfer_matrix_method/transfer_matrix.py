@@ -501,7 +501,7 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
 
     :param structure: A solcore Structure object with layers and materials or a OptiStack object.
     :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
-    :param angle: Angle (in degrees) of the incident light. Default: 0 (normal incidence).
+    :param angle: Angle (in radians) of the incident light. Default: 0 (normal incidence).
     :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
     :param coherent: If the light is coherent or not. If not, a coherency list must be added.
     :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which

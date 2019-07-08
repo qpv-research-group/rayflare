@@ -12,6 +12,7 @@ from sparse import COO, save_npz, load_npz, stack
 from config import results_path
 from joblib import Parallel, delayed
 import time
+from copy import deepcopy
 
 # want a Delaunay-type triangulation object which has the same attributes as
 # the return from scipy.spatial.Delaunaytheta_t = np.asin((n1/n2)*np.sin(theta)), but contains 3D rather than 2D coordinates,
@@ -102,11 +103,11 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
 
         # list of lists: first in tuple is front incidence
         if front_or_rear == 'front':
-            print('front')
+            #print('front')
             surfaces = [x[0] for x in group.textures]
 
         else:
-            print('rear')
+            #print('rear')
             surfaces = [x[1] for x in group.textures]
 
 
@@ -158,7 +159,7 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
                       for i1 in range(len(wavelengths))]
 
         allArrays = stack([item[0] for item in allres])
-        print(allArrays.shape)
+        #print(allArrays.shape)
         absArrays = stack([item[1] for item in allres])
 
         save_npz(savepath_RT, allArrays)
@@ -205,7 +206,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
             A_surface_layers[i2, c] = surface_A[0]
             theta_local_incidence[i2, c] = np.real(surface_A[1])
 
-    print('done ray-tracing, binning')
+    #print('done ray-tracing, binning')
     phi_out = fold_phi(phi_out, phi_sym)
     phis_in = fold_phi(phis_in, phi_sym)
 
@@ -296,7 +297,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, z_pos, widths, thetas_in, phis_in, h, xs, ys
 
 
 
-def full_RT(group, incidence, transmission, options, front_or_rear='front'):
+def full_RT(group, incidence, transmission, options):
     wavelengths = options['wavelengths']
 
     mats = [incidence]
@@ -306,14 +307,21 @@ def full_RT(group, incidence, transmission, options, front_or_rear='front'):
 
     theta = options['theta']
     phi = options['phi']
-    if front_or_rear == 'front':
-        print('front')
-        surfaces = [x[0] for x in group.textures]
-        print(surfaces[0].Points)
-    else:
-        print('rear')
-        surfaces = [x[1] for x in group.textures]
-        print(surfaces[0])
+
+    surfs_no_offset = [x[0] for x in group.textures]
+
+    cum_width = np.cumsum([0] + group.widths)*1e6
+    #print(cum_width)
+
+    surfaces= []
+
+    for i1, text in enumerate(surfs_no_offset):
+        points_loop = deepcopy(text.Points)
+        #print('before', points_loop, cum_width[i1])
+        points_loop[:, 2] = points_loop[:, 2] - cum_width[i1]
+        #print(points_loop)
+        surfaces.append(RTSurface(points_loop))
+        #print(i1, 'surf', surfaces[i1].Points)
 
     I_thresh = options['I_thresh']
 
@@ -340,6 +348,7 @@ def full_RT(group, incidence, transmission, options, front_or_rear='front'):
     h = max(surfaces[0].Points[:, 2])
     r = abs((h + 1) / cos(theta))
     r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
+    print('r_A_0', r_a_0)
 
     x_lim = surfaces[0].Lx
     y_lim = surfaces[0].Ly
@@ -351,8 +360,9 @@ def full_RT(group, incidence, transmission, options, front_or_rear='front'):
     ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
 
     # need to calculate r_a and r_b
-    thetas = np.zeros((nx*ny, len(wavelengths)))
-    phis = np.zeros((nx*ny, len(wavelengths)))
+    n_reps = np.int(np.ceil(options['n_rays']/(nx*ny)))
+    thetas = np.zeros((n_reps*nx*ny, len(wavelengths)))
+    phis = np.zeros((n_reps*nx*ny, len(wavelengths)))
 
     #plt.ion()
     #fig, ax = plt.subplots()
@@ -370,25 +380,27 @@ def full_RT(group, incidence, transmission, options, front_or_rear='front'):
     pol = options['pol']
 
     if not options['parallel']:
-        for c, vals in enumerate(product(xs, ys)):
+        for j1 in range(n_reps):
+            offset = j1*nx*ny
+            for c, vals in enumerate(product(xs, ys)):
 
-            for i1, wl in enumerate(wavelengths):
-                #materials = {'nk': nks[:,i1], 'alpha': np.imag(nks[:,i1])*4*np.pi/(wl*1e6), 'width': widths}
-                I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks[:, i1],
-                                                                                  alphas[:, i1], r_a_0, theta, phi,
-                                                                                  surfaces, widths, z_pos, I_thresh, pol)
-                absorption_profiles[i1] = absorption_profiles[i1] + profile/(nx*ny)
-                thetas[c, i1] = th_o
-                phis[c, i1] = phi_o
-                A_layer[i1] = A_layer[i1] + A_per_layer/(nx*ny)
-                if th_o is not None:
-                    #print(th_o)
-                    if np.real(th_o) < np.pi/2:
-                        R[i1] = R[i1] + I/(nx*ny)
-                        #print('R')
-                    else:
-                        T[i1] = T[i1] + I/(nx*ny)
-                        #print('T')
+                for i1, wl in enumerate(wavelengths):
+                    #materials = {'nk': nks[:,i1], 'alpha': np.imag(nks[:,i1])*4*np.pi/(wl*1e6), 'width': widths}
+                    I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks[:, i1],
+                                                                                      alphas[:, i1], r_a_0, theta, phi,
+                                                                                      surfaces, widths, z_pos, I_thresh, pol)
+                    absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
+                    thetas[c+offset, i1] = th_o
+                    phis[c+offset, i1] = phi_o
+                    A_layer[i1] = A_layer[i1] + A_per_layer/(n_reps*nx*ny)
+                    if th_o is not None:
+                        #print(th_o)
+                        if np.real(th_o) < np.pi/2:
+                            R[i1] = R[i1] + I/(n_reps*nx*ny)
+                            #print('R')
+                        else:
+                            T[i1] = T[i1] + I/(n_reps*nx*ny)
+                            #print('T')
 
             #if c % 10 == 0:
             #    fraction_done = c/(nx*ny)
@@ -399,7 +411,7 @@ def full_RT(group, incidence, transmission, options, front_or_rear='front'):
             #    plt.draw()
             #    plt.pause(0.01)
 
-    return R, T, A_layer, absorption_profiles, thetas, phis
+    return R, T, A_layer[:,1:-1], absorption_profiles, thetas, phis
 
 
 def wavelength_loop(xy, wavelengths, nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh):
@@ -486,7 +498,7 @@ def make_profiles_wl(unique_thetas, n_a_in, side_str, n_layers, widths,
     # so 'front' incidence from the point of view of the matrix we are considering is
     # always 1. Still may need to flip final result though (in terms of z)
     # to make it right-side-up relative to the whole structure.
-    print(lookuptable)
+    #print(lookuptable)
     data = lookuptable.loc[dict(side=1, pol=pol)].interp(angle=pr.coords['local_theta'],
                                                                        wl=wl)
 
@@ -510,14 +522,14 @@ def make_profiles_wl(unique_thetas, n_a_in, side_str, n_layers, widths,
 
     offsets = np.cumsum([0] + widths)[:-1]
     start = time()
-    print(params)
+    #print(params)
     ans = params.groupby('wl').apply(scaled_profile, z=z_list, offset=offsets, side=side).drop('coeff')
     ans = ans.fillna(0)
 
     print('Took ' + str(time() - start) + ' seconds')
 
     profile = ans.reduce(np.sum, 'layer')
-    print(profile)
+    #print(profile)
     # there is no reason to do this again; this should be the same as the absorption per
     # layer before scaling (currently not saved)
     intgr = xr.DataArray(np.zeros((n_layers, len(params.global_index))),
@@ -542,7 +554,7 @@ def make_profiles_wl(unique_thetas, n_a_in, side_str, n_layers, widths,
     intgr = intgr.reduce(np.sum, 'layer')
     intgr.name = 'intgr'
     profile.name = 'profile'
-    print(intgr)
+
 
 
 
@@ -567,12 +579,12 @@ class RTSurface:
 
         xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
 
-        print(xyz.shape)
+        #print(xyz.shape)
 
         cos_theta = np.sum((xyz[0] - xyz[1])*(xyz[2] - xyz[1]), 1)
 
         theta = np.arccos(cos_theta)
-        print(theta*180/np.pi)
+        #print(theta*180/np.pi)
         self.area = np.sum((0.5*np.linalg.norm(xyz[0] - xyz[1], axis =1)*np.linalg.norm(xyz[2] - xyz[1], axis=1)*np.sin(theta)))/(self.Lx*self.Ly)
 
 
@@ -582,10 +594,12 @@ class RTSurface:
         #z3 = Points[:,2][np.all(np.array([Points[:,0] == max(Points[:,0]), Points[:,1] == max(Points[:,1])]), axis = 0)]
 
 def calc_R(n1, n2, theta, pol):
+    print('localth', theta*180/np.pi)
     theta_t = np.arcsin((n1/n2)*np.sin(theta))
     Rs = np.abs((n1*np.cos(theta)-n2*np.cos(theta_t))/(n1*np.cos(theta)+n2*np.cos(theta_t)))**2
     Rp = np.abs((n1 * np.cos(theta_t) - n2 * np.cos(theta)) / (n1 * np.cos(theta_t) + n2 * np.cos(theta)))**2
     if pol == 's':
+        print('s pol')
         return Rs
     if pol == 'p':
         return Rp
@@ -625,7 +639,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
 
     # should end when either material = final material (len(materials)-1) & direction == 1 or
     # material = 0 & direction == -1
-    print('widths', len(widths))
+    #print('widths', len(widths))
     profile = np.zeros(len(z_pos))
     # do everything in microns
     A_per_layer = np.zeros(len(widths))
@@ -639,6 +653,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
     # could be done before to avoid recalculating every time
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array([x, y, 0])           # set r_a and r_b so that ray has correct angle & intersects with first surface
+
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a) # direction (unit vector) of ray
     #ray_path = np.append(r_a, 0)
     n_passes = 0
@@ -665,57 +680,53 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
 
         #ray_path = np.vstack((ray_path, np.append(r_a + d*(((surf.zcov - r_a[2])/d[2])-2), 1)))
         #print(r_a, d)
-        res, theta, phi, r_a, d, _ = single_interface_check(r_a, d, nks[mat_index],
-                                     nks[mat_index+1], surf, surf.Lx, surf.Ly, direction,
+        if direction == 1:
+            ni = nks[mat_index]
+            nj = nks[mat_index + 1]
+
+        else:
+            ni = nks[mat_index-1]
+            nj = nks[mat_index]
+
+        res, theta, phi, r_a, d, _ = single_interface_check(r_a, d, ni,
+                                     nj, surf, surf.Lx, surf.Ly, direction,
                                      surf.zcov, pol)
 
         if res == 0:  # reflection
-            print('int ref')
-            direction = -direction # changing direction due to reflection
+            direction = -direction  # changing direction due to reflection
 
             # staying in the same material, so mat_index does not change, but surf_index does
             surf_index = surf_index + direction
 
-            I_b = I
-            # print(mat_index)
-            DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
-                                          depths[mat_index], I_thresh, direction)
-            A_per_layer[mat_index] = A_per_layer[mat_index] + I_b - I
-            profile[depth_indices[mat_index]] = profile[depth_indices[mat_index]] + DA
-
-            n_passes = n_passes + 1
-            surface_A = [0, 10]
-
         if res == 1:  # transmission
-            print('int tr')
-            print(surf_index)
             surf_index = surf_index + direction
+            mat_index = mat_index + direction  # is this right?
 
+        # print(materials['width'][mat_index])
+        # print(materials['alpha'][mat_index])
+        # print(depths[mat_index])
 
-            mat_index = mat_index + direction
-            I_b = I
-            # print(mat_index)
-            DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
-                                          depths[mat_index], I_thresh, direction)
-            A_per_layer[mat_index] = A_per_layer[mat_index] + I_b - I
-            profile[depth_indices[mat_index]] = profile[depth_indices[mat_index]] + DA
+        I_b = I
+        DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
+                                      depths[mat_index], I_thresh, direction)
+        A_per_layer[mat_index] = A_per_layer[mat_index] + I_b - I
+        profile[depth_indices[mat_index]] = profile[depth_indices[mat_index]] + DA
 
-            n_passes = n_passes + 1
+        n_passes = n_passes + 1
+        # print(DA)
+        # theta = None means absorbed
 
-        if direction == 1 and mat_index == (len(widths)-1):
-            print('transmission')
+        if direction == 1 and mat_index == (len(widths) - 1):
             stop = True
             # have ended with transmission
 
         elif direction == -1 and mat_index == 0:
-            print('reflection')
             stop = True
+            # have ended with reflection
+            # final results to pass are
+        # print('stop', stop)
 
-        print(surf_index, stop)
-
-        #print('s/d after', surf_index, direction, mat_index, stop)
-
-    #print('n_passes', n_passes)
+    # print('n_passes', n_passes)
     return I, profile, A_per_layer, theta, phi
 
 def single_ray_interface(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, wl, Fr_or_TMM, lookuptable):
@@ -806,9 +817,7 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     #print('traversing', width, alpha)
     stop = False
     DA = (alpha/abs(cos(theta)))*I_i*np.exp((-alpha*positions/abs(cos(theta))))
-
     I_back = I_i*np.exp(-alpha*width/abs(cos(theta)))
-
     if I_back < I_thresh:
         #print('absorbed')
         stop = True
@@ -824,24 +833,27 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
 
 def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptable = None):
     R = calc_R(n0, n1, theta, pol)
-
+    print('R, n0, n1', R, n0, n1)
     if rnd <= R:  # REFLECTION
+        print('r')
 
         d = np.real(d - 2 * np.dot(d, N) * N)
         d = d / np.linalg.norm(d)
 
     else:  # TRANSMISSION
+        print('t')
         # transmission, refraction
         # for now, ignore effect of k on refraction
 
-        tr_par = ((np.real(n0) / np.real(n1)) ** side) * (d - np.dot(d, N) * N)
-
+        #tr_par = ((np.real(n0) / np.real(n1)) ** side) * (d - np.dot(d, N) * N)
+        tr_par = np.real((n0 / n1) ** side) * (d - np.dot(d, N) * N)
+        #print(tr_par)
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
 
         side = -side
         d = np.real(tr_par + tr_perp)
         d = d / np.linalg.norm(d)
-
+    print('d_inRfunc', d)
     return d, side, None # never absorbed, A = False
 
 def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
@@ -891,22 +903,24 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
     #d = (r_b - r_a) / np.linalg.norm(r_b - r_a)
     intersect = True
     checked_translation = False
-    #r_a0 = r_a
+    r_a0 = r_a
     d0 = d
-    print('initial side', side, 'd0', d, 'r_a', r_a)
+    #print('initial side', side, 'd0', d, 'r_a', r_a)
 
     # ignore the possibility of absorption in the interfaces for now
-
+    print('Points', tri.Points)
+    print('r_a',r_a)
+    print('d',d)
     # [top, right, bottom, left]
     translation = np.array([[0, -Ly, 0], [-Lx, 0, 0], [0, Ly, 0], [Lx, 0, 0]])
     i1 = 0
     while intersect:
         i1 = i1+1
-        print(i1)
+        #print(i1)
         result = check_intersect(r_a, d, tri)
-        #print(result)
+        print('res', result)
         if result == False and not checked_translation:
-
+            print('translation')
             which_side, tt = exit_side(r_a, d, Lx, Ly)
 
             r_a = r_a + translation[which_side]
@@ -920,25 +934,58 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
             o_p = np.real(atan2(d[1], d[0]))
             #print('theta_out', o_t*180/np.pi)
 
-            # if you hit an edge, sometimes code will think transmission has happened/
-            # try to apply translation, but direction of the ray will be such that
-            # the ray is on the other side of the surface than it 'thinks'
-            #else:
-            if side == initial_side:
+            # doesn't work if you hit an edge. in that case you will have  side == 1 and d[2] < 0
+            # or side == -1 and d[2] > 0
+            # if (side == 1 and d[2] < 0) or (side == -1 and d[2] > 0):
+            #     print('weird')
+            #     # restart but jiggle things around a bit to avoid
+            #     side = initial_side
+            #     r_a = r_a0 + np.random.rand(3)*1e-3
+            #     d = d0
+            #     checked_translation = False
 
-                intersect = False  # to stop the while loop
-                print('no more intersections - reflection')
-                #print('d_z_i, d_z_end', d0[2], d[2])
-                #ray_path = np.vstack((ray_path, np.append(r_a+2*d, 0)))
-                final_res = 0
+            #else:
+            # if side == initial_side:
+            #
+            #     intersect = False  # to stop the while loop
+            #     print('no more intersections - reflection')
+            #         #print('d_z_i, d_z_end', d0[2], d[2])
+            #         #ray_path = np.vstack((ray_path, np.append(r_a+2*d, 0)))
+            #     final_res = 0
+            # else:
+            #     print('no more intersections - transmission')
+            #         #print('d_z_i, d_z_end', d0[2], d[2])
+            #         #ray_path = np.vstack((ray_path, np.append(r_a + 2 * d, 0)))
+            #     intersect = False
+            #     final_res = 1
+            #         # print(intersect, checked_translation)
+            #         # ray travels into next medium
+
+            if d[2] < 0:
+                if initial_side == 1:
+                    print('no more intersections - transmission')
+                    intersect = False
+                    final_res = 1
+
+
+                else:
+                    print('no more intersections - reflection')
+                    intersect = False
+                    final_res = 0
+
             else:
-                print('no more intersections - transmission')
-                #print('d_z_i, d_z_end', d0[2], d[2])
-                #ray_path = np.vstack((ray_path, np.append(r_a + 2 * d, 0)))
-                intersect = False
-                final_res = 1
-                # print(intersect, checked_translation)
-                # ray travels into next medium
+                if initial_side == 1:
+                    print('no more intersections - reflection')
+                    intersect = False
+                    final_res = 0
+
+
+                else:
+                    print('no more intersections - transmission')
+                    intersect = False
+                    final_res = 1
+
+
 
         else:
             # there has been an intersection
@@ -964,7 +1011,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
             r_a = np.real(intersn + d / 1e9) # this is to make sure the raytracer doesn't immediately just find the same intersection again
 
             checked_translation = False # reset, need to be able to translate the ray back into the unit cell again if necessary
-            #print(intersn)
+            print('trcheck', checked_translation)
             #ray_path = np.vstack((ray_path, np.append(intersn, 0)))
 
             if A is not None:
@@ -980,10 +1027,14 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
 
         if (side == 1 and d[2] < 0 and r_a[2] > z_cov) or \
                 (side == -1 and d[2] > 0 and r_a[2] < z_cov) and checked_translation:  # going down but above surface
+            print('above or below')
             exit, t = exit_side(r_a, d, Lx, Ly)
+            print('r_a', r_a, z_cov, d)
             r_a = r_a + t*d + translation[exit]
             #ray_path = np.vstack((ray_path, np.append(r_a, 1)))
-            checked_translation = True
+            print('t', t)
+            print('r_a after extra tr', r_a)
+            checked_translation = False
 
     return final_res, o_t, o_p, r_a, d, theta # theta is LOCAL incidence angle (relative to texture)
 
