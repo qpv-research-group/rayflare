@@ -531,14 +531,12 @@ class RTSurface:
 
 
     def find_area(self):
-         xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
+        xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
+        cos_theta = np.sum((xyz[0] - xyz[1])*(xyz[2] - xyz[1]), 1)
 
-         cos_theta = np.sum((xyz[0] - xyz[1]) * (xyz[2] - xyz[1]), 1)
+        theta = np.arccos(cos_theta)
+        self.area = np.sum((0.5*np.linalg.norm(xyz[0] - xyz[1], axis =1)*np.linalg.norm(xyz[2] - xyz[1], axis=1)*np.sin(theta)))/(self.Lx*self.Ly)
 
-         theta = np.arccos(cos_theta)
-         self.area = np.sum((0.5 * np.linalg.norm(xyz[0] - xyz[1], axis=1) *
-                             np.linalg.norm(xyz[2] - xyz[1],axis=1) *
-                             np.sin(theta))) / (self.Lx * self.Ly)
 
 
 def calc_R(n1, n2, theta, pol):
