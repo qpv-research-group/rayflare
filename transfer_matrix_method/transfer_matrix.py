@@ -28,9 +28,9 @@ class OptiStack(object):
     written as a list and contains the layer thickness and the dielectrical model, the raw n and k data as a function
     of wavelengths, or a whole Device structure as the type used in the PDD model.
 
-    In summary, this class acepts:
+    In summary, this class accepts:
 
-        - A solcore structure with layers
+        - A Solcore structure with layers
         - A list where each element is [thickness, DielectricModel]
         - A list where each element is [thickness, wavelength, n, k]
         - A list mixing the above:
@@ -71,6 +71,7 @@ class OptiStack(object):
         :param no_back_reflection: If reflexion from the back must be suppressed. Default=False.
         :param substrate: a semi-infinite transmission medium. Note that if no_back_reflection is set to True,
         adding a substrate won't make any difference.
+        :param incidence: a semi-infinite incidence medium.
         """
 
         self.widths = []
@@ -290,58 +291,62 @@ class OptiStack(object):
 
 def tmm_matrix(layers, transmission, incidence, surf_name, options,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front'):
+    """Function which takes a layer stack and creates an angular redistribution matrix.
+
+        :param layers: A list with one or more layers.
+        :param transmission: transmission medium
+        :param incidence: incidence medium
+        :param surf_name: name of the surface (to save the matrices generated.
+        :param options: a list of options
+        :param coherent: whether or not the layer stack is coherent. If None, it is assumed to be fully coherent
+        :param coherency: a list with the same number of entries as the layers, either 'c' for a coherent layer or
+        'i' for an incoherent layer
+        :param prof_layers: layers for which the absorption profile should be calculated
+        (if None, do not calculate absorption profile at all)
+        :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
+        medium, or rear incidence on the stack, from the transmission medium.
+        :return full_mat: R and T redistribution matrix
+        :return A_mat: matrix describing absorption per layer
+        """
 
     def make_matrix_wl(wl):
         RT_mat = np.zeros((len(theta_bins_in)*2, len(theta_bins_in)))
         A_mat = np.zeros((n_layers, len(theta_bins_in)))
-        # print(j1)
+
         for i1 in range(len(theta_bins_in)):
-            # i1 is in bin
-            #print('theta_ind', angle_vector[:,0][i1])
+
             theta = angle_vector[i1, 1]
-            #print('thetain', i1, np.sin(theta))
-            # print('thin', i1, theta)
+
             data = allres.loc[dict(angle=theta, wl=wl)]
             R_prob = np.real(data['R'].data.item(0))
             T_prob = np.real(data['T'].data.item(0))
 
             Alayer_prob = np.real(data['Alayer'].data)
-            # print(R_prob, T_prob)
             phi_in = angle_vector_phi[i1]
             phi_out = phis_out[i1]
-            #print('phi in/out', phi_in, phi_out)
+
             # reflection
             phi_int = phi_intv[theta_bins_in[i1]]
-            # print('phi_intv', phi_int)
-            # print('phi_out', phi_out)
             phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
-            # print('phi_ind', phi_ind)
             bin_out_r = np.argmin(abs(angle_vector[:, 0] - theta_bins_in[i1])) + phi_ind
-            # print('bin out', bin_out_r)
+
 
             RT_mat[bin_out_r, i1] = R_prob
 
             # transmission
-            #print(np.sin(theta), transmission.n(wl*1e-9))
             theta_t = np.pi-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta))
             if ~np.isnan(theta_t):
 
                 theta_out_bin = np.digitize(theta_t, theta_intv, right=True) - 1
-                #print('thetaout', theta_t, theta_out_bin)
                 phi_int = phi_intv[theta_out_bin]
 
                 phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
-                #print('n_phi_bins', len(phi_int)-1)
-                #print('phi_ind', phi_out, phi_ind)
                 bin_out_t = np.argmin(abs(angle_vector[:, 0] - theta_out_bin)) + phi_ind
-                #print('bin_out', bin_out_t)
-
                 RT_mat[bin_out_t, i1] = T_prob
 
             # absorption
             A_mat[:, i1] = Alayer_prob
 
-        #fullmat = np.vstack((R_mat, T_mat))
         fullmat = COO(RT_mat)
         A_mat = COO(A_mat)
         return fullmat, A_mat
@@ -366,7 +371,7 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
     else:
 
         wavelengths = options['wavelengths']*1e9 # convert to nm
-        #pol = options['pol']
+
         theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'], options['c_azimuth'])
         angles_in = angle_vector[:int(len(angle_vector) / 2), :]
         thetas = np.unique(angles_in[:, 1])
@@ -436,7 +441,6 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
             for i3, theta in enumerate(thetas):
 
-                # print(side, pol, theta)
                 res = calculate_rat(optlayers, wavelengths, angle=theta, pol=pol,
                                     coherent=coherent, coherency_list=coherency_list, profile=profile,
                                     layers=prof_layers)
@@ -499,14 +503,15 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined.
 
-    :param structure: A solcore Structure object with layers and materials or a OptiStack object.
+    :param stack: an OptiStack object.
     :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
     :param angle: Angle (in radians) of the incident light. Default: 0 (normal incidence).
     :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
     :param coherent: If the light is coherent or not. If not, a coherency list must be added.
     :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which
     incoherent ('i'). It needs as many elements as layers in the structure.
-    :param no_back_reflection: If reflexion from the back must be supressed. Default=True.
+    :param profile: whether or not to calculate the absorption profile
+    :param layers: indices of the layers in which to calculate the absorption profile. Layer 0 is the incidence medium.
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
     num_wl = len(wavelength)
@@ -574,7 +579,7 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
     # layer indices: 0 is incidence, n is transmission medium
     if profile:
         if pol in 'sp':
-            # print(stack.get_indices(wavelength).shape)
+
             if coherent:
                 fn = tmm.absorp_analytic_fn().fill_in(out, layers)
 

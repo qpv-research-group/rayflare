@@ -25,7 +25,6 @@ These functions are all imported into the main package (tmm) namespace,
 so you can call them with tmm.coh_tmm(...) etc.
 """
 
-# from __future__ import division, print_function, absolute_import
 
 from numpy import cos, inf, zeros, array, exp, conj, nan, isnan
 import scipy as sp
@@ -514,20 +513,14 @@ class absorp_analytic_fn:
 
         if pol == 's':
             temp = (n * cos(th) * kz).imag / (n_0 * cos(th_0)).real
-            #print('temp', temp)
             self.A1 = temp * abs(w) ** 2
-            #print('A1', self.A1)
             self.A2 = temp * abs(v) ** 2
-            #print('A2', self.A2)
             self.A3 = temp * v * conj(w)
         else:  # pol=='p'
             temp = (2 * (kz.imag) * (n * cos(conj(th))).real /
                     (n_0 * conj(cos(th_0))).real)
-            #print('temp', temp)
             self.A1 = temp * abs(w) ** 2
-            #print('A1', self.A1)
             self.A2 = temp * abs(v) ** 2
-            #print('A2', self.A2)
             self.A3 = v * conj(w) * (-2 * (kz.real) * (n * cos(conj(th))).imag /
                                      (n_0 * conj(cos(th_0))).real)
         return self
@@ -554,10 +547,6 @@ class absorp_analytic_fn:
             part4 = conj(self.A3[:, None]) * exp(-1j * self.a3[:, None] * z[None, :])
 
             part1[self.A1 < 1e-100, :] = 0
-            #print('part1', part1)
-            #print('part2', part2)
-            #print('part3+4', part3 + part4)
-
 
             return (part1 + part2 + part3 + part4)
         else:
@@ -816,7 +805,6 @@ def inc_tmm(pol, n_list, d_list, c_list, th_0, lam_vac):
 
     coh_tmm_bdata_list = []
     for i in range(num_stacks):
-        # print(th_list[all_from_stack[i][0]])
 
         coh_tmm_data_list.append(coh_tmm(pol, stack_n_list[i],
                                          stack_d_list[i],
@@ -906,7 +894,6 @@ def inc_tmm(pol, n_list, d_list, c_list, th_0, lam_vac):
         L_list.append(L)
         Ltilde = np.matmul(Ltilde, L)
 
-    #print('Ltilde', Ltilde)
     T = 1 / Ltilde[:, 0, 0]
     R = Ltilde[:, 1, 0] / Ltilde[:, 0, 0]
 
@@ -1041,11 +1028,10 @@ def inc_find_absorp_analytic_fn(layer, inc_data):
     backfunc = absorp_analytic_fn()
     backfunc.fill_in(inc_data['coh_tmm_bdata_list'][stackindex],
                      -1 - withinstackindex)
-    #print('before scale', backfunc.A2, backfunc.A1)
+
     backfunc.scale(inc_data['stackFB_list'][:, stackindex, 1])
-    #print('after scale', backfunc.A2, backfunc.A1)
     backfunc.flip()
-    #print('after flip', backfunc.A2, backfunc.A1)
+
     return forwardfunc.add(backfunc)
 
 
