@@ -101,6 +101,190 @@ def make_profile_data(options, unique_thetas, n_a_in, side, layer_name, n_layers
 
     return profile, intgr
 
+
+def make_profile_functions(options, unique_thetas, n_a_in, side, layer_name, prof_layers, widths):
+
+    # class profile_func:
+    #
+    #     def __init__(self, x):
+    #
+    #         non_zero = x[np.all(x, axis=1)]
+    #         self.A1 = non_zero.loc[dict(coeff='A1')]
+    #         self.A2 = non_zero.loc[dict(coeff='A2')]
+    #         self.A3_r = non_zero.loc[dict(coeff='A3_r')]
+    #         self.A3_i = non_zero.loc[dict(coeff='A3_i')]
+    #         self.a1 = non_zero.loc[dict(coeff='a1')]
+    #         self.a3 = non_zero.loc[dict(coeff='a3')]
+    #
+    #     def run(self, side, z, offset):
+    #         part1 = self.A1 * np.exp(self.a1 * z)
+    #         part2 = self.A2 * np.exp(-self.a1 * z)
+    #         part3 = (self.A3_r + 1j * self.A3_i) * np.exp(1j * self.a3 * z)
+    #         part4 = (self.A3_r - 1j * self.A3_i) * np.exp(-1j * self.a3 * z)
+    #         result = np.real(part1 + part2 + part3 + part4)
+    #         if side == -1:
+    #             result = np.flip(result, 1)
+    #
+    #         return result.reduce(np.sum, axis=0).assign_coords(dim_0= z + offset)
+    #
+    # def calc_prof(x, z, offset, side):
+    #     part1 = x[:,0] * np.exp(x[:,4] * z)
+    #     part2 = x[:,1] * np.exp(-x[:,4] * z)
+    #     part3 = (x[:,2] + 1j * x[:,3]) * np.exp(1j * x[:,5] * z)
+    #     part4 = (x[:,2] - 1j * x[:,3]) * np.exp(-1j * x[:,5] * z)
+    #     result = np.real(part1 + part2 + part3 + part4)
+    #     if side == -1:
+    #         result = np.flip(result, 1)
+    #
+    #     return result.reduce(np.sum, axis=0).assign_coords(dim_0=z + offset)
+    #
+    # def get_relevant(x):
+    #     non_zero = x[np.all(x, axis=1)]
+    #     print(non_zero.shape)
+    #     return non_zero
+    #
+    # def prof_per_angle(x):
+    #     by_layer = x.groupby('layer').apply(profile_func)
+    #     return by_layer
+    #
+    # def make_scaled_func(x):
+    #     print('wl1')
+    #     by_angle = x.groupby('global_index').apply(prof_per_angle)
+    #     return by_angle
+
+    def profile_per_layer(xx, z, offset, side, non_zero):
+        layer_index = xx.coords['layer'].item(0) - 1
+        x = xx[non_zero]
+        part1 = x[:,0] * np.exp(x[:,4] * z[layer_index])
+        part2 = x[:,1] * np.exp(-x[:,4] * z[layer_index])
+        part3 = (x[:,2] + 1j * x[:,3]) * np.exp(1j * x[:,5] * z[layer_index])
+        part4 = (x[:,2] - 1j * x[:,3]) * np.exp(-1j * x[:,5] * z[layer_index])
+        result = np.real(part1 + part2 + part3 + part4)
+        if side == -1:
+            result = np.flip(result, 1)
+        return result.reduce(np.sum, axis=0).assign_coords(dim_0=z[layer_index] + offset[layer_index])
+
+    def profile_per_angle(x, z, offset, side, nz):
+        i2 = x.coords['global_index'].item(0)
+        non_zero=np.where(nz[:, i2])[0]
+        by_layer = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side, non_zero=non_zero)
+        return by_layer
+
+    def scaled_profile(x, z, offset, side):
+        print('wl1')
+        xloc = x.loc[dict(coeff='A1')].reduce(np.sum,'layer')
+        nz = xloc != 0
+        by_angle = x.groupby('global_index').apply(profile_per_angle, z=z, offset=offset, side=side, nz=nz)
+        return by_angle
+
+    if side == 1:
+        side_str = 'front'
+    else:
+        side_str = 'rear'
+
+    angle_dist_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'Aprof.npz')
+
+    angle_distmat = load_npz(angle_dist_path)
+    #num_wl = len(options['wavelengths'])
+    pr = xr.DataArray(angle_distmat.todense(), dims=['wl', 'local_theta', 'global_index'],
+                      coords={'wl': options['wavelengths'] * 1e9, 'local_theta': unique_thetas,
+                              'global_index': np.arange(0, n_a_in)})
+
+    lookuptable = xr.open_dataset(
+        os.path.join(results_path, options['project_name'], layer_name + '.nc'))
+    #lookuptable layers are 1-indexed
+    data = lookuptable.loc[dict(side=side, pol=options['pol'], layer=prof_layers)].interp(angle=pr.coords['local_theta'],
+                                                                       wl=pr.coords['wl'])
+
+    params = data['Aprof'].drop(['layer', 'side', 'angle', 'pol']).transpose('wl', 'local_theta', 'layer', 'coeff')
+
+    s_params = params.loc[
+        dict(coeff=['A1', 'A2', 'A3_r',
+                    'A3_i'])]  # have to scale these to make sure integrated absorption is correct
+    c_params = params.loc[dict(coeff=['a1', 'a3'])]  # these should not be scaled
+
+    scale_res = pr.groupby('global_index').apply(scale_func, scale_params=s_params)
+    const_res = pr.groupby('global_index').apply(select_func, const_params=c_params)
+
+    params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=prof_layers)
+    params = params.transpose('wl', 'local_theta', 'global_index', 'layer', 'coeff')
+    print(params)
+    # total_width = np.sum(layer_widths[i1])
+    z_list = []
+    for l_w in widths:
+        z_list.append(xr.DataArray(np.arange(0, l_w, options['nm_spacing'])))
+
+    offsets = np.cumsum([0] + widths)[:-1]
+    start = time()
+    # print(params)
+    print(params.loc[dict(coeff='A1', layer=prof_layers[0])][0])
+    ans = params.groupby('wl').apply(scaled_profile, z=z_list, offset=offsets, side=side).drop('coeff')
+    ans = ans.fillna(0)
+
+    print('Took ' + str(time() - start) + ' seconds')
+
+    profile = ans.reduce(np.sum, 'layer')
+
+    # start = time()
+    # # print(params)
+    # fn_array = np.zeros((len(options['wavelengths']), n_a_in, len(prof_layers)))
+    # fn_list = []
+    # for i1 in range(len(options['wavelengths'])):
+    #     print(i1)
+    #     wl_res = [[] for _ in range(n_a_in)]
+    #     x = params.loc[dict(coeff='A1', layer=prof_layers[0])][0]
+    #
+    #     nz = x != 0
+    #     print(nz.shape)
+    #     for i2 in range(n_a_in):
+    #         for i3 in range(len(prof_layers)):
+    #             #('wl', 'local_theta', 'global_index', 'layer', 'coeff')
+    #             data=params[i1, np.where(nz[:, i2])[0], i2, i3]
+    #             #print(data)
+    #             res = calc_prof(data, z_list[i3], offsets[i3], side=side).drop('coeff')
+    #             #ans = ans.fillna(0)
+    #
+    #             #profile = ans.reduce(np.sum, 'layer')
+    #             #rel = get_relevant(data)
+    #             #wl_res[i2].append(rel)
+    #             #fn = profile_func(data).run
+    #             #fn(1, z_list[i3], offsets[i3])
+    #     fn_list.append(wl_res)
+    #
+    # print('Took ' + str(time() - start) + ' seconds')
+    #
+    # profile = ans.reduce(np.sum, 'layer')
+    #
+    # # there is no reason to do this again; this should be the same as the absorption per
+    # # layer before scaling (currently not saved)
+    # intgr = xr.DataArray(np.zeros((n_layers, num_wl, len(params.global_index))),
+    #                      dims=['layer', 'wl', 'global_index'],
+    #                      coords={'wl': params.wl, 'global_index': params.global_index})
+    #
+    # for i2, width in enumerate(widths):
+    #     A1 = params.loc[dict(coeff='A1', layer=i2)]
+    #     A2 = params.loc[dict(coeff='A2', layer=i2)]
+    #     A3_r = params.loc[dict(coeff='A3_r', layer=i2)]
+    #     A3_i = params.loc[dict(coeff='A3_i', layer=i2)]
+    #     a1 = params.loc[dict(coeff='a1', layer=i2)]
+    #     a3 = params.loc[dict(coeff='a3', layer=i2)]
+    #
+    #     intgr_width = ((A1 / a1) * (np.exp(a1 * width) - 1) - (A2 / a1) * (np.exp(-a1 * width) - 1) - \
+    #                    1j * ((A3_r + 1j * A3_i) / a3) * (np.exp(1j * a3 * width) - 1) + 1j * (
+    #                            (A3_r - 1j * A3_i) / a3) * (
+    #                            np.exp(-1j * a3 * width) - 1)).fillna(0)
+    #
+    #     intgr[i2] = intgr_width.reduce(np.sum, 'local_theta')
+    #
+    # intgr = intgr.reduce(np.sum, 'layer')
+    # intgr.name = 'intgr'
+    # profile.name = 'profile'
+    # allres = xr.merge([intgr, profile])
+    # allres.to_netcdf(prof_mat_path)
+
+    return profile
+
+
 def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth):
     """
     This function makes the v0 array, corresponding to the input power per angular channel
@@ -159,6 +343,7 @@ def scale_func(x, scale_params):
 def select_func(x, const_params):
     return (x.data[:,:,None, None] != 0)*const_params
 
+
 def profile_per_layer(x, z, offset, side):
     layer_index = x.coords['layer'].item(0)
     #print(x)
@@ -181,7 +366,7 @@ def profile_per_layer(x, z, offset, side):
     return result.reduce(np.sum, axis=0).assign_coords(dim_0=z[layer_index]+offset[layer_index])
 
 def profile_per_angle(x, z, offset, side):
-    by_layer = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
+    by_layer = x.groupby('layer').apply(profile_per_layer, nz=nz, z=z, offset=offset, side=side)
     return by_layer
 
 def scaled_profile(x, z, offset, side):
@@ -225,7 +410,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
-    theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], np.pi/2, options['c_azimuth'])
+    theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'], options['c_azimuth'])
     n_a_in = int(len(angle_vector)/2)
 
     num_wl = len(options['wavelengths'])

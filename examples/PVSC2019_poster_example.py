@@ -24,10 +24,12 @@ import matplotlib
 wavelengths = np.linspace(300, 1200, 112)*1e-9
 
 options = default_options
-options.nm_spacing = 0.5
+options.nm_spacing = 1
 options.wavelengths = wavelengths
 options.project_name = 'UC_PC'
 options.n_rays = 1e6
+options.n_theta_bins = 100
+options.phi_symmetry = np.pi/2
 
 cur_path = os.path.dirname(os.path.abspath(__file__))
 # new materials from data
