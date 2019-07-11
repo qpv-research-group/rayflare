@@ -43,6 +43,7 @@ def process_structure(SC, options):
                     coherency_list = struct.coherency_list
                 else:
                     coherency_list = None
+
                 prof_layers = struct.prof_layers
 
                 make_TMM_lookuptable(struct.layers, substrate, incidence, struct.name,
@@ -90,9 +91,11 @@ def process_structure(SC, options):
                 else:
                     coherency_list = None
 
+                prof_layers = struct.prof_layers
+
                 for side in which_sides:
                     tmm_matrix(struct.layers, substrate, incidence, struct.name, options,
-                               coherent=coherent, coherency_list=coherency_list, prof_layers=None, front_or_rear=side)
+                               coherent=coherent, coherency_list=coherency_list, prof_layers=prof_layers, front_or_rear=side)
 
 
             if struct.method == 'RT_TMM':
@@ -109,10 +112,11 @@ def process_structure(SC, options):
                     substrate = SC[i1+1].material # bulk material below
                     which_sides = ['front', 'rear']
 
-                #if len(struct.prof_layers) > 0:
-                #    prof = True
-                #else:
-                #    prof = False
+                if len(struct.prof_layers) > 0:
+                    prof = True
+                else:
+                    prof = False
+
                 prof = struct.prof_layers
                 n_abs_layers = len(struct.layers)
 
@@ -172,6 +176,7 @@ def calculate_RAT(SC, options):
     layer_widths = []
     n_layers = []
     layer_names = []
+    calc_prof_list = []
 
     for i1, struct in enumerate(SC):
         if type(struct) == BulkLayer:
@@ -180,12 +185,13 @@ def calculate_RAT(SC, options):
         if type(struct) == Interface:
             layer_names.append(struct.name)
 
-            if options['calc_profile']:
-                    n_layers.append(len(struct.layers))
-                    layer_widths.append((np.array(struct.widths)*1e9).tolist())
+            n_layers.append(len(struct.layers))
+            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+            calc_prof_list.append(struct.prof_layers)
+
 
 
     results = matrix_multiplication(bulk_mats, bulk_widths, options,
-                                                               layer_widths, n_layers, layer_names)
+                                                               layer_widths, n_layers, layer_names, calc_prof_list)
 
     return results

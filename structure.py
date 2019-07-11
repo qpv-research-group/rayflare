@@ -61,7 +61,7 @@ class BulkLayer:
 
 class Interface:
 
-    def __init__(self, method, layers=[], texture=None, **kwargs):
+    def __init__(self, method, layers=[], texture=None, prof_layers=[],  **kwargs):
         """ Layer class constructor.
 
         """
@@ -69,6 +69,7 @@ class Interface:
         self.__dict__.update(kwargs)
         self.layers = layers
         self.texture = texture # for ray tracing
+        self.prof_layers = prof_layers # in which layers of the interface (1-indexed) should absorption be calculated?
         self.materials = []
         self.n_depths = []
         self.widths = []

@@ -44,6 +44,8 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
 
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
+    prof_mat_path = os.path.join(results_path, options['project_name'],
+                                 surf_name + front_or_rear + 'profmat.nc')
 
     if Fr_or_TMM > 0:
         savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')
@@ -54,7 +56,16 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         absArrays = load_npz(savepath_A)
         if Fr_or_TMM > 0:
             local_angles = load_npz(savepath_prof)
-            return allArrays, absArrays, local_angles
+
+            if len(calc_profile) > 0:
+                prof_int = xr.load_dataset(prof_mat_path)
+                profile = prof_int['profile']
+                intgr = prof_int['intgr']
+                return allArrays, absArrays, local_angles, profile, intgr
+
+            else:
+                return allArrays, absArrays, local_angles
+
 
         else:
             return allArrays, absArrays
@@ -173,8 +184,6 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
             if len(calc_profile) > 0:
                 profile = xr.concat([item[3] for item in allres], 'wl')
                 intgr = xr.concat([item[4] for item in allres], 'wl')
-                prof_mat_path = os.path.join(results_path, options['project_name'],
-                                             surf_name + front_or_rear + 'profmat.nc')
                 intgr.name = 'intgr'
                 profile.name = 'profile'
                 allres = xr.merge([intgr, profile])

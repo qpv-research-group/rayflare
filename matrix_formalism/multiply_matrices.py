@@ -380,7 +380,8 @@ def bulk_profile(x, ths):
 #     by_angle = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
 #     return by_angle
 
-def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_layers=[], layer_names=[]):
+def matrix_multiplication(bulk_mats, bulk_thick, options,
+                          layer_widths=[], n_layers=[], layer_names=[], calc_prof_list=[]):
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
@@ -454,7 +455,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         Af.append(absmat)
 
 
-        if options['calc_profile']:
+        if len(calc_prof_list[i1]) > 0:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontprofmat.nc')
@@ -463,6 +464,10 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
             intgr = prof_int['intgr']
             Pf.append(profile)
             If.append(intgr)
+
+        else:
+            Pf.append([])
+            If.append([])
 
 
     # rear incidence matrices
@@ -485,7 +490,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
         Tb.append(np.flip(fullmat[:, n_a_in:, :],1 ))
         Ab.append(absmat)
 
-        if options['calc_profile']:
+        if len(calc_prof_list[i1]) > 0:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearprofmat.nc')
@@ -495,9 +500,13 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
             Pb.append(profile)
             Ib.append(intgr)
 
+        else:
+            Pb.append([])
+            Ib.append([])
 
+    len_calcs = np.array([len(x) for x in calc_prof_list])
 
-    if options['calc_profile']:
+    if np.any(len_calcs > 0):
         a = [[] for _ in range(n_interfaces)]
         a_prof = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]
@@ -520,13 +529,16 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
             a[i1].append(dot_wl(Af[i1], v0)) # absorbed in front surface at first interaction
             #print(v0)
             #print(If[i1])
-            v_xr = xr.DataArray(v0, dims = ['wl', 'global_index'],
-                                               coords = {'wl': If[i1].coords['wl'],
-                                                         'global_index': np.arange(0, n_a_in)})
-            int_power = xr.dot(v_xr, If[i1], dims = 'global_index')
-            scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
 
-            a_prof[i1].append((scale*xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
+            if len(If[i1] > 0):
+                v_xr = xr.DataArray(v0, dims = ['wl', 'global_index'],
+                                                   coords = {'wl': If[i1].coords['wl'],
+                                                             'global_index': np.arange(0, n_a_in)})
+                int_power = xr.dot(v_xr, If[i1], dims = 'global_index')
+                scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
+
+                a_prof[i1].append((scale*xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
+
             power = np.sum(vf_1[i1], axis=1)
 
             # rep
@@ -535,16 +547,19 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
             while np.any(power > options['I_thresh']):
                 print(i2)
                 #print(power)
+                vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
 
-                vb_1[i1] = dot_wl(D[i1], vf_1[i1]) # pass through bulk, downwards
-                scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
-                #('front profile')
-                v_xr = xr.DataArray(vb_1[i1], dims=['wl', 'global_index'],
-                                    coords={'wl': If[i1+1].coords['wl'],
-                                            'global_index': np.arange(0, n_a_in)})
+                if len(If[i1+1]) > 0:
 
-                a_prof[i1+1].append((scale * xr.dot(v_xr, Pf[i1+1], dims='global_index')).data)
+                    v_xr = xr.DataArray(vb_1[i1], dims=['wl', 'global_index'],
+                                        coords={'wl': If[i1+1].coords['wl'],
+                                                'global_index': np.arange(0, n_a_in)})
+                    int_power = xr.dot(v_xr, If[i1+1], dims='global_index')
+                    scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
+                    #('front profile')
 
+
+                    a_prof[i1+1].append((scale * xr.dot(v_xr, Pf[i1+1], dims='global_index')).data)
 
                 #remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
@@ -577,12 +592,13 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
 
                 #print('rear profile')
-                v_xr = xr.DataArray(vf_2[i1], dims=['wl', 'global_index'],
-                                    coords={'wl': Ib[i1].coords['wl'],
-                                            'global_index': np.arange(0, n_a_in)})
-                int_power = xr.dot(v_xr, Ib[i1], dims='global_index')
-                scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
-                a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+                if len(Ib[i1]) > 0:
+                    v_xr = xr.DataArray(vf_2[i1], dims=['wl', 'global_index'],
+                                        coords={'wl': Ib[i1].coords['wl'],
+                                                'global_index': np.arange(0, n_a_in)})
+                    int_power = xr.dot(v_xr, Ib[i1], dims='global_index')
+                    scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
+                    a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
 
                 #remaining_power.append(np.sum(vf_2, axis=1))
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
@@ -649,9 +665,10 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_widths=[], n_lay
                                              'wl': options['wavelengths']}, name = 'A_interface')
         profile = []
         for j1, item in enumerate(a_prof):
-            profile.append(xr.DataArray(np.sum(item, 0),
-                   dims=['wl', 'z'], coords = {'wl': options['wavelengths']},
-                                        name = 'A_profile' + str(j1))) # not necessarily same number of z coords per layer stack
+            if len(item) > 0:
+                profile.append(xr.DataArray(np.sum(item, 0),
+                       dims=['wl', 'z'], coords = {'wl': options['wavelengths']},
+                                            name = 'A_profile' + str(j1))) # not necessarily same number of z coords per layer stack
 
         bulk_profile = np.array(A_prof)
 

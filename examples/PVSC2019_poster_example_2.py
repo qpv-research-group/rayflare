@@ -27,10 +27,9 @@ options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'new_prof'
-options.n_rays = 1e5
+options.n_rays = 1e4
 options.n_theta_bins = 50
 options.phi_symmetry = np.pi/4
-options.calc_profile = True
 options.I_thresh = 1e-4
 options.lookuptable_angles = 200
 options.parallel = True
@@ -70,11 +69,11 @@ back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_
 surf = regular_pyramids(elevation_angle=55, upright=True)
 surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
-front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi',
-                       coherent=True, prof_layers = [4, 6, 8])
-back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO',
+front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_2',
+                       coherent=True)
+back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_2',
 
-                      coherent=True, prof_layers = [1])
+                      coherent=True)
 
 
 bulk_Si = BulkLayer(260e-6, Si, name = 'Si_bulk') # bulk thickness in m
@@ -142,7 +141,7 @@ plt.show()
 
 # plot absorption profiles
 
-if options['calc_profile']:
+if len(front_surf.prof_layers) > 0:
     profile = results[2]
     bpf = results[3]  # bulk profule
     layer_widths = []
