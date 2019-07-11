@@ -13,6 +13,16 @@ def process_structure(SC, options):
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations"""
 
+    layer_widths = []
+    calc_profile = []
+
+    for i1, struct in enumerate(SC):
+        if type(struct) == BulkLayer:
+            layer_widths.append(struct.width*1e9)
+        if type(struct) == Interface:
+            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+
+
     for i1, struct in enumerate(SC):
         if type(struct) == Interface:
             # is this an interface type which requires a lookup table?
@@ -99,11 +109,11 @@ def process_structure(SC, options):
                     substrate = SC[i1+1].material # bulk material below
                     which_sides = ['front', 'rear']
 
-                if len(struct.prof_layers) > 0:
-                    prof = True
-                else:
-                    prof = False
-
+                #if len(struct.prof_layers) > 0:
+                #    prof = True
+                #else:
+                #    prof = False
+                prof = struct.prof_layers
                 n_abs_layers = len(struct.layers)
 
                 group = RTgroup(textures=[struct.texture])
@@ -112,8 +122,9 @@ def process_structure(SC, options):
                         only_incidence_angle = True
                     else:
                         only_incidence_angle = False
+
                     RT(group, incidence, substrate, struct.name, options, 1, side,
-                       n_abs_layers, prof, only_incidence_angle)
+                       n_abs_layers, prof, only_incidence_angle, layer_widths[i1])
 
             if struct.method == 'RT_Fresnel':
                 print('Ray tracing with Fresnel equations for element ' + str(i1) + ' in structure')
