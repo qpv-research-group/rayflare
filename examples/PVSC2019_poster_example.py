@@ -24,14 +24,14 @@ import matplotlib
 wavelengths = np.linspace(300, 1200, 112)*1e-9
 
 options = default_options
-options.nm_spacing = 1
+options.nm_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'UC_PC'
 options.n_rays = 1e6
 options.n_theta_bins = 100
 options.phi_symmetry = np.pi/2
 options.calc_profile = True
-options.I_thresh = 5e-3
+options.I_thresh = 1e-4
 
 cur_path = os.path.dirname(os.path.abspath(__file__))
 # new materials from data
@@ -82,10 +82,10 @@ surf = regular_pyramids(elevation_angle=55, upright=True)
 surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
 front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_1e6',
-                       coherent=True, prof_layers = np.arange(1,10))
+                       coherent=True, prof_layers = [6])
 back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_1e6',
 
-                      coherent=True, prof_layers = np.arange(1,4))
+                      coherent=True)
 
 
 bulk_Si = BulkLayer(260e-6, Si, name = 'Si_bulk') # bulk thickness in m
@@ -98,8 +98,6 @@ results = calculate_RAT(SC, options)
 
 RAT = results[0]
 results_per_pass = results[1]
-
-
 
 R_per_pass = np.sum(results_per_pass['r'][0], 2)
 R_0 = R_per_pass[0]
@@ -153,9 +151,9 @@ plt.show()
 
 # plot absorption profiles
 
-if options['calc_profile']:
+if len(SC[0].prof_layers) > 0:
     profile = results[2]
-    bpf = results[3]  # bulk profule
+    bpf = results[3]  # bulk profile
     layer_widths = []
 
     for i1, struct in enumerate(SC):
@@ -164,33 +162,31 @@ if options['calc_profile']:
 
     #plt.show()
     import seaborn as sns
-    import matplotlib
 
     offset = np.cumsum([0]+layer_widths[0])
     prof_plot = profile[0]
-    prof_plot = prof_plot.assign_coords(z=np.arange(0, np.sum(layer_widths[0]), options['nm_spacing']))
+    prof_plot = prof_plot.assign_coords(z=np.arange(0, np.sum(np.array(layer_widths[0])[np.array(SC[0].prof_layers)-1]), options['nm_spacing']))
     material_labels = ['MgF$_2$', 'IZO', 'SnO$_2$', 'C$_{60}$', 'LiF', 'Perovskite', 'Spiro-TTB', 'aSi-n', 'aSi-i']
     pal2 = sns.cubehelix_palette(4, start=.5, rot=-.9)
-
-
 
     fig = plt.figure()
     ax = plt.subplot(111)
     j1=0
     for j1,i1 in enumerate([0,30,111]):
-          z = np.arange(0, np.sum(layer_widths[0]), options['nm_spacing'])
+          z = np.arange(0, np.sum(np.array(layer_widths[0])[np.array(SC[0].prof_layers)-1]), options['nm_spacing'])
           ax.plot(z, prof_plot[i1,:], color=pal2[j1+1], label = str(round(options['wavelengths'][i1]*1e9,1)))
           j1+=1
     ax.set_ylabel('Absorbed energy density (nm$^{-1}$)')
     ax.legend(title='Wavelength (nm)')
     ax.set_xlabel('Distance into surface (nm)')
     ax.set_ylim(0,0.017)
-    ax.set_xlim(0,750)
-    for i1 in [0,1,3,5,7]:
-        ax.text(offset[i1], np.max(prof_plot[0].sel(z=offset[i1]))+0.0003, material_labels[i1], rotation=0)
+    ax.set_xlim(0,np.sum(np.array(layer_widths[0])[np.array(SC[0].prof_layers)-1]))
+    #for i1 in SC[0].prof_layers:
+    #    ax.text(offset[i1], np.max(prof_plot[0].sel(z=offset[i1]))+0.0003, material_labels[i1], rotation=0)
 
 
     plt.show()
+
 
 from angles import theta_summary, make_angle_vector
 from config import results_path
@@ -296,7 +292,7 @@ ax.plot(options['wavelengths']*1e9, bulk_A_text, color= pal[5], linewidth=2,
 ax.plot(options['wavelengths']*1e9, bulk_A_text_thicker, color= pal[10], linewidth=2,
         label=r'Text. back + 360 $\mu$m c-Si')
 
-lgd=ax.legend(loc='bottom left')
+lgd=ax.legend(loc='lower left')
 ax.set_xlabel('Wavelength (nm)')
 ax.set_ylabel('Absorption in c-Si')
 ax.set_xlim(900, 1200)

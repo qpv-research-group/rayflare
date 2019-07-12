@@ -61,7 +61,7 @@ d_vectors = ((x, 0),(0,x))
 area_fill_factor = 0.36
 hw = np.sqrt(area_fill_factor)*500
 
-front_materials = []
+front_materials = [Layer(si('100nm'), IZO)]
 back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': Air, 'center': (x/2, x/2),
                                                      'halfwidths': (hw, hw), 'angle': 45}])]
 
@@ -71,7 +71,8 @@ back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': 
 # pyramids in the model
 
 
-front_surf = Interface('TMM', layers=front_materials, name = 'planar', coherent=True)
+front_surf = Interface('TMM', layers=front_materials, name = 'planar_IZO', coherent=True,
+                       prof_layers=[1])
 back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating', d_vectors=d_vectors, rcwa_orders=200)
 #back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
 
