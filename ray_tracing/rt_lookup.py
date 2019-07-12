@@ -54,10 +54,10 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         print('Existing angular redistribution matrices found')
         allArrays = load_npz(savepath_RT)
         absArrays = load_npz(savepath_A)
-        if Fr_or_TMM > 0:
+        if os.path.isfile(savepath_prof):
             local_angles = load_npz(savepath_prof)
 
-            if len(calc_profile) > 0:
+            if os.path.isfile(prof_mat_path):
                 prof_int = xr.load_dataset(prof_mat_path)
                 profile = prof_int['profile']
                 intgr = prof_int['intgr']
