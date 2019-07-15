@@ -443,6 +443,10 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
         T_loop = np.empty((len(wavelengths), n_angles))
         Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers), dtype=np.complex_)
         th_t_loop = np.empty((len(wavelengths), n_angles))
+
+        if front_or_rear == 'rear':
+            Alayer_loop = np.flip(Alayer_loop, axis=2)
+
         if profile:
             Aprof_loop = np.empty((n_angles, len(wavelengths), len(dist)))
 
