@@ -15,35 +15,37 @@ from angles import make_angle_vector, theta_summary
 
 GaAs = material('GaAs')()
 Air = material('Air')()
-TiO2 = material('TiO2', sopra=True)()  # for the nanoparticles
-Ag = material('Ag_J')()
+
+Ag = material('Ag_Jiang')()
 # Materials for the anti-reflection coating
-MgF2 = material('MgF2')()
-TiO2 = material('TiO2')()
+MgF2 = material('203', nk_db=True)()
+#TiO2 = material('TiO2')()
 Ta2O5 = material('410', nk_db = True)()
-Ag = material('Ag_J')()
-Si = material('Si')()
+#Si = material('Si')()
+SiN = material('SiN', nk_db = True)()
 
 #x = 500
-x=1000
+x=500
 # anti-reflection coating
 
-size = ((x, 0),(0,x))
+ARC = [Layer(si('78nm'), MgF2), Layer(si('48nm'), Ta2O5)]
+
+size = ((x, 0),(x/2,np.tan(np.pi/3)*x))
 # The layer with nanoparticles
 #struct_mirror = [Layer(si('120nm'), TiO2, geometry=[{'type': 'rectangle', 'mat': Ag, 'center': (x/2, x/2),
                                                    #  'halfwidths': (210,210), 'angle': 0}])]
 
-grating =  [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': Air, 'center': (x/2, x/2),
-                                                     'halfwidths': (np.sqrt(2*(500**2))/2, np.sqrt(2*(500**2))/2), 'angle': 45}])]
+grating =  [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                     'radius': 100, 'angle': 0}])]
 # NP_layer=[Layer(si('50nm'), Ag)]
 
 
-#solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('300nm'))] + struct_mirror)
+solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
 
-solar_cell = SolarCell(grating)
+#solar_cell = SolarCell(grating)
 
 orders = 20
-wavelengths = np.linspace(600, 1100, 4)*1e-9
+wavelengths = np.linspace(250, 930, 40)*1e-9
 
 options = {'nm_spacing': 0.5,
            'project_name': 'RCWA_test',
@@ -57,68 +59,93 @@ options = {'nm_spacing': 0.5,
            'phi_symmetry': np.pi/2,
            }
 
-output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Si, only_incidence_angle=False,
-                       front_or_rear='front', surf_name='OPTOS')
-
-#plt.plot(wavelengths, output['A_layer'][:, 0, 0])
-#plt.plot(wavelengths, output['A_layer'][:, 0, 1])
-#plt.plot(wavelengths, output['A_layer'][:, 0, 2])
-#plt.plot(wavelengths, output['A_layer'][:, 0, 3])
-plt.plot(wavelengths, output['R'][:,0])
-plt.plot(wavelengths, output['T'][:,0])
-plt.legend(['R', 'T'])
-plt.show()
-#
-# #plt.figure()
-# #plt.plot(output['theta_r'][0], output['R_pfbo'][0], 'o')
-# #plt.plot(output['theta_r'][0], output['R_pfbo_2'][0], 'o')
-#
-#
-# theta_intv, phi_intv, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
-#
-# binned_theta_out, _ = np.histogram(output['theta_r'][0], bins=theta_intv, weights=output['R_pfbo'][0])
-# binned_theta_t, _ = np.histogram(output['theta_t'][0], bins=theta_intv, weights=output['T_pfbo'][0])
-# plt.figure()
-# plt.plot(binned_theta_out, 'o')
-# plt.plot(binned_theta_t, 'o')
-#
-# print(output['T'][7])
-# print(np.sum(output['T_pfbo'][7]))
-
-from sparse import load_npz
-from config import results_path
-import os
-
-sprs = load_npz(os.path.join(results_path, options['project_name'], 'crossed_grating' + 'frontRT.npz'))
-
-full = sprs[15].todense()
-
-theta_intv, phi_intv, angle_vector = make_angle_vector(100, options['phi_symmetry'], options['c_azimuth'])
-
-#R_mat = output['full_mat'][3].todense()
-
-RT_sum, R, T = theta_summary(full, angle_vector)
-
-sum_mat = xr.DataArray(RT_sum[0:100], dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,100),
-                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,100)})
-
-import matplotlib as mpl
+all_orders = [5, 10, 20, 40, 75, 100]#, 100, 150]
 import seaborn as sns
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = sum_mat.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
+pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
 
 
-fig.savefig('matrix_grating.png', bbox_inches='tight', format='png')
+spect=np.loadtxt('AM0.csv', delimiter=',')
+from solcore.interpolate import interp1d
+from solcore.constants import q, h, c
 
-sum_mat = xr.DataArray(RT_sum[100:], dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,100),
-                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,100)})
+AM0 = interp1d(spect[:,0], spect[:,1])
 
-fig = plt.figure()
-ax = plt.subplot(111)
-sum_mat.plot.imshow(ax=ax, vmax=5)
+EQE_wl = np.linspace(250.1, 929.9, 700)
+Jscs = []
 
+plt.figure()
+for i1, orders in enumerate(all_orders):
+    print(orders)
+    grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                  'radius': 100, 'angle': 45}])]
+    solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
+    output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
+                           front_or_rear='front', surf_name='OPTOS')
+
+    A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 2, :][:, 0])
+    Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+    Jscs.append(Jsc)
+    #plt.figure()
+    #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
+    #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
+    plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], color=pal[i1], label=str(orders))
+    plt.plot(wavelengths, output['A_layer'].todense()[:, 3, :], '--', color=pal[i1], label=str(orders))
+    to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 2, :][:, 0])).T
+    np.savetxt('A_GaAs_' + str(orders) +'.csv', to_save, delimiter=',')
+    #plt.plot(wavelengths, output['R'][:,0])
+    #plt.plot(wavelengths, output['T'][:,0])
+    #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+
+plt.legend()
+plt.show()
+
+
+# AM0 spectrum
+plt.figure()
+plt.plot(all_orders, Jscs)
+plt.show()
+
+
+plt.figure()
+for i1, orders in enumerate(all_orders):
+    A_GaAs = np.loadtxt('A_GaAs_' + str(orders) +'.csv', delimiter=',')
+    plt.plot(A_GaAs[:,0]*1e9, A_GaAs[:,1], color=pal[i1], label=str(orders))
+    #plt.plot(wavelengths, output['T'][:,0])
+    #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+
+plt.legend()
+plt.show()
+
+Jscs = []
+orders = 40
+radii = [50, 100, 150, 200, 250]
+
+plt.figure()
+for i1, rad in enumerate(radii):
+    print(orders)
+    grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                  'radius': rad, 'angle': 45}])]
+    solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
+    output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
+                           front_or_rear='front', surf_name='OPTOS')
+
+    A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 2, :][:, 0])
+    Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+    Jscs.append(Jsc)
+    #plt.figure()
+    #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
+    #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
+    plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], color=pal[i1], label=str(rad))
+    plt.plot(wavelengths, output['A_layer'].todense()[:, 3, :], '--', color=pal[i1], label=str(rad))
+    to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 2, :][:, 0])).T
+    np.savetxt('A_GaAs_rad_' + str(rad) +'.csv', to_save, delimiter=',')
+    #plt.plot(wavelengths, output['R'][:,0])
+    #plt.plot(wavelengths, output['T'][:,0])
+    #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+
+plt.legend()
+plt.show()
+
+plt.figure()
+plt.plot(radii, Jscs)
+plt.show()
