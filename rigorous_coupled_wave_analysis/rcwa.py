@@ -129,6 +129,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     #print(l_oc[0])
 
     G_basis = np.array(S.GetBasisSet())
+    print(len(G_basis))
     #print('G_basis', G_basis)
     f_mat = S.GetReciprocalLattice()
     #print('f_mat', f_mat)

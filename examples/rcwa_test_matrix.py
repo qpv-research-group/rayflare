@@ -12,6 +12,7 @@ from solcore.material_system.create_new_material import create_new_material
 import xarray as xr
 
 from angles import make_angle_vector, theta_summary
+calc = True
 
 GaAs = material('GaAs')()
 Air = material('Air')()
@@ -22,14 +23,14 @@ MgF2 = material('203', nk_db=True)()
 #TiO2 = material('TiO2')()
 Ta2O5 = material('410', nk_db = True)()
 #Si = material('Si')()
-SiN = material('SiN', nk_db = True)()
+SiN = material('321', nk_db = True)()
 
 #x = 500
 x=500
 # anti-reflection coating
 
 ARC = [Layer(si('78nm'), MgF2), Layer(si('48nm'), Ta2O5)]
-
+ARC = [Layer(si('60nm'), SiN)]
 size = ((x, 0),(x/2,np.tan(np.pi/3)*x))
 # The layer with nanoparticles
 #struct_mirror = [Layer(si('120nm'), TiO2, geometry=[{'type': 'rectangle', 'mat': Ag, 'center': (x/2, x/2),
@@ -59,7 +60,7 @@ options = {'nm_spacing': 0.5,
            'phi_symmetry': np.pi/2,
            }
 
-all_orders = [5, 10, 20, 40, 75, 100]#, 100, 150]
+all_orders = [3, 9, 19, 39, 75, 99, 125, 147]
 import seaborn as sns
 pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
 
@@ -71,34 +72,55 @@ from solcore.constants import q, h, c
 AM0 = interp1d(spect[:,0], spect[:,1])
 
 EQE_wl = np.linspace(250.1, 929.9, 700)
+
 Jscs = []
+if calc:
+    plt.figure()
+    for i1, orders in enumerate(all_orders):
+        print(orders)
+        grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                      'radius': 100, 'angle': 0}])]
+        solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
+        output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
+                               front_or_rear='front', surf_name='OPTOS')
 
-plt.figure()
-for i1, orders in enumerate(all_orders):
-    print(orders)
-    grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
-                                                  'radius': 100, 'angle': 45}])]
-    solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
-    output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
-                           front_or_rear='front', surf_name='OPTOS')
+        A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 1, :][:, 0])
+        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+        Jscs.append(Jsc)
+        #plt.figure()
+        #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
+        #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :], color=pal[i1], label=str(orders))
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--', color=pal[i1])
+        to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 1, :][:, 0],
+                             output['A_layer'].todense()[:, 2, :][:, 0],
+                             output['R'][:,0],
+                             output['T'][:,0])).T
+        np.savetxt('A_GaAs_' + str(orders) +'.csv', to_save, delimiter=',')
+        plt.plot(wavelengths, output['R'][:,0], '-.', color=pal[i1])
+        #plt.plot(wavelengths, output['T'][:,0])
+        #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
 
-    A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 2, :][:, 0])
-    Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
-    Jscs.append(Jsc)
-    #plt.figure()
-    #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
-    #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
-    plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], color=pal[i1], label=str(orders))
-    plt.plot(wavelengths, output['A_layer'].todense()[:, 3, :], '--', color=pal[i1], label=str(orders))
-    to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 2, :][:, 0])).T
-    np.savetxt('A_GaAs_' + str(orders) +'.csv', to_save, delimiter=',')
-    #plt.plot(wavelengths, output['R'][:,0])
-    #plt.plot(wavelengths, output['T'][:,0])
-    #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+    plt.title('Orders')
+    plt.legend()
+    plt.show()
 
-plt.legend()
-plt.show()
+else:
+    plt.figure()
+    for i1, orders in enumerate(all_orders):
+        A_GaAs = np.loadtxt('A_GaAs_' + str(orders) + '.csv', delimiter=',')
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], color=pal[i1], label=str(orders))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], color=pal[i1], label=str(orders))
+        A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
+        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+        Jscs.append(Jsc)
 
+        # plt.plot(wavelengths, output['T'][:,0])
+        # plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+    plt.title('Orders')
+    plt.legend()
+    plt.show()
 
 # AM0 spectrum
 plt.figure()
@@ -106,46 +128,120 @@ plt.plot(all_orders, Jscs)
 plt.show()
 
 
-plt.figure()
-for i1, orders in enumerate(all_orders):
-    A_GaAs = np.loadtxt('A_GaAs_' + str(orders) +'.csv', delimiter=',')
-    plt.plot(A_GaAs[:,0]*1e9, A_GaAs[:,1], color=pal[i1], label=str(orders))
-    #plt.plot(wavelengths, output['T'][:,0])
-    #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
-
-plt.legend()
-plt.show()
 
 Jscs = []
 orders = 40
 radii = [50, 100, 150, 200, 250]
+pal = sns.cubehelix_palette(len(radii), start=.5, rot=-.9)
+if calc:
+    plt.figure()
+    for i1, rad in enumerate(radii):
+        print(orders)
+        grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                      'radius': rad, 'angle': 0}])]
+        solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
+        output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
+                               front_or_rear='front', surf_name='OPTOS')
 
-plt.figure()
-for i1, rad in enumerate(radii):
-    print(orders)
-    grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
-                                                  'radius': rad, 'angle': 45}])]
-    solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
-    output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
-                           front_or_rear='front', surf_name='OPTOS')
+        A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 1, :][:, 0])
+        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+        Jscs.append(Jsc)
+        #plt.figure()
+        #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
+        #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :], color=pal[i1], label=str(rad))
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--', color=pal[i1])
+        plt.plot(wavelengths, output['R'][:,0], '-.', color=pal[i1])
+        to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 1, :][:, 0],
+                             output['A_layer'].todense()[:, 2, :][:, 0],
+                             output['R'][:, 0],
+                             output['T'][:, 0])).T
+        np.savetxt('A_GaAs_rad_' + str(rad) +'.csv', to_save, delimiter=',')
+        #plt.plot(wavelengths, output['R'][:,0])
+        #plt.plot(wavelengths, output['T'][:,0])
+        #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
 
-    A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 2, :][:, 0])
-    Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
-    Jscs.append(Jsc)
-    #plt.figure()
-    #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
-    #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
-    plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], color=pal[i1], label=str(rad))
-    plt.plot(wavelengths, output['A_layer'].todense()[:, 3, :], '--', color=pal[i1], label=str(rad))
-    to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 2, :][:, 0])).T
-    np.savetxt('A_GaAs_rad_' + str(rad) +'.csv', to_save, delimiter=',')
-    #plt.plot(wavelengths, output['R'][:,0])
-    #plt.plot(wavelengths, output['T'][:,0])
-    #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+    plt.legend()
+    plt.title('Radius')
+    plt.show()
 
-plt.legend()
-plt.show()
+
+else:
+    plt.figure()
+    for i1, rad in enumerate(radii):
+        A_GaAs = np.loadtxt('A_GaAs_rad' + str(orders) + '.csv', delimiter=',')
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], color=pal[i1])
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], color=pal[i1])
+        A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
+        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+        Jscs.append(Jsc)
+
+        # plt.plot(wavelengths, output['T'][:,0])
+        # plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+    plt.title('Circle radius')
+    plt.legend()
+    plt.show()
 
 plt.figure()
 plt.plot(radii, Jscs)
+plt.show()
+
+
+Jscs = []
+orders = 40
+thick = np.linspace(0, 75, 10)
+pal = sns.cubehelix_palette(len(thick), start=.5, rot=-.9)
+if calc:
+    plt.figure()
+    for i1, th in enumerate(thick):
+        print(th)
+        ARC = [Layer(si(str(th)+'nm'), SiN)]
+        grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                      'radius': rad, 'angle': 0}])]
+        solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
+        output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
+                               front_or_rear='front', surf_name='OPTOS')
+
+        A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 1, :][:, 0])
+        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+        Jscs.append(Jsc)
+        #plt.figure()
+        #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
+        #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :], color=pal[i1], label=str(th))
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--')
+        plt.plot(wavelengths, output['R'][:,0], '-.')
+        to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 1, :][:, 0],
+                             output['A_layer'].todense()[:, 2, :][:, 0],
+                             output['R'][:, 0],
+                             output['T'][:, 0])).T
+        np.savetxt('A_GaAs_arc_' + str(th) +'.csv', to_save, delimiter=',')
+        #plt.plot(wavelengths, output['R'][:,0])
+        #plt.plot(wavelengths, output['T'][:,0])
+        #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+
+    plt.legend()
+    plt.title('ARC thick')
+    plt.show()
+
+else:
+    plt.figure()
+    for i1, th in enumerate(thick):
+        A_GaAs = np.loadtxt('A_GaAs_arc_' + str(th) + '.csv', delimiter=',')
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], color=pal[i1])
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], color=pal[i1])
+        A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
+        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
+        Jscs.append(Jsc)
+
+        # plt.plot(wavelengths, output['T'][:,0])
+        # plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
+    plt.title('ARC thick')
+    plt.legend()
+    plt.show()
+
+plt.figure()
+plt.plot(thick, Jscs)
 plt.show()
