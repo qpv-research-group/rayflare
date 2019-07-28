@@ -8,7 +8,7 @@ import os
 from config import results_path
 
 def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
-                         coherent=True, coherency_list=None, prof_layers=None):
+                         coherent=True, coherency_list=None, prof_layers=None, sides=[1,-1]):
 
     structpath = os.path.join(results_path, options['project_name'])
     if not os.path.isdir(structpath):
@@ -37,21 +37,19 @@ def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
         else:
             coherency_lists = [None, None]
         # can calculate by angle, already vectorized over wavelength
-        sides = [1, -1]
         pols = ['s', 'p']
-
 
         R = xr.DataArray(np.empty((2, 2, len(wavelengths), n_angles)),
                          dims=['side', 'pol', 'wl', 'angle'],
-                         coords={'side': [1, -1], 'pol': pols, 'wl': wavelengths, 'angle': thetas},
+                         coords={'side': sides, 'pol': pols, 'wl': wavelengths, 'angle': thetas},
                          name='R')
         T = xr.DataArray(np.empty((2, 2, len(wavelengths), n_angles)),
                          dims=['side', 'pol', 'wl', 'angle'],
-                         coords={'side': [1, -1], 'pol': pols, 'wl': wavelengths, 'angle': thetas},
+                         coords={'side': sides, 'pol': pols, 'wl': wavelengths, 'angle': thetas},
                          name='T')
         Alayer = xr.DataArray(np.empty((2, 2, n_angles, len(wavelengths), n_layers)),
                               dims=['side', 'pol', 'angle', 'wl', 'layer'],
-                              coords={'side': [1, -1], 'pol': pols,
+                              coords={'side': sides, 'pol': pols,
                                       'wl': wavelengths,
                                       'angle': thetas,
                                       'layer': range(1, n_layers + 1)}, name='Alayer')
@@ -59,7 +57,7 @@ def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
         if profile:
             Aprof = xr.DataArray(np.empty((2, 2, n_angles, 6, len(prof_layers), len(wavelengths))),
                                   dims=['side', 'pol', 'angle', 'coeff', 'layer', 'wl'],
-                              coords={'side': [1, -1], 'pol': pols,
+                              coords={'side': sides, 'pol': pols,
                                       'wl': wavelengths,
                                       'angle': thetas,
                                       'layer': prof_layers,

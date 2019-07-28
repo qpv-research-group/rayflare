@@ -290,7 +290,7 @@ class OptiStack(object):
 
 
 def tmm_matrix(layers, transmission, incidence, surf_name, options,
-               coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front'):
+               coherent=True, coherency_list=None, prof_layers=[], front_or_rear='front'):
     """Function which takes a layer stack and creates an angular redistribution matrix.
 
         :param layers: A list with one or more layers.
@@ -322,14 +322,12 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
             T_prob = np.real(data['T'].data.item(0))
 
             Alayer_prob = np.real(data['Alayer'].data)
-            phi_in = angle_vector_phi[i1]
             phi_out = phis_out[i1]
 
             # reflection
             phi_int = phi_intv[theta_bins_in[i1]]
             phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
             bin_out_r = np.argmin(abs(angle_vector[:, 0] - theta_bins_in[i1])) + phi_ind
-
 
             RT_mat[bin_out_r, i1] = R_prob
 
@@ -357,16 +355,17 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
+    prof_mat_path = os.path.join(results_path, options['project_name'],
+                                 surf_name + front_or_rear + 'profmat.nc')
 
     if os.path.isfile(savepath_RT):
         print('Existing angular redistribution matrices found')
         fullmat = load_npz(savepath_RT)
         A_mat = load_npz(savepath_A)
-        #if calc_profile > 0:
-        #    local_angles = load_npz(savepath_prof)
-        #    return allArrays, absArrays, local_angles
 
-        #else:
+        if len(prof_layers) > 0:
+            profile = xr.load_dataarray(prof_mat_path)
+            return fullmat, A_mat, profile
 
     else:
 
@@ -377,11 +376,6 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
         thetas = np.unique(angles_in[:, 1])
 
         n_angles = len(thetas)
-
-        if prof_layers is not None:
-            profile = True
-        else:
-            profile = False
 
         n_layers = len(layers)
 
@@ -394,6 +388,22 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
             optlayers = OptiStack(layers[::-1], substrate=incidence, incidence=transmission)
             trns = incidence
             inc = transmission
+
+
+        if len(prof_layers) > 0:
+            profile = True
+            z_limit = np.sum(np.array(optlayers.widths))
+            full_dist = np.arange(0, z_limit, options['nm_spacing'])
+            layer_start = np.insert(np.cumsum(np.insert(optlayers.widths, 0, 0)), 0, 0)
+            layer_end = np.cumsum(np.insert(optlayers.widths, 0, 0))
+
+            dist = []
+
+            for l in prof_layers:
+                dist = np.hstack((dist, full_dist[np.all((full_dist >= layer_start[l], full_dist < layer_end[l]), 0)]))
+
+        else:
+            profile = False
 
         if options['pol'] == 'u':
             pols = ['s', 'p']
@@ -422,20 +432,23 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
                                name='theta_t')
 
         if profile:
-            Aprof = xr.DataArray(np.empty((len(pols), n_angles, 6, len(prof_layers), len(wavelengths))),
-                                 dims=['pol', 'angle', 'coeff', 'layer', 'wl'],
+            Aprof = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), len(dist))),
+                                 dims=['pol', 'angle', 'wl', 'z'],
                                  coords={'pol': pols,
                                          'wl': wavelengths,
                                          'angle': thetas,
-                                         'layer': prof_layers,
-                                         'coeff': ['A1', 'A2', 'A3_r', 'A3_i', 'a1', 'a3']}, name='Aprof')
+                                         'z': dist}, name='Aprof')
 
         R_loop = np.empty((len(wavelengths), n_angles))
         T_loop = np.empty((len(wavelengths), n_angles))
         Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers), dtype=np.complex_)
         th_t_loop = np.empty((len(wavelengths), n_angles))
+
+        if front_or_rear == 'rear':
+            Alayer_loop = np.flip(Alayer_loop, axis=2)
+
         if profile:
-            Aprof_loop = np.empty((n_angles, 6, len(prof_layers), len(wavelengths)))
+            Aprof_loop = np.empty((n_angles, len(wavelengths), len(dist)))
 
         for i2, pol in enumerate(pols):
 
@@ -443,13 +456,13 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
                 res = calculate_rat(optlayers, wavelengths, angle=theta, pol=pol,
                                     coherent=coherent, coherency_list=coherency_list, profile=profile,
-                                    layers=prof_layers)
+                                    layers=prof_layers, nm_spacing=options['nm_spacing'])
                 R_loop[:, i3] = np.real(res['R'])
                 T_loop[:, i3] = np.real(res['T'])
                 Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)
 
                 if profile:
-                    Aprof_loop[i3, :, :, :] = res['profile_coeff']
+                    Aprof_loop[i3, :, :] = res['profile']
 
             # sometimes get very small negative values (like -1e-20)
             R_loop[R_loop < 0] = 0
@@ -464,7 +477,7 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
             if profile:
                 Aprof.loc[dict(pol=pol)] = Aprof_loop
-                Aprof.transpose('pol', 'wl', 'angle', 'layer', 'coeff')
+                Aprof.transpose('pol', 'wl', 'angle', 'z')
 
         Alayer = Alayer.transpose('pol', 'wl', 'angle', 'layer')
 
@@ -499,7 +512,7 @@ def tmm_matrix(layers, transmission, incidence, surf_name, options,
 
 
 def calculate_rat(stack, wavelength, angle=0, pol='u',
-                  coherent=True, coherency_list=None, profile=False, layers=None):
+                  coherent=True, coherency_list=None, profile=False, layers=None, nm_spacing = 1):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined.
 
@@ -578,10 +591,24 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
 
     # layer indices: 0 is incidence, n is transmission medium
     if profile:
+
+        z_limit = np.sum(np.array(stack.widths))
+        full_dist = np.arange(0, z_limit, nm_spacing)
+        layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)
+        layer_end = np.cumsum(np.insert(stack.widths, 0, 0))
+
+        dist = []
+
+        for l in layers:
+            dist = np.hstack((dist, full_dist[np.all((full_dist >= layer_start[l], full_dist < layer_end[l]), 0)]))
+
         if pol in 'sp':
 
             if coherent:
                 fn = tmm.absorp_analytic_fn().fill_in(out, layers)
+                layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                data = tmm.position_resolved(layer, d_in_layer, out)
+                output['profile'] = data['absor']
 
             else:
                 fraction_reaching = 1 - np.cumsum(A_per_layer, axis=0)
@@ -589,7 +616,13 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
                 fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty((0, num_wl)), \
                                                     np.empty((0, num_wl)), np.empty((0, num_wl))
 
-                for l in layers:
+                layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                data = tmm.inc_position_resolved(layer, d_in_layer, out, coherency_list,
+                                                 4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
+                output['profile'] = data
+
+
+                for i1, l in enumerate(layers):
 
                     if coherency_list[l] == 'c':
                         fn_l = tmm.inc_find_absorp_analytic_fn(l, out)
@@ -613,6 +646,13 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
                 fn_s = tmm.absorp_analytic_fn().fill_in(out_s, layers)
                 fn_p = tmm.absorp_analytic_fn().fill_in(out_p, layers)
                 fn = fn_s.add(fn_p).scale(0.5)
+
+                layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                data_s = tmm.position_resolved(layer, d_in_layer, out_s)
+                data_p = tmm.position_resolved(layer, d_in_layer, out_p)
+
+                output['profile'] = 0.5 * (data_s['absor'] + data_p['absor'])
+
             else:
                 fraction_reaching_s = 1 - np.cumsum(A_per_layer_s, axis=0)
                 fraction_reaching_p = 1 - np.cumsum(A_per_layer_s, axis=0)
@@ -621,7 +661,15 @@ def calculate_rat(stack, wavelength, angle=0, pol='u',
                 fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty((0, num_wl)), \
                                                     np.empty((0, num_wl)), np.empty((0, num_wl))
 
-                for l in layers:
+                layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                data_s = tmm.inc_position_resolved(layer, d_in_layer, out_s, coherency_list,
+                                                   4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
+                data_p = tmm.inc_position_resolved(layer, d_in_layer, out_p, coherency_list,
+                                                   4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
+
+                output['profile'] = 0.5 * (data_s + data_p)
+
+                for i1, l in enumerate(layers):
                     if coherency_list[l] == 'c':
                         fn_s = tmm.inc_find_absorp_analytic_fn(l, out_s)
                         fn_p = tmm.inc_find_absorp_analytic_fn(l, out_s)

@@ -13,6 +13,16 @@ def process_structure(SC, options):
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations"""
 
+    layer_widths = []
+    calc_profile = []
+
+    for i1, struct in enumerate(SC):
+        if type(struct) == BulkLayer:
+            layer_widths.append(struct.width*1e9)
+        if type(struct) == Interface:
+            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+
+
     for i1, struct in enumerate(SC):
         if type(struct) == Interface:
             # is this an interface type which requires a lookup table?
@@ -33,6 +43,7 @@ def process_structure(SC, options):
                     coherency_list = struct.coherency_list
                 else:
                     coherency_list = None
+
                 prof_layers = struct.prof_layers
 
                 make_TMM_lookuptable(struct.layers, substrate, incidence, struct.name,
@@ -80,9 +91,11 @@ def process_structure(SC, options):
                 else:
                     coherency_list = None
 
+                prof_layers = struct.prof_layers
+
                 for side in which_sides:
                     tmm_matrix(struct.layers, substrate, incidence, struct.name, options,
-                               coherent=coherent, coherency_list=coherency_list, prof_layers=None, front_or_rear=side)
+                               coherent=coherent, coherency_list=coherency_list, prof_layers=prof_layers, front_or_rear=side)
 
 
             if struct.method == 'RT_TMM':
@@ -104,6 +117,7 @@ def process_structure(SC, options):
                 else:
                     prof = False
 
+                prof = struct.prof_layers
                 n_abs_layers = len(struct.layers)
 
                 group = RTgroup(textures=[struct.texture])
@@ -112,8 +126,9 @@ def process_structure(SC, options):
                         only_incidence_angle = True
                     else:
                         only_incidence_angle = False
+
                     RT(group, incidence, substrate, struct.name, options, 1, side,
-                       n_abs_layers, prof, only_incidence_angle)
+                       n_abs_layers, prof, only_incidence_angle, layer_widths[i1])
 
             if struct.method == 'RT_Fresnel':
                 print('Ray tracing with Fresnel equations for element ' + str(i1) + ' in structure')
@@ -161,6 +176,7 @@ def calculate_RAT(SC, options):
     layer_widths = []
     n_layers = []
     layer_names = []
+    calc_prof_list = []
 
     for i1, struct in enumerate(SC):
         if type(struct) == BulkLayer:
@@ -169,12 +185,13 @@ def calculate_RAT(SC, options):
         if type(struct) == Interface:
             layer_names.append(struct.name)
 
-            if options['calc_profile']:
-                    n_layers.append(len(struct.layers))
-                    layer_widths.append((np.array(struct.widths)*1e9).tolist())
+            n_layers.append(len(struct.layers))
+            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+            calc_prof_list.append(struct.prof_layers)
+
 
 
     results = matrix_multiplication(bulk_mats, bulk_widths, options,
-                                                               layer_widths, n_layers, layer_names)
+                                                               layer_widths, n_layers, layer_names, calc_prof_list)
 
     return results
