@@ -16,8 +16,9 @@ The aim of RayFlare is to provide a flexible, user-friendly Python environment t
 
 *Note to new visitors from PVSC:* I am hard at work adding functionality and documentation! In the mean time, I appreciate any comments and feedback. - Phoebe
 
-INSTALLATION INSTRUCTIONS (tested on 64-but Ubuntu 18)
+INSTALLATION INSTRUCTIONS (tested on 64-bit Ubuntu 16)
 -----
+Use Python 3.x where x >= 6
 Install setuptools, numpy, matplotlib, xarray, sparse, joblib and seaborn in the normal way (e.g. pip install)
 
 You need the latest version of Solcore (not yet on PyPi). To install this:
