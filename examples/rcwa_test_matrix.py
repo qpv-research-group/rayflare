@@ -12,7 +12,7 @@ from solcore.material_system.create_new_material import create_new_material
 import xarray as xr
 
 from angles import make_angle_vector, theta_summary
-calc = True
+calc = False
 
 GaAs = material('GaAs')()
 Air = material('Air')()
@@ -61,6 +61,7 @@ options = {'nm_spacing': 0.5,
            }
 
 all_orders = [3, 9, 19, 39, 75, 99, 125, 147]
+
 import seaborn as sns
 pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
 
@@ -106,12 +107,13 @@ if calc:
     plt.show()
 
 else:
+    load_orders = [5, 10, 20, 40, 75, 100, 125, 150]
     plt.figure()
-    for i1, orders in enumerate(all_orders):
+    for i1, orders in enumerate(load_orders):
         A_GaAs = np.loadtxt('A_GaAs_' + str(orders) + '.csv', delimiter=',')
         plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], color=pal[i1], label=str(orders))
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], color=pal[i1], label=str(orders))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], '--', color=pal[i1])
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], '-.', color=pal[i1])
         A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
         Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
         Jscs.append(Jsc)
@@ -169,10 +171,10 @@ if calc:
 else:
     plt.figure()
     for i1, rad in enumerate(radii):
-        A_GaAs = np.loadtxt('A_GaAs_rad' + str(orders) + '.csv', delimiter=',')
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], color=pal[i1])
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], color=pal[i1])
+        A_GaAs = np.loadtxt('A_GaAs_rad_' + str(rad) + '.csv', delimiter=',')
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(rad))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], '--',  color=pal[i1])
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], '-.', color=pal[i1])
         A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
         Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
         Jscs.append(Jsc)
@@ -210,8 +212,8 @@ if calc:
         #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
         #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
         plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :], color=pal[i1], label=str(th))
-        plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--')
-        plt.plot(wavelengths, output['R'][:,0], '-.')
+        plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--', color=pal[i1])
+        plt.plot(wavelengths, output['R'][:,0], '-.', color=pal[i1])
         to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 1, :][:, 0],
                              output['A_layer'].todense()[:, 2, :][:, 0],
                              output['R'][:, 0],
@@ -229,9 +231,9 @@ else:
     plt.figure()
     for i1, th in enumerate(thick):
         A_GaAs = np.loadtxt('A_GaAs_arc_' + str(th) + '.csv', delimiter=',')
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], color=pal[i1])
-        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], color=pal[i1])
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(th))
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], '--', color=pal[i1])
+        plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], '-.', color=pal[i1])
         A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
         Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
         Jscs.append(Jsc)
