@@ -1,3 +1,4 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -12,7 +13,7 @@ from solcore.material_system.create_new_material import create_new_material
 import xarray as xr
 
 from angles import make_angle_vector, theta_summary
-calc = True
+calc = False
 #download_db()
 GaAs = material('GaAs')()
 Air = material('Air')()
@@ -34,10 +35,10 @@ ARC = [Layer(si('60nm'), SiN)]
 size = ((x, 0),(0, x))
 # The layer with nanoparticles
 #struct_mirror = [Layer(si('120nm'), TiO2, geometry=[{'type': 'rectangle', 'mat': Ag, 'center': (x/2, x/2),
-                                                   #  'halfwidths': (210,210), 'angle': 0}])]
+#  'halfwidths': (210,210), 'angle': 0}])]
 
 grating =  [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
-                                                     'radius': 100, 'angle': 0}])]
+                                               'radius': 100, 'angle': 0}])]
 # NP_layer=[Layer(si('50nm'), Ag)]
 
 
@@ -60,9 +61,9 @@ options = {'nm_spacing': 0.5,
            'phi_symmetry': np.pi/2,
            }
 
-#all_orders = [1, 9, 13, 37, 69, 97, 121, 197, 293, 385, 441, 497]
-#all_orders = [293, 385, 441, 497, 600]
-all_orders = (2*np.array([1, 2, 3, 4, 5])+1)**2
+#all_orders = [1, 9, 13, 37, 69, 97, 121, 141, 197, 249, 293, 350]
+all_orders = [121, 141, 249, 293]
+# 350 = 349
 import seaborn as sns
 pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
 
@@ -75,45 +76,50 @@ AM0 = interp1d(spect[:,0], spect[:,1])
 
 EQE_wl = np.linspace(250.1, 929.9, 700)
 
+
+
+
+ropt = dict(LatticeTruncation = 'Circular',
+            DiscretizedEpsilon = True,
+            DiscretizationResolution = 4,
+            PolarizationDecomposition = False,
+            PolarizationBasis = 'Default',
+            LanczosSmoothing = True,
+            SubpixelSmoothing = True,
+            ConserveMemory = False,
+            WeismannFormulation = False)
+options['rcwa_options'] = ropt
 Jscs = []
+plt.figure()
 if calc:
-    plt.figure()
     for i1, orders in enumerate(all_orders):
-        print(orders)
         grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
                                                       'radius': 100, 'angle': 0}])]
         solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
-        output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
-                               front_or_rear='front', surf_name='OPTOS')
+        output = rcwa(solar_cell, size, orders, options, incidence=Air, substrate=Ag,
+                      only_incidence_angle=True,
+                      front_or_rear='front', surf_name='OPTOS')
 
         A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 1, :][:, 0], kind=2)
         Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
         Jscs.append(Jsc)
-        #plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
-        #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
-        #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :], color=pal[i1], label=str(orders))
-        #plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--', color=pal[i1])
+        # plt.plot(wavelengths, output['A_layer'].todense()[:, 0, :])
+        # plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
+        # plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :], color=pal[i1], label=str(orders))
+        # plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--', color=pal[i1])
         plt.plot(EQE_wl, A_GaAs(EQE_wl), color=pal[i1], label=str(orders))
+
+        save_name = 'GaAs_bestopt_' + str(orders) + '.csv'
         to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 1, :][:, 0],
                              output['A_layer'].todense()[:, 2, :][:, 0],
-                             output['R'][:,0],
-                             output['T'][:,0])).T
-        np.savetxt('A_GaAs_sq_pd_' + str(orders) +'.csv', to_save, delimiter=',')
-        #plt.plot(wavelengths, output['R'][:,0], '-.', color=pal[i1])
-        #plt.plot(wavelengths, output['T'][:,0])
-        #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
-        print(Jscs)
-
-    plt.title('Orders')
-    plt.legend()
-    plt.ylim([0,1])
-    #plt.show()
+                             output['R'][:, 0],
+                             output['T'][:, 0])).T
+        np.savetxt('convergence_tests/' + save_name, to_save, delimiter=',')
 
 else:
-    load_orders = all_orders
-    plt.figure()
-    for i1, orders in enumerate(load_orders):
-        A_GaAs = np.loadtxt('A_GaAs_sq_pd_' + str(orders) + '.csv', delimiter=',')
+    for i1, orders in enumerate(all_orders):
+        save_name = 'GaAs_bestopt_' + str(orders) + '.csv'
+        A_GaAs = np.loadtxt('convergence_tests/' + save_name, delimiter=',')
         # plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
         # plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], '--', color=pal[i1])
         # plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], '-.', color=pal[i1])
@@ -122,34 +128,19 @@ else:
         plt.plot(EQE_wl, A_GaAs(EQE_wl), color=pal[i1], label=str(orders))
         Jscs.append(Jsc)
 
-        # plt.plot(wavelengths, output['T'][:,0])
-        # plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
-    plt.title('Orders')
-    plt.legend()
-    plt.ylim(0,1)
-    #plt.show()
 
 A_GaAs_GDcalc = np.loadtxt('S4_comp_conv.csv', delimiter=',')
 interp_GDC = interp1d(A_GaAs_GDcalc[:,0], A_GaAs_GDcalc[:,1:], kind=2, axis=0)
 
 
-plt.plot(EQE_wl, interp_GDC(EQE_wl)[:, 4:], '--')
-plt.legend([str(x) for x in all_orders]+ ['441', '529', '729'])
+plt.plot(EQE_wl, interp_GDC(EQE_wl)[:, 6:], '--')
+plt.legend([str(x) for x in all_orders]+ ['729'])
 plt.show()
-
-
-from solcore.solar_cell_solver import solar_cell_solver
-solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
-solar_cell_solver(solar_cell, 'optics', {'wavelength': EQE_wl*1e-9, 'optics_method': 'TMM',
-                                         'no_back_reflexion': False})
+plt.legend()
+plt.show()
 
 plt.figure()
-plt.plot(EQE_wl, solar_cell[1].layer_absorption, label='TMM')
+plt.plot(all_orders, Jscs, 'o')
+#plt.ylim(18.5, 26)
+plt.title(save_name)
 plt.show()
-
-# AM0 spectrum
-plt.figure()
-plt.plot(all_orders[1:], Jscs[1:])
-plt.show()
-
-A_GaAs_GDcalc = np.loadtxt('S4_comp_conv.csv', delimiter=',')

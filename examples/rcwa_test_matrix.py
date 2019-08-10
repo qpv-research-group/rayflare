@@ -12,7 +12,7 @@ from solcore.material_system.create_new_material import create_new_material
 import xarray as xr
 
 from angles import make_angle_vector, theta_summary
-calc = False
+calc = True
 
 GaAs = material('GaAs')()
 Air = material('Air')()

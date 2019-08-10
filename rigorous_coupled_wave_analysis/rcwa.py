@@ -69,6 +69,20 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
     c_az = options['c_azimuth']
     pol = options['pol']
 
+    # RCWA options
+    rcwa_options = dict(LatticeTruncation = 'Circular',
+        DiscretizedEpsilon = False,
+        DiscretizationResolution = 8,
+        PolarizationDecomposition = False,
+        PolarizationBasis = 'Default',
+        LanczosSmoothing = False,
+        SubpixelSmoothing = False,
+        ConserveMemory = False,
+        WeismannFormulation = False)
+
+    user_options = options['rcwa_options'] if 'rcwa_options' in options.keys() else {}
+    rcwa_options.update(user_options)
+    print(rcwa_options)
     theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
     if only_incidence_angle:
@@ -89,12 +103,12 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
     if options['parallel']:
         allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl)
                                                     (wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size,
-                                                     orders, phi_sym, theta_intv, phi_intv, angle_vector_0)
+                                                     orders, phi_sym, theta_intv, phi_intv, angle_vector_0, rcwa_options)
                                                     for i1 in range(len(wavelengths)))
 
     else:
         allres = [RCWA_wl(wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size, orders, phi_sym, theta_intv, phi_intv,
-                          angle_vector_0)
+                          angle_vector_0, rcwa_options)
                   for i1 in range(len(wavelengths))]
 
     R = np.stack([item[0] for item in allres])
@@ -122,9 +136,9 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
 
 
 
-def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym, theta_intv, phi_intv, angle_vector_0):
+def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym, theta_intv, phi_intv, angle_vector_0, rcwa_options):
     print(wl)
-    S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths)
+    S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, rcwa_options)
 
     #print(l_oc[0])
 
@@ -265,15 +279,20 @@ def rcwa_rat(S, n_layers):
     return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo#, R_pfbo_2
 
 
-def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths):
+def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths, options):
     # pass widths
     #print(widths)
     S = S4.New(size, orders)
     S.SetOptions(  # these are the default
-        LatticeTruncation='Circular',
-        PolarizationDecomposition=False,
-        PolarizationBasis='Default',
-        WeismannFormulation = False
+        LatticeTruncation = options['LatticeTruncation'],
+        DiscretizedEpsilon = options['DiscretizedEpsilon'],
+        DiscretizationResolution = options['DiscretizationResolution'],
+        PolarizationDecomposition = options['PolarizationDecomposition'],
+        PolarizationBasis = options['PolarizationBasis'],
+        LanczosSmoothing = options['LanczosSmoothing'],
+        SubpixelSmoothing = options['SubpixelSmoothing'],
+        ConserveMemory = options['ConserveMemory'],
+        WeismannFormulation = options['WeismannFormulation']
     )
 
 
