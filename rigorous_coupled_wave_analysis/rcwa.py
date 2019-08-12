@@ -14,7 +14,7 @@ except Exception as err:
 
 
 def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_angle=False,
-                       front_or_rear='front', surf_name=''):
+                       front_or_rear='front', surf_name='', detail_layer=False):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
 
@@ -103,18 +103,19 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
     if options['parallel']:
         allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl)
                                                     (wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size,
-                                                     orders, phi_sym, theta_intv, phi_intv, angle_vector_0, rcwa_options)
+                                                     orders, phi_sym, theta_intv, phi_intv, angle_vector_0, rcwa_options, detail_layer)
                                                     for i1 in range(len(wavelengths)))
 
     else:
         allres = [RCWA_wl(wavelengths[i1]*1e9, geom_list, layers_oc[i1], shapes_oc[i1], shapes_names, pol, thetas_in, phis_in, widths, size, orders, phi_sym, theta_intv, phi_intv,
-                          angle_vector_0, rcwa_options)
+                          angle_vector_0, rcwa_options, detail_layer)
                   for i1 in range(len(wavelengths))]
 
     R = np.stack([item[0] for item in allres])
     T = np.stack([item[1] for item in allres])
     A_mat = np.stack([item[2] for item in allres])
     full_mat = stack([item[3] for item in allres])
+    int_mat = stack([item[4] for item in allres])
     #T_mat = np.stack([item[4] for item in allres])
 
     #full_mat = np.hstack((R_mat, T_mat))
@@ -132,18 +133,19 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
     #R_pfbo_2 = np.stack([item[8] for item in allres])
 
 
-    return {'R': R, 'T':T, 'A_layer': A_mat, 'full_mat': full_mat}#'R_pfbo': R_pfbo, 'T_pfbo': T_pfbo, 'phi_rt': phi_rt, 'theta_r': theta_r, 'theta_t': theta_t}#, 'R_pfbo_2': R_pfbo_2}
+    return {'R': R, 'T':T, 'A_layer': A_mat, 'full_mat': full_mat, 'int_mat': int_mat}#'R_pfbo': R_pfbo, 'T_pfbo': T_pfbo, 'phi_rt': phi_rt, 'theta_r': theta_r, 'theta_t': theta_t}#, 'R_pfbo_2': R_pfbo_2}
 
 
 
-def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym, theta_intv, phi_intv, angle_vector_0, rcwa_options):
+def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym,
+            theta_intv, phi_intv, angle_vector_0, rcwa_options, layer_details = False):
     print(wl)
     S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, rcwa_options)
 
     #print(l_oc[0])
 
     G_basis = np.array(S.GetBasisSet())
-    print(len(G_basis))
+    #print(len(G_basis))
     #print('G_basis', G_basis)
     f_mat = S.GetReciprocalLattice()
     #print('f_mat', f_mat)
@@ -152,11 +154,14 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     fg_2x = f_mat[1][0]
     fg_2y = f_mat[1][1]
 
+    print('basis', f_mat)
+
     R = np.zeros((len(theta)))
     T = np.zeros((len(theta)))
     A_layer = np.zeros((len(theta), len(widths)-2))
 
     mat_RT = np.zeros((len(angle_vector_0), int(len(angle_vector_0)/2)))
+    mat_int = np.zeros((len(angle_vector_0), int(len(angle_vector_0)/2)))
     #mat_T = np.zeros((len(angle_vector_0), len(angle_vector_0)))
 
     for i1 in range(len(theta)):
@@ -170,22 +175,23 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
             S.SetExcitationPlanewave((theta[i1], phi[i1]), s, p, 0)
             S.SetFrequency(1 / wl)
-            out, R_pfbo, T_pfbo, R_pfbo_2 = rcwa_rat(S, len(widths))
+            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths), layer_details)
             R[i1] = out['R']
             T[i1] = out['T']
-            A_layer[i1] = rcwa_absorption_per_layer(S, len(widths))
+            A_layer[i1] = rcwa_absorption_per_layer(S, len(widths), layer_details)
 
         else:
 
             #print(theta[i1])
             S.SetFrequency(1 / wl)
             S.SetExcitationPlanewave((theta[i1], phi[i1]), 0, 1, 0)  # p-polarization
-            out_p, R_pfbo_p, T_pfbo_p = rcwa_rat(S, len(widths))
+            out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths), layer_details)
             S.SetExcitationPlanewave((theta[i1], phi[i1]), 1, 0, 0)  # s-polarization
-            out_s, R_pfbo_s, T_pfbo_s = rcwa_rat(S, len(widths))
+            out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths), layer_details)
 
             R_pfbo = (R_pfbo_s + R_pfbo_p)/2
             T_pfbo = (T_pfbo_s + T_pfbo_p)/2
+
                 #R_pfbo_2 = (R_pfbo_2s + R_pfbo_2p)/2
 
             R[i1] = 0.5 * (out_p['R'] + out_s['R'])  # average
@@ -195,8 +201,10 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             A_layer[i1] = rcwa_absorption_per_layer(S, len(widths))
 
                 #fi_z = (l_oc[0] / wl) * np.cos(theta[i1] * np.pi / 180)
-            fi_x = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(theta[i1] * np.pi / 180) * np.sin(phi[i1] * np.pi / 180))
-            fi_y = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(theta[i1] * np.pi / 180) * np.cos(phi[i1] * np.pi / 180))
+            fi_x = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(theta[i1] * np.pi / 180) *
+                           np.sin(phi[i1] * np.pi / 180))
+            fi_y = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(theta[i1] * np.pi / 180) *
+                           np.cos(phi[i1] * np.pi / 180))
 
                 #print('inc', fi_x, fi_y)
 
@@ -224,33 +232,78 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             R_pfbo[np.abs(R_pfbo < 1e-16)] = 0 # sometimes get very small negative valyes
             T_pfbo[np.abs(T_pfbo < 1e-16)] = 0
 
+            theta_r[theta_r == 0] = 1e-10
+            theta_t[theta_t == 0] = 1e-10
+            phi_rt[phi_rt == 0] = 1e-10
+
+
             theta_r_bin = np.digitize(theta_r, theta_intv, right=True) - 1
             theta_t_bin = np.digitize(theta_t, theta_intv, right=True) - 1
+            #print('theta_r', theta_r)
+            #print('PFBO', R_pfbo)
+            #print('bin', theta_r_bin)
+            #print(theta_t)
 
             for i2 in np.nonzero(R_pfbo)[0]:
                 phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_r_bin[i2]], right=True) - 1
                 bin = np.argmin(abs(angle_vector_0 -theta_r_bin[i2])) + phi_ind
-                mat_RT[bin, i1] = R_pfbo[i2]
+                #print(R_pfbo[i2], phi_rt[i2], bin, i1, phi_ind, np.argmin(abs(angle_vector_0 -theta_r_bin[i2])))
+                mat_RT[bin, i1] = mat_RT[bin, i1] + R_pfbo[i2]
 
             for i2 in np.nonzero(T_pfbo)[0]:
                 phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_t_bin[i2]], right=True) - 1
                 bin = np.argmin(abs(angle_vector_0 -theta_t_bin[i2])) + phi_ind
-                mat_RT[bin, i1] = T_pfbo[i2]
+                mat_RT[bin, i1] = mat_RT[bin, i1] + T_pfbo[i2]
+
+            if layer_details:
+                #print(R_pfbo_int_p)
+                R_pfbo_int = (R_pfbo_int_p + R_pfbo_int_s)/2
+                f_z = np.sqrt((l_oc[layer_details] / (wl ** 2)) - fr_x ** 2 - fr_y ** 2)
+                print('fz', wl, f_z)
+                print('fy', wl, fr_y)
+                print('fx', wl, fr_x)
+                theta_l = np.real(np.arccos(f_z / np.sqrt(fr_x ** 2 + fr_y ** 2 + f_z ** 2)))
+                print(l_oc[layer_details])
+                #print('theta_l',theta_l)
+                theta_l[theta_l == 0] = 1e-10
+                #print('R_pfbo', R_pfbo_int)
+
+                np_l = theta_l == np.pi / 2  # non-propagating reflected orders
+
+                R_pfbo_int[np_l] = 0
+
+                R_pfbo_int[np.abs(R_pfbo_int < 1e-16)] = 0  # sometimes get very small negative valyes
+                print(theta_l)
+                theta_l_bin = np.digitize(theta_l, theta_intv, right=True) - 1
+                print(theta_l_bin)
+                for i2 in np.nonzero(R_pfbo_int)[0]:
+                    phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_l_bin[i2]], right=True) - 1
+                    bin = np.argmin(abs(angle_vector_0 - theta_l_bin[i2])) + phi_ind
+                    print(bin)
+                    #print(R_pfbo_int[i2], phi_rt[i2], bin, i1, phi_ind,
+                    #      np.argmin(abs(angle_vector_0 - theta_l_bin[i2])))
+                    mat_int[bin, i1] = mat_int[bin, i1] + R_pfbo_int[i2]
+
+
+
+
+
 
     mat_RT = COO(mat_RT)
-
+    mat_int = COO(mat_int)
+    #print(mat_int)
     # want to output R, T, A_layer (in case doing single angle of incidence)
     # also want to output transmission and reflection efficiency/power flux per order and the angles (theta and phi)
     # relating to that order.
     # Theta depends on the medium and so is different for transmisson and reflection. Phi is the same.
 
-    return R, T, A_layer.T, mat_RT#, mat_T
+    return R, T, A_layer.T, mat_RT, mat_int#, mat_T
 
 def fold_phi(phis, phi_sym):
     return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
 
 
-def rcwa_rat(S, n_layers):
+def rcwa_rat(S, n_layers, det_l=False):
     below = 'layer_' + str(n_layers)  # identify which layer is the transmission medium
 
     #print('sum', np.sum(R_pfbo))
@@ -271,12 +324,19 @@ def rcwa_rat(S, n_layers):
     #Nrm = np.real(np.sum(R_pfbo_2))
     #R_pfbo_2 = (R/Nrm)*R_pfbo_2
 
+    if det_l:
+        layer_name = 'layer_' + str(det_l + 2)
+        R_pfbo_int = -np.array(S.GetPowerFluxByOrder(layer_name))[:, 1]
+        #print('R_pfbo', R_pfbo_int)
+
+    else:
+        R_pfbo_int = 0
     #print('R', R)
     # layer_2 is the top layer of the structure (layer_1 is incidence medium)
     T = sum(S.GetPowerFlux(below))
 
     T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1))
-    return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo#, R_pfbo_2
+    return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo, R_pfbo_int#, R_pfbo_2
 
 
 def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths, options):
@@ -456,3 +516,12 @@ def rcwa_absorption_per_layer(S, n_layers):
     A = [x if x > 0 else 0 for x in A]
 
     return A
+
+def get_reciprocal_lattice(size, orders):
+
+    S = S4.New(size, orders)
+
+
+    f_mat = S.GetReciprocalLattice()
+
+    return f_mat

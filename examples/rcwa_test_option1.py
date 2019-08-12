@@ -62,7 +62,8 @@ options = {'nm_spacing': 0.5,
            }
 
 #all_orders = [1, 9, 13, 37, 69, 97, 121, 141, 197, 249, 293, 350]
-all_orders = [121, 141, 249, 293]
+#all_orders = [121, 141, 249, 293]
+all_orders = [300, 500, 600, 700, 800]
 # 350 = 349
 import seaborn as sns
 pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
@@ -87,7 +88,7 @@ ropt = dict(LatticeTruncation = 'Circular',
             LanczosSmoothing = True,
             SubpixelSmoothing = True,
             ConserveMemory = False,
-            WeismannFormulation = False)
+            WeismannFormulation = True)
 options['rcwa_options'] = ropt
 Jscs = []
 plt.figure()

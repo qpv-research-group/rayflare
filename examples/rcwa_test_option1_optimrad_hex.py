@@ -62,7 +62,7 @@ options = {'nm_spacing': 0.5,
            }
 
 #all_orders = [1, 9, 13, 37, 69, 97, 121, 141, 197, 249, 293, 350]
-all_orders = [50, 75, 100, 125, 150, 175, 200, 225, 250]
+all_orders = np.linspace(0, 250, 30)
 # 350 = 349
 import seaborn as sns
 pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
@@ -94,7 +94,7 @@ if calc:
         grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
                                                       'radius': orders, 'angle': 0}])]
         solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
-        output = rcwa(solar_cell, size, 197, options, incidence=Air, substrate=Ag,
+        output = rcwa(solar_cell, size, 97, options, incidence=Air, substrate=Ag,
                       only_incidence_angle=True,
                       front_or_rear='front', surf_name='OPTOS')
 
@@ -132,9 +132,9 @@ interp_GDC = interp1d(A_GaAs_GDcalc[:,0], A_GaAs_GDcalc[:,1:], kind=2, axis=0)
 
 
 plt.plot(EQE_wl, interp_GDC(EQE_wl)[:, 6:], '--')
-plt.legend([str(x) for x in all_orders]+ ['729'])
+#plt.legend([str(x) for x in all_orders]+ ['729'])
 plt.show()
-plt.legend()
+#plt.legend()
 plt.show()
 
 plt.figure()
