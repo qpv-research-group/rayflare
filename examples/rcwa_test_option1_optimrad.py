@@ -30,7 +30,6 @@ SiN = material('321', nk_db = True)()
 x=500
 # anti-reflection coating
 
-ARC = [Layer(si('78nm'), MgF2), Layer(si('48nm'), Ta2O5)]
 ARC = [Layer(si('60nm'), SiN)]
 size = ((x, 0),(0, x))
 # The layer with nanoparticles
@@ -94,7 +93,7 @@ if calc:
         grating = [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
                                                       'radius': orders, 'angle': 0}])]
         solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
-        output = rcwa(solar_cell, size, 197, options, incidence=Air, substrate=Ag,
+        output = rcwa(solar_cell, size, 141, options, incidence=Air, substrate=Ag,
                       only_incidence_angle=True,
                       front_or_rear='front', surf_name='OPTOS')
 
@@ -107,7 +106,7 @@ if calc:
         # plt.plot(wavelengths, output['A_layer'].todense()[:, 2, :], '--', color=pal[i1])
         plt.plot(EQE_wl, A_GaAs(EQE_wl), color=pal[i1], label=str(orders))
 
-        save_name = 'GaAs_radopt_' + str(orders) + '.csv'
+        save_name = 'GaAs_radopt_141_' + str(orders) + '.csv'
         to_save = np.vstack((wavelengths, output['A_layer'].todense()[:, 1, :][:, 0],
                              output['A_layer'].todense()[:, 2, :][:, 0],
                              output['R'][:, 0],
@@ -116,7 +115,7 @@ if calc:
 
 else:
     for i1, orders in enumerate(all_orders):
-        save_name = 'GaAs_radopt_' + str(orders) + '.csv'
+        save_name = 'GaAs_radopt_141_' + str(orders) + '.csv'
         A_GaAs = np.loadtxt('convergence_tests/' + save_name, delimiter=',')
         # plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
         # plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], '--', color=pal[i1])

@@ -36,12 +36,10 @@ SiN = material('321', nk_db = True)()
 
 fign=2
 #x = 500
-x=500
+x=1000
 # anti-reflection coating
 
-ARC = [Layer(si('78nm'), MgF2), Layer(si('48nm'), Ta2O5)]
-ARC = [Layer(si('60nm'), SiN)]
-size = ((x, 0),(x/2,np.tan(np.pi/3)*x))
+
 
 #size = ((x, 0), (0, x))
 # The layer with nanoparticles
@@ -92,42 +90,19 @@ for k1, size  in enumerate([((x, 0),(x/2,np.sin(np.pi/3)*x)), ((x,0), (0,x))]):
     if calc:
 
         grating = [Layer(si('140nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
-                                                      'radius':rad[k1], 'angle': 0}])]
-        solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('19nm')),
-            Layer(material=GaAs, width=si('86nm')),
-                                      Layer(material=InAlP, width=si('18nm'))] +
-                               grating)
-        output = rcwa(solar_cell, size, 9, options, incidence=Air, substrate=Ag, only_incidence_angle=True,
-                      front_or_rear='front', surf_name='OPTOS', detail_layer=3)
-        A_GaAs = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 2, :][:, 0], kind=2)
-        A_InGaP = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 1, :][:, 0], kind=2)
-        A_InAlP = interp1d(wavelengths * 1e9, output['A_layer'].todense()[:, 3, :][:, 0], kind=2)
+                                                      'radius':rad[k1], 'angle': 0},
+                                                     {'type': 'circle', 'mat': Ag, 'center': (x/2, x/2),
+                                                      'radius': rad[k1], 'angle': 0}
+                                                     ])]
+        solar_cell = SolarCell(grating)
+        output = rcwa(solar_cell, size, 30, options, incidence=GaAs, substrate=Ag, only_incidence_angle=True,
+                      front_or_rear='front', surf_name='OPTOS')
 
-        Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
-        Jscs.append(Jsc)
-        plt.figure(1)
-        plt.plot(EQE_wl, A_GaAs(EQE_wl), label=label[k1], color=pal[k1])
-        plt.plot(EQE_wl, A_InGaP(EQE_wl), '--', color=pal[k1])
-        plt.plot(EQE_wl, A_InAlP(EQE_wl), '-.', color=pal[k1])
         #plt.plot(wavelengths, output['A_layer'].todense()[:, 1, :])
         #plt.plot(wavelengths, output['R'][:,0])
         #plt.plot(wavelengths, output['T'][:,0])
         #plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
 
-    else:
-        load_orders = [5, 10, 20, 40, 75, 100, 125, 150]
-        plt.figure()
-        for i1, orders in enumerate(load_orders):
-            A_GaAs = np.loadtxt('A_GaAs_' + str(orders) + '.csv', delimiter=',')
-            plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 1], color=pal[i1], label=str(orders))
-            plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 2], '--', color=pal[i1])
-            plt.plot(A_GaAs[:, 0] * 1e9, A_GaAs[:, 3], '-.', color=pal[i1])
-            A_GaAs = interp1d(wavelengths * 1e9, A_GaAs[:, 1])
-            Jsc = 0.1 * (q / (h * c)) * np.trapz(EQE_wl * A_GaAs(EQE_wl) * AM0(EQE_wl), EQE_wl) / 1e9
-            Jscs.append(Jsc)
-
-            # plt.plot(wavelengths, output['T'][:,0])
-            # plt.legend(['ARC1', 'ARC2', 'GaAS', 'grting', 'R', 'T'])
 
 
     # AM0 spectrum
@@ -139,7 +114,7 @@ for k1, size  in enumerate([((x, 0),(x/2,np.sin(np.pi/3)*x)), ((x,0), (0,x))]):
     import xarray as xr
     import os
 
-    normal_inc = output['int_mat'][:,:,0].todense()
+    normal_inc = output['full_mat'][:,:,0].todense()
     normal_inc_A = output['A_layer'][:,0,0].todense()
     R = output['R'][:,0]
     T = output['T'][:,0]

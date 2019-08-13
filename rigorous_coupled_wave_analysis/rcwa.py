@@ -145,7 +145,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     #print(l_oc[0])
 
     G_basis = np.array(S.GetBasisSet())
-    #print(len(G_basis))
+    print(len(G_basis))
     #print('G_basis', G_basis)
     f_mat = S.GetReciprocalLattice()
     #print('f_mat', f_mat)
@@ -154,7 +154,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     fg_2x = f_mat[1][0]
     fg_2y = f_mat[1][1]
 
-    print('basis', f_mat)
+    #print('basis', f_mat)
 
     R = np.zeros((len(theta)))
     T = np.zeros((len(theta)))
@@ -259,11 +259,12 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
                 #print(R_pfbo_int_p)
                 R_pfbo_int = (R_pfbo_int_p + R_pfbo_int_s)/2
                 f_z = np.sqrt((l_oc[layer_details] / (wl ** 2)) - fr_x ** 2 - fr_y ** 2)
-                print('fz', wl, f_z)
-                print('fy', wl, fr_y)
-                print('fx', wl, fr_x)
+
+                #print('fz', wl, f_z)
+                #print('fy', wl, fr_y)
+                #print('fx', wl, fr_x)
                 theta_l = np.real(np.arccos(f_z / np.sqrt(fr_x ** 2 + fr_y ** 2 + f_z ** 2)))
-                print(l_oc[layer_details])
+                #print(l_oc[layer_details])
                 #print('theta_l',theta_l)
                 theta_l[theta_l == 0] = 1e-10
                 #print('R_pfbo', R_pfbo_int)
@@ -273,13 +274,13 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
                 R_pfbo_int[np_l] = 0
 
                 R_pfbo_int[np.abs(R_pfbo_int < 1e-16)] = 0  # sometimes get very small negative valyes
-                print(theta_l)
+                #print(theta_l)
                 theta_l_bin = np.digitize(theta_l, theta_intv, right=True) - 1
-                print(theta_l_bin)
+                #print(theta_l_bin)
                 for i2 in np.nonzero(R_pfbo_int)[0]:
                     phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_l_bin[i2]], right=True) - 1
                     bin = np.argmin(abs(angle_vector_0 - theta_l_bin[i2])) + phi_ind
-                    print(bin)
+                    #print(bin)
                     #print(R_pfbo_int[i2], phi_rt[i2], bin, i1, phi_ind,
                     #      np.argmin(abs(angle_vector_0 - theta_l_bin[i2])))
                     mat_int[bin, i1] = mat_int[bin, i1] + R_pfbo_int[i2]

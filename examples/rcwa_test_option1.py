@@ -30,19 +30,10 @@ SiN = material('321', nk_db = True)()
 x=500
 # anti-reflection coating
 
-ARC = [Layer(si('78nm'), MgF2), Layer(si('48nm'), Ta2O5)]
 ARC = [Layer(si('60nm'), SiN)]
 size = ((x, 0),(0, x))
-# The layer with nanoparticles
-#struct_mirror = [Layer(si('120nm'), TiO2, geometry=[{'type': 'rectangle', 'mat': Ag, 'center': (x/2, x/2),
-#  'halfwidths': (210,210), 'angle': 0}])]
-
-grating =  [Layer(si('120nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
-                                               'radius': 100, 'angle': 0}])]
-# NP_layer=[Layer(si('50nm'), Ag)]
 
 
-solar_cell = SolarCell(ARC + [Layer(material=GaAs, width=si('80nm'))] + grating)
 
 #solar_cell = SolarCell(grating)
 
@@ -61,9 +52,9 @@ options = {'nm_spacing': 0.5,
            'phi_symmetry': np.pi/2,
            }
 
-#all_orders = [1, 9, 13, 37, 69, 97, 121, 141, 197, 249, 293, 350]
-#all_orders = [121, 141, 249, 293]
-all_orders = [300, 500, 600, 700, 800]
+all_orders = [1, 9, 13, 37, 69, 97, 121, 141, 197, 249, 293, 350]
+#all_orders = [9, 13, 37, 69]
+#all_orders = [300, 500, 600, 700, 800]
 # 350 = 349
 import seaborn as sns
 pal = sns.cubehelix_palette(len(all_orders), start=.5, rot=-.9)
