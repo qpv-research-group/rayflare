@@ -6,6 +6,7 @@ from angles import make_angle_vector
 import os
 from sparse import COO, save_npz, load_npz, stack
 from config import results_path
+from time import time
 
 try:
     import S4
@@ -28,7 +29,10 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
     :param substrate: semi-infinite transmission medium
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
-
+    # TODO: when non-zero incidence angle, not binned correctly in matrix (just goes in theta = 0)
+    # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
+    # or if internally it will still do s & p separately
+    # TODO: if incidence angle is zero, s and p polarization are the same
     structpath = os.path.join(results_path, options['project_name'])
     if not os.path.isdir(structpath):
         os.mkdir(structpath)
@@ -83,6 +87,7 @@ def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_
     user_options = options['rcwa_options'] if 'rcwa_options' in options.keys() else {}
     rcwa_options.update(user_options)
     print(rcwa_options)
+
     theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
     if only_incidence_angle:
@@ -528,3 +533,150 @@ def get_reciprocal_lattice(size, orders):
     f_mat = S.GetReciprocalLattice()
 
     return f_mat
+
+
+class RCWA_optim:
+
+    def __init__(self, structure, size, orders, options, incidence, substrate):
+        """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
+        defined using an RCWA method implemented using the S4 package.
+
+        :param structure: A solcore Structure object with layers and materials or a OptiStack object.
+        :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
+        :param orders: number of orders to retain in the RCWA calculations.
+        :param wavelength: Wavelengths (in nm) in which calculate the data.
+        :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
+        :param phi: azimuthal incidence angle in degrees. Default: 0
+        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
+        :param substrate: semi-infinite transmission medium
+        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+        """
+
+        wavelengths = options['wavelengths']
+
+        # write a separate function that makes the OptiStack structure into an S4 object, defined materials etc.
+        geom_list = [layer.geometry for layer in structure]
+        geom_list.insert(0, {})  # incidence medium
+        geom_list.append({})  # transmission medium
+
+        ## Materials for the shapes need to be defined before you can do .SetRegion
+        shape_mats, geom_list_str = necessary_materials(geom_list)
+
+        shapes_oc = np.zeros((len(wavelengths), len(shape_mats)), dtype=complex)
+
+        for i1, x in enumerate(shape_mats):
+            shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
+
+        stack_OS = OptiStack(structure, no_back_reflexion=False, substrate=substrate)
+        widths = stack_OS.get_widths()
+        layers_oc = np.zeros((len(wavelengths), len(structure) + 2), dtype=complex)
+
+        layers_oc[:, 0] = (incidence.n(wavelengths)) ** 2  # + 1j*incidence.k(wavelengths))**2
+        layers_oc[:, -1] = (substrate.n(wavelengths) + 1j * substrate.k(wavelengths)) ** 2
+
+        for i1, x in enumerate(structure):
+            layers_oc[:, i1 + 1] = (x.material.n(wavelengths) + 1j * x.material.k(wavelengths)) ** 2
+
+        shapes_names = [str(x) for x in shape_mats]
+
+        # nm_spacing = options['nm_spacing']
+
+
+        # RCWA options
+        rcwa_options = dict(LatticeTruncation='Circular',
+                            DiscretizedEpsilon=False,
+                            DiscretizationResolution=8,
+                            PolarizationDecomposition=False,
+                            PolarizationBasis='Default',
+                            LanczosSmoothing=False,
+                            SubpixelSmoothing=False,
+                            ConserveMemory=False,
+                            WeismannFormulation=False)
+
+        user_options = options['rcwa_options'] if 'rcwa_options' in options.keys() else {}
+        rcwa_options.update(user_options)
+
+        self.wavelengths = wavelengths
+        self.rcwa_options = rcwa_options
+        self.options = options
+        self.geom_list = geom_list
+        self.shapes_oc = shapes_oc
+        self.shapes_names = shapes_names
+        self.widths = widths
+        self.orders = orders
+        self.size = size
+        self.layers_oc = layers_oc
+
+    def set_widths(self, new_widths):
+        new_widths = np.append(np.insert(np.array(new_widths, dtype='f'), 0, np.inf), np.inf).tolist()
+        self.widths = new_widths
+
+    def set_size(self, new_size):
+        self.size = new_size
+
+    def edit_geom_list(self, layer_index, geom_index, geom_entry):
+
+        self.geom_list[layer_index][geom_index].update(geom_entry)
+
+
+
+    def calculate(self):
+
+        if self.options['parallel']:
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl)
+                                                        (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                                                         self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
+                                                         self.widths, self.size,
+                                                         self.orders, self.rcwa_options)
+                                                        for i1 in range(len(self.wavelengths)))
+
+        else:
+            allres = [
+                self.RCWA_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                                                         self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
+                                                         self.widths, self.size,
+                                                         self.orders, self.rcwa_options)
+                for i1 in range(len(self.wavelengths))]
+
+        R = np.stack([item[0] for item in allres])
+        T = np.stack([item[1] for item in allres])
+        A_mat = np.stack([item[2] for item in allres])
+
+
+        return {'R': R, 'T': T, 'A_layer': A_mat}
+
+
+    def RCWA_wl(self, wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):
+
+        S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, rcwa_options)
+
+
+        if pol in 'sp':
+            if pol == 's':
+                s = 1
+                p = 0
+            elif pol == 'p':
+                s = 0
+                p = 1
+
+            S.SetExcitationPlanewave((theta, phi), s, p, 0)
+            S.SetFrequency(1 / wl)
+            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
+            R = out['R']
+            T = out['T']
+            A_layer = rcwa_absorption_per_layer(S, len(widths))
+
+        else:
+
+            S.SetFrequency(1 / wl)
+            S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
+            out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths))
+            S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # s-polarization
+            out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths))
+
+
+            R = 0.5 * (out_p['R'] + out_s['R'])  # average
+            T = 0.5 * (out_p['T'] + out_s['T'])
+            A_layer = rcwa_absorption_per_layer(S, len(widths))
+
+        return R, T, A_layer

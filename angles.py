@@ -30,7 +30,7 @@ def make_angle_vector(n_angle_bins, phi_sym, c_azimuth):
         else:
             ind = i1 + 1
 
-        phi_intv.append(np.linspace(0, phi_sym, np.ceil(c_azimuth*ind)+1))
+        phi_intv.append(np.linspace(0, phi_sym, int(np.ceil(c_azimuth*ind)+1)))
         phi_middle = (phi_intv[i1][:-1] + phi_intv[i1][1:])/2
 
         angle_vector = np.append(angle_vector, np.array([np.array(len(phi_middle)*[i1]),
