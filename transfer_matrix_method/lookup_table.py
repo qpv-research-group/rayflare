@@ -1,11 +1,9 @@
 import xarray as xr
 import numpy as np
-from solcore import material
-from solcore.structure import Layer
-from transfer_matrix_method.transfer_matrix import calculate_rat, OptiStack
-import matplotlib.pyplot as plt
+from transfer_matrix_method.transfer_matrix import calculate_rat
 import os
 from config import results_path
+from solcore.absorption_calculator import OptiStack
 
 def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
                          coherent=True, coherency_list=None, prof_layers=None, sides=[1,-1]):

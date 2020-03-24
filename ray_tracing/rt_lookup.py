@@ -321,7 +321,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
 
 
 
-def full_RT(group, incidence, transmission, options):
+def calculate_rat_rt(group, incidence, transmission, options):
     wavelengths = options['wavelengths']
 
     mats = [incidence]
@@ -406,26 +406,6 @@ def full_RT(group, incidence, transmission, options):
 
     return R, T, A_layer[:,1:-1], absorption_profiles, thetas, phis
 
-
-# def wavelength_loop(xy, wavelengths, nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh):
-#     absorption_profile = np.empty((len(wavelengths), len(z_pos)))
-#     thetas = np.empty(len(wavelengths))
-#     phis = np.empty(len(wavelengths))
-#     A_layer = np.zeros((len(wavelengths), len(widths)))
-#     Is = np.empty(len(wavelengths))
-#
-#     for i1, wl in enumerate(wavelengths):
-#         # materials = {'nk': nks[:,i1], 'alpha': np.imag(nks[:,i1])*4*np.pi/(wl*1e6), 'width': widths}
-#         I, profile, A_per_layer, th_o, phi_o, ray_path = single_ray_stack(xy[0], xy[1], nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
-#                                                                     surfaces, widths, z_pos, I_thresh, pol)
-#
-#         absorption_profile[i1] = profile
-#         thetas[i1] = th_o
-#         phis[i1] = phi_o
-#         A_layer[i1] = A_per_layer
-#         Is[i1] = I
-#
-#     return Is, absorption_profile, thetas, phis, A_layer
 
 
 def normalize(x):

@@ -14,7 +14,7 @@ except Exception as err:
     print('WARNING: The RCWA solver will not be available because an S4 installation has not been found.')
 
 
-def rcwa(structure, size, orders, options, incidence, substrate, only_incidence_angle=False,
+def RCWA(structure, size, orders, options, incidence, substrate, only_incidence_angle=False,
                        front_or_rear='front', surf_name='', detail_layer=False):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
@@ -535,7 +535,7 @@ def get_reciprocal_lattice(size, orders):
     return f_mat
 
 
-class RCWA_optim:
+class calculate_rat_rcwa:
 
     def __init__(self, structure, size, orders, options, incidence, substrate):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
