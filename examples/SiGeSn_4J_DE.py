@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from solcore.optics.tmm import OptiStack
 from solcore.optics.tmm import calculate_rat
 
-# Import the DE implementations
+# Import the DE implementation
 from optimization.de import PDE
 from solcore.light_source import LightSource
 

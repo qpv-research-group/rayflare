@@ -3,8 +3,6 @@
 import numpy as np
 
 from solcore import si, material
-from solcore.structure import Layer
-
 import matplotlib.pyplot as plt
 
 from solcore.optics.tmm import OptiStack
@@ -17,7 +15,7 @@ from solcore.light_source import LightSource
 # Optimizing a double-layer MgF2/Ta2O5 anti-reflection coating for "infinitely-thick" GaAs. Minimize reflection * AM0 spectrum
 # (weighted reflectance).
 
-# To use yabox for the DE, we need to define a class which sets up the problem and has an 'evaluate' function, which
+# To use yabox for the DE, we need to define a class which sets up the problem and has an 'evaluate' function within it, which
 # will actually calculate the value we are trying to minimize for each set of parameters.
 
 class calc_R_diff():
@@ -34,7 +32,6 @@ class calc_R_diff():
         self.MgF2 = [self.wl, material('MgF2')().n(self.wl*1e-9), material('MgF2')().k(self.wl*1e-9)]
         self.Ta2O5 = [self.wl, material('410', nk_db=True)().n(self.wl*1e-9), material('410', nk_db=True)().k(self.wl*1e-9)]
         self.GaAs = [1000, self.wl, material('GaAs')().n(self.wl*1e-9), material('GaAs')().k(self.wl*1e-9)]
-        self.Ag = [100, self.wl, material('Ag_Jiang')().n(self.wl*1e-9), material('Ag_Jiang')().k(self.wl*1e-9)]
 
         # assuming an AM0 spectrum
         spectr = LightSource(source_type='standard', version='AM0', x=self.wl,
@@ -49,7 +46,7 @@ class calc_R_diff():
         # This is one of the acceptable formats in which OptiStack can take information (look at the Solcore documentation
         # or at the OptiStack code for more info
 
-        ARC = [[x[0]] + self.MgF2, [x[1]] + self.Ta2O5, self.GaAs, self.Ag]
+        ARC = [[x[0]] + self.MgF2, [x[1]] + self.Ta2O5, self.GaAs]
 
         # create the OptiStack. We set no_back_reflection to True because we DO  NOT want to include reflection at the back surface
         # (assume GaAs is infinitely thick)
@@ -69,7 +66,7 @@ class calc_R_diff():
     def plot(self, x):
         # this does basically what evaluate() does, but plots the reflectivity
 
-        ARC = [[x[0]] + self.MgF2, [x[1]] + self.Ta2O5, self.GaAs, self.Ag]
+        ARC = [[x[0]] + self.MgF2, [x[1]] + self.Ta2O5, self.GaAs]
 
         full_stack = OptiStack(ARC, no_back_reflection=True)
 
@@ -82,7 +79,7 @@ class calc_R_diff():
 
     def plot_weighted(self, x):
         # this does basically what evaluate() does, but plots the reflectivity weighted by the AM0 solar spectrum
-        ARC = [[x[0]] + self.MgF2, [x[1]] + self.Ta2O5, self.GaAs, self.Ag]
+        ARC = [[x[0]] + self.MgF2, [x[1]] + self.Ta2O5, self.GaAs]
 
         full_stack = OptiStack(ARC, no_back_reflection=True)
 

@@ -319,92 +319,222 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     else:
         return out_mat, A_mat
 
+class rt_structure:
+    def __init__(self, textures, materials, widths, incidence, transmission):
+
+        self.textures = textures
+        self.widths = widths
+
+        mats = [incidence]
+        for i1 in range(len(materials)):
+            mats.append(materials[i1])
+        mats.append(transmission)
+
+        self.mats = mats
+
+        surfs_no_offset = [x[0] for x in textures]
+
+        cum_width = np.cumsum([0] + widths) * 1e6
+
+        surfaces = []
+
+        for i1, text in enumerate(surfs_no_offset):
+            points_loop = deepcopy(text.Points)
+            points_loop[:, 2] = points_loop[:, 2] - cum_width[i1]
+            surfaces.append(RTSurface(points_loop))
+
+        self.surfaces = surfaces
+        self.surfs_no_offset= surfs_no_offset
+        self.cum_width = cum_width
+
+    def calculate(self, options):
+        wavelengths = options['wavelengths']
+        theta = options['theta']
+        phi = options['phi']
+        I_thresh = options['I_thresh']
+    
+        widths =  self.widths
+        widths.insert(0, 0)
+        widths.append(0)
+        widths = 1e6*np.array(widths)  # convert to um
+    
+        z_space = 1e6*options['depth_spacing']
+        z_pos = np.arange(0, sum(widths), z_space)
+
+        mats = self.mats
+        surfaces = self.surfaces
+    
+        nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
+        alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
+        R = np.zeros(len(wavelengths))
+        T = np.zeros(len(wavelengths))
+    
+        absorption_profiles = np.zeros((len(wavelengths), len(z_pos)))
+        A_layer = np.zeros((len(wavelengths), len(widths)))
+    
+        for i1, mat in enumerate(mats):
+            nks[i1] = mat.n(wavelengths) + 1j*mat.k(wavelengths)
+            alphas[i1] = mat.k(wavelengths)*4*np.pi/(wavelengths*1e6)
+    
+        h = max(surfaces[0].Points[:, 2])
+        r = abs((h + 1) / cos(theta))
+        r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
+    
+        x_lim = surfaces[0].Lx
+        y_lim = surfaces[0].Ly
+    
+        nx = options['nx']
+        ny = options['ny']
+    
+        xs = np.linspace(x_lim/100, x_lim-(x_lim/100), nx)
+        ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
+    
+        # need to calculate r_a and r_b
+        # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
+        # how many times we need to repeat
+        n_reps = np.int(np.ceil(options['n_rays']/(nx*ny)))
+
+        # thetas and phis divided into
+        thetas = np.zeros((n_reps*nx*ny, len(wavelengths)))
+        phis = np.zeros((n_reps*nx*ny, len(wavelengths)))
+
+        Is = np.zeros((n_reps*nx*ny, len(wavelengths)))
+    
+        pol = options['pol']
+
+        if not options['parallel']:
+            for j1 in range(n_reps):
+
+                offset = j1*nx*ny
+                #print(offset, n_reps)
+                for c, vals in enumerate(product(xs, ys)):
+
+                    for i1, wl in enumerate(wavelengths):
+                        I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks[:, i1],
+                                                                                          alphas[:, i1], r_a_0, theta, phi,
+                                                                                          surfaces, widths, z_pos, I_thresh, pol)
+                        absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
+                        thetas[c+offset, i1] = th_o
+                        phis[c+offset, i1] = phi_o
+                        A_layer[i1] = A_layer[i1] + A_per_layer/(n_reps*nx*ny)
+                        if th_o is not None:
+                            if np.real(th_o) < np.pi/2:
+                                R[i1] = np.real(R[i1] + I/(n_reps*nx*ny))
+                            else:
+                                T[i1] = np.real(T[i1] + I/(n_reps*nx*ny))
+
+            return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles/1e3,
+                    'thetas': thetas, 'phis': phis}
 
 
-def calculate_rat_rt(group, incidence, transmission, options):
-    wavelengths = options['wavelengths']
+        else:
 
-    mats = [incidence]
-    for i1 in range(len(group.materials)):
-        mats.append(group.materials[i1])
-    mats.append(transmission)
+            allres = Parallel(n_jobs=-1)(delayed(parallel_inner)(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
+                                                                  surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys) for
+                                        i1 in range(len(wavelengths)))
 
-    theta = options['theta']
-    phi = options['phi']
+            #allres = [parallel_inner(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
+            #                         surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys) for
+            #          i1 in range(len(wavelengths))]
 
-    surfs_no_offset = [x[0] for x in group.textures]
+            I = np.stack(item[0] for item in allres)
+            absorption_profiles = np.stack([item[1] for item in allres])
+            A_layer = np.stack([item[2] for item in allres])
+            thetas = np.stack([item[3] for item in allres])
+            phis = np.stack([item[4] for item in allres])
 
-    cum_width = np.cumsum([0] + group.widths)*1e6
+            #                absorption_profiles[c+offset, :] = absorption_profiles_c
 
-    surfaces= []
+            # thetas[c + offset, :] = thetas_c
 
-    for i1, text in enumerate(surfs_no_offset):
-        points_loop = deepcopy(text.Points)
-        points_loop[:, 2] = points_loop[:, 2] - cum_width[i1]
-        surfaces.append(RTSurface(points_loop))
+            # phis[c + offset, :] = phis_c
 
-    I_thresh = options['I_thresh']
+            # Is[c + offset, :] = I_c
 
-    widths =  group.widths
-    widths.insert(0, 0)
-    widths.append(0)
-    widths = 1e6*np.array(widths)  # convert to um
+            # A_layer = A_layer + A_layer_c / (nx * ny * n_reps)
 
-    z_space = 1e6*group.depth_spacing
-    z_pos = np.arange(0, sum(widths), z_space)
+            non_abs = ~np.isnan(thetas)
+            refl = np.logical_and(non_abs, np.real(thetas) < np.pi / 2)
+            trns = np.logical_and(non_abs, np.real(thetas) > np.pi / 2)
+            R = np.real(I * refl).T / (n_reps*nx * ny)
+            T = np.real(I * trns).T / (n_reps*nx * ny)
+            R = np.sum(R, 0)
+            T = np.sum(T, 0)
 
-    nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
-    alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
-    R = np.zeros(len(wavelengths))
-    T = np.zeros(len(wavelengths))
+            return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles/1e3,
+                    'thetas': thetas, 'phis': phis}
+    #
+    #             # TODO: maybe faster to put wavelength loop outside and then parallelize everything inside that - less overhead, more happening in each loop
+    #             for j1 in range(n_reps):
+    #
+    #                 offset = j1 * nx * ny
+    #                 #print(offset, n_reps)
+    #                 for c, vals in enumerate(product(xs, ys)):
+    #
+    #
+    #                     allres = Parallel(n_jobs=-1)(delayed(single_ray_stack)(vals[0], vals[1], nks[:, i1],
+    #                                                                             alphas[:, i1], r_a_0, theta, phi,
+    #                                                                             surfaces, widths, z_pos, I_thresh, pol) for
+    #                               i1 in range(len(wavelengths)))
+    #
+    #                     I_c = np.stack(item[0] for item in allres)
+    #                     absorption_profiles_c = np.stack([item[1] for item in allres])
+    #                     A_layer_c = np.stack([item[2] for item in allres])
+    #                     thetas_c = np.stack([item[3] for item in allres])
+    #                     phis_c = np.stack([item[4] for item in allres])
+    #
+    # #                absorption_profiles[c+offset, :] = absorption_profiles_c
+    #                     thetas[c+offset, :] = thetas_c
+    #                     phis[c+offset, :] = phis_c
+    #                     Is[c+offset, :] = I_c
+    #                     A_layer = A_layer + A_layer_c/(nx*ny*n_reps)
+    #
+    #             non_abs = ~np.isnan(thetas)
+    #
+    #             refl = np.logical_and(non_abs, np.real(thetas) < np.pi/2)
+    #             trns = np.logical_and(non_abs, np.real(thetas) > np.pi / 2)
+    #
+    #             R = np.real(Is*refl)/(nx*ny*n_reps)
+    #             T = np.real(Is*trns)/(nx*ny*n_reps)
+    #
+    #             R = np.sum(R, 0)
+    #             T = np.sum(T, 0)
+    #
+    #
+    #             return {'A_per_layer': A_layer[:, 1:-1], 'absorption_profiles': absorption_profiles,
+    #                     'thetas': thetas, 'phis': phis_c, 'fullres': allres, 'Is': Is,
+    #                     'R': R, 'T': T}
 
-    absorption_profiles = np.zeros((len(wavelengths), len(z_pos)))
-    A_layer = np.zeros((len(wavelengths), len(widths)))
 
-    for i1, mat in enumerate(mats):
-        nks[i1] = mat.n(wavelengths) + 1j*mat.k(wavelengths)
-        alphas[i1] = mat.k(wavelengths)*4*np.pi/(wavelengths*1e6)
 
-    h = max(surfaces[0].Points[:, 2])
-    r = abs((h + 1) / cos(theta))
-    r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
+def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys):
+    # thetas and phis divided into
+    thetas = np.zeros(n_reps * nx * ny)
+    phis = np.zeros(n_reps * nx * ny)
+    absorption_profiles = np.zeros(len(z_pos))
+    A_layer = np.zeros(len(widths))
+    Is = np.zeros(n_reps*nx*ny)
 
-    x_lim = surfaces[0].Lx
-    y_lim = surfaces[0].Ly
+    profiles = np.zeros(len(z_pos))
 
-    nx = options['nx']
-    ny = options['ny']
+    for j1 in range(n_reps):
+        offset = j1 * nx * ny
+        # print(offset, n_reps)
+        for c, vals in enumerate(product(xs, ys)):
+            I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks, alphas, r_a_0, theta, phi,
+            surfaces, widths, z_pos, I_thresh, pol)
+            profiles = profiles + profile/(n_reps*nx*ny)
+            thetas[c+offset] = th_o
+            phis[c+offset] = phi_o
+            Is[c+offset] = I
+            A_layer = A_layer+A_per_layer/(n_reps*nx*ny)
 
-    xs = np.linspace(x_lim/100, x_lim-(x_lim/100), nx)
-    ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
+    return Is, profiles, A_layer, thetas, phis
 
-    # need to calculate r_a and r_b
-    n_reps = np.int(np.ceil(options['n_rays']/(nx*ny)))
-    thetas = np.zeros((n_reps*nx*ny, len(wavelengths)))
-    phis = np.zeros((n_reps*nx*ny, len(wavelengths)))
 
-    pol = options['pol']
 
-    if not options['parallel']:
-        for j1 in range(n_reps):
-            offset = j1*nx*ny
-            for c, vals in enumerate(product(xs, ys)):
 
-                for i1, wl in enumerate(wavelengths):
-                    I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks[:, i1],
-                                                                                      alphas[:, i1], r_a_0, theta, phi,
-                                                                                      surfaces, widths, z_pos, I_thresh, pol)
-                    absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
-                    thetas[c+offset, i1] = th_o
-                    phis[c+offset, i1] = phi_o
-                    A_layer[i1] = A_layer[i1] + A_per_layer/(n_reps*nx*ny)
-                    if th_o is not None:
-                        if np.real(th_o) < np.pi/2:
-                            R[i1] = np.real(R[i1] + I/(n_reps*nx*ny))
-                        else:
-                            T[i1] = np.real(T[i1] + I/(n_reps*nx*ny))
 
-    return R, T, A_layer[:,1:-1], absorption_profiles, thetas, phis
 
 
 

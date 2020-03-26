@@ -1,7 +1,7 @@
 import numpy as np
 from solcore import si, material
 from solcore.structure import Layer
-from rigorous_coupled_wave_analysis.rcwa import calculate_rat_rcwa
+from rigorous_coupled_wave_analysis.rcwa import rcwa_structure
 
 import matplotlib.pyplot as plt
 
@@ -68,7 +68,7 @@ class Jsc_optim:
         solar_cell = SolarCell(ARC1 + [Layer(material=InGaP, width=si('19nm')),
                                        Layer(material=GaAs, width=si('86nm')),
                                        Layer(material=InAlP, width=si('18nm'))] + grating)
-        self.S4_setup = calculate_rat_rcwa(solar_cell, size, 37, options, Air, Ag)
+        self.S4_setup = rcwa_structure(solar_cell, size, 37, options, Air, Ag)
         spect = np.loadtxt('AM0.csv', delimiter=',')
         self.AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths*1e9)
 

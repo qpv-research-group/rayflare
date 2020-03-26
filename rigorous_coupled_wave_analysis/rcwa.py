@@ -55,7 +55,7 @@ def RCWA(structure, size, orders, options, incidence, substrate, only_incidence_
     for i1, x in enumerate(shape_mats):
         shapes_oc[:, i1] = (x.n(wavelengths) + 1j*x.k(wavelengths))**2
 
-    stack_OS = OptiStack(structure, no_back_reflexion=False, substrate=substrate)
+    stack_OS = OptiStack(structure, bo_back_reflection=False, substrate=substrate)
     widths = stack_OS.get_widths()
     layers_oc = np.zeros((len(wavelengths), len(structure)+2), dtype=complex)
 
@@ -369,7 +369,7 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
         #print('shape_mat_' + str(i1+1), shapes_oc[i1])
 
     ## Make the layers
-    #stack_OS = OptiStack(stack, no_back_reflexion=False, substrate=substrate)
+    #stack_OS = OptiStack(stack, bo_back_reflection=False, substrate=substrate)
     #widths = stack_OS.get_widths()
 
     for i1 in range(len(widths)):  # create 'dummy' materials for base layers including incidence and transmission media
@@ -535,7 +535,7 @@ def get_reciprocal_lattice(size, orders):
     return f_mat
 
 
-class calculate_rat_rcwa:
+class rcwa_structure:
 
     def __init__(self, structure, size, orders, options, incidence, substrate):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
@@ -567,7 +567,7 @@ class calculate_rat_rcwa:
         for i1, x in enumerate(shape_mats):
             shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
 
-        stack_OS = OptiStack(structure, no_back_reflexion=False, substrate=substrate)
+        stack_OS = OptiStack(structure, bo_back_reflection=False, substrate=substrate)
         widths = stack_OS.get_widths()
         layers_oc = np.zeros((len(wavelengths), len(structure) + 2), dtype=complex)
 
@@ -617,7 +617,6 @@ class calculate_rat_rcwa:
     def edit_geom_list(self, layer_index, geom_index, geom_entry):
 
         self.geom_list[layer_index][geom_index].update(geom_entry)
-
 
 
     def calculate(self):
