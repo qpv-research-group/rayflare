@@ -1,5 +1,9 @@
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib as mpl
+
 
 def make_angle_vector(n_angle_bins, phi_sym, c_azimuth):
     """Makes the binning intervals & angle vector depending on the relevant options.
@@ -43,7 +47,7 @@ def fold_phi(phis, phi_sym):
     """'Folds' phi angles back into symmetry element from 0 -> phi_sym radians"""
     return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
 
-def theta_summary(out_mat, angle_vector):
+def theta_summary(out_mat, angle_vector, n_theta_bins, front_or_rear="front"):
     """Accepts an RT redistribution matrix and sums it over all the azimuthal angle bins to create an output
     in terms of theta_in and theta_out.
     :param out_mat: an RT (or just R or T) redistribution matrix
@@ -51,17 +55,70 @@ def theta_summary(out_mat, angle_vector):
     :return sum_mat: the theta summary matrix
     :return R: the overall reflection probability for every incidence theta
     :return T: the overall transmission probaility for every incidence theta"""
-    out_mat = xr.DataArray(out_mat, dims=['index_out', 'index_in'],
+
+    # need to fix normalization
+
+    theta_all = np.unique(angle_vector[:, 1])
+    theta_r = theta_all[:n_theta_bins]
+    theta_t = theta_all[n_theta_bins:]
+
+
+    if front_or_rear == "front":
+        out_mat = xr.DataArray(out_mat, dims=['index_out', 'index_in'],
                            coords={'theta_in': (['index_in'], angle_vector[:out_mat.shape[1],1]),
                                    'theta_out': (['index_out'], angle_vector[:out_mat.shape[0],1])})
 
+
+    else:
+        out_mat = xr.DataArray(out_mat, dims=['index_out', 'index_in'],
+                           coords={'theta_in': (['index_in'],  angle_vector[out_mat.shape[1]:,1]),
+                                   'theta_out': (['index_out'], angle_vector[:out_mat.shape[0],1])})
+
     sum_mat = out_mat.groupby('theta_in').apply(np.mean, args=(1, None))
-    sum_mat = sum_mat.groupby('theta_out').apply(np.mean, args=(0, None))
 
-    R = sum_mat[sum_mat.coords['theta_out'] < np.pi / 2, :].reduce(np.sum, 'theta_out').data
-    T = sum_mat[sum_mat.coords['theta_out'] > np.pi / 2, :].reduce(np.sum, 'theta_out').data
+    sum_mat = sum_mat.groupby('theta_out').apply(weighted_mean, args=('theta_out', 0, None))
 
-    return sum_mat.data, R, T
+    if front_or_rear == "front":
+        sum_mat = xr.DataArray(sum_mat.data, dims=[r'$\theta_{out}$', r'$\theta_{in}$'],
+                              coords={r'$\theta_{out}$': theta_all, r'$\theta_{in}$': theta_all[:sum_mat.shape[1]]})
+
+    else:
+        sum_mat = xr.DataArray(sum_mat.data, dims=[r'$\theta_{out}$', r'$\theta_{in}$'],
+                              coords={r'$\theta_{out}$': theta_all, r'$\theta_{in}$': theta_t})
+
+
+    return sum_mat
+
+def weighted_mean(x, summing_over, axis, dtype=None):
+    #print(x.coords[summing_over])
+    #print(len(x.coords[summing_over]))
+    mean = np.mean(x, axis, dtype)*len(x.coords[summing_over])
+    return mean
+
+
+def plot_theta_summary(summat, summat_back, n_points=100):
+
+    whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+
+    whole_mat_imshow = whole_mat.rename({r'$\theta_{in}$': 'theta_in', r'$\theta_{out}$': 'theta_out'})
+
+    whole_mat_imshow = whole_mat_imshow.interp(theta_in=np.linspace(0, np.pi, n_points),
+                                               theta_out=np.linspace(0, np.pi, n_points))
+
+    whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out': r'$\theta_{out}$'})
+
+    palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+    palhf.reverse()
+    seamap = mpl.colors.ListedColormap(palhf)
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
+    # ax = plt.subplot(212)
+    fig.savefig('matrix.png', bbox_inches='tight', format='png')
+    # ax = Tth.plot.imshow(ax=ax)
+
+    plt.show()
 
 def theta_summary_A(A_mat, angle_vector):
     """Accepts an absorption per layer redistribution matrix and sums it over all the azimuthal angle bins to create an output

@@ -16,7 +16,7 @@ from copy import deepcopy
 
 
 def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
-       n_absorbing_layers=0, calc_profile=[], only_incidence_angle=False, widths=[]):
+       n_absorbing_layers=0, calc_profile=[], only_incidence_angle=False, widths=[], save=True):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
     :param group: an RTgroup object containing the surface textures
@@ -37,6 +37,7 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
     :return local_angle_mat: only if calc_profile = True. A matrix storing the local incidence angles for rays which were absorbed.
     This is used to calculate absorption profiles using TMM.
     """
+
 
     structpath = os.path.join(results_path, options['project_name'])
     if not os.path.isdir(structpath):
@@ -201,6 +202,7 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
 def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, surfaces,
           pol, phi_sym, theta_intv, phi_intv, angle_vector, Fr_or_TMM, n_abs_layers, lookuptable, calc_profile, nm_spacing, side):
     print('wavelength = ', wl)
+
     theta_out = np.zeros((n_angles, nx * ny))
     phi_out = np.zeros((n_angles, nx * ny))
     A_surface_layers = np.zeros((n_angles, nx*ny, n_abs_layers))
@@ -217,15 +219,38 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
                 single_ray_interface(vals[0], vals[1], nks[:, i1],
                            r_a_0, theta, phi, surfaces, pol, wl, Fr_or_TMM, lookuptable)
 
+            if th_o < 0: # can do outside loup with np.where
+                th_o = -th_o
+                phi_o = phi_o + np.pi
             theta_out[i2, c] = th_o
             phi_out[i2, c] = phi_o
             A_surface_layers[i2, c] = surface_A[0]
             theta_local_incidence[i2, c] = np.real(surface_A[1])
 
+
+    #phi_out[theta_out < 0] = phi_out + np.pi
+    #theta_out = abs(theta_out) # discards info about phi!
     phi_out = fold_phi(phi_out, phi_sym)
     phis_in = fold_phi(phis_in, phi_sym)
+    #print(theta_out)
 
-    theta_out = abs(theta_out)
+    if side == -1:
+        not_absorbed = np.where(theta_out < (np.pi+0.1))
+        thetas_in = np.pi-thetas_in
+        #phis_in = np.pi-phis_in # unsure about this part
+
+        theta_out[not_absorbed] = np.pi-theta_out[not_absorbed]
+        #phi_out = np.pi-phi_out # unsure about this part
+
+    print(thetas_in)
+    #print(theta_out)
+    #phi_out = fold_phi(phi_out, phi_sym)
+    #phis_in = fold_phi(phis_in, phi_sym)
+
+    #theta_out = abs(theta_out) # discards info about phi!
+
+
+
     theta_local_incidence = np.abs(theta_local_incidence)
     n_thetas = len(theta_intv) - 1
 
@@ -238,6 +263,12 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     binned_theta_in = np.digitize(thetas_in, theta_intv, right=True) - 1
 
     binned_theta_out = np.digitize(theta_out, theta_intv, right=True) - 1
+
+    #print(binned_theta_out, theta_out, theta_intv)
+
+
+    #print(binned_theta_in)
+    #print(binned_theta_out)
     # -1 to give the correct index for the bins in phi_intv
 
     phi_in = xr.DataArray(phis_in,
@@ -264,19 +295,27 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     binned_local_angles = np.digitize(theta_local_incidence, theta_intv, right=True) - 1
     local_angle_mat = np.zeros((int((len(theta_intv) -1 )/ 2), int(len(angle_vector) / 2)))
 
+    if side == 1:
+        offset = 0
+    else:
+        offset = int(len(angle_vector) / 2)
+
     for l1 in range(len(thetas_in)):
         for l2 in range(nx * ny):
-            n_rays_in_bin[bin_in[l1]] += 1
+            n_rays_in_bin[bin_in[l1]-offset] += 1
             if binned_theta_out[l1, l2] <= (n_thetas-1):
                 # reflected or transmitted
-                out_mat[bin_out[l1, l2], bin_in[l1]] += 1
+                out_mat[bin_out[l1, l2], bin_in[l1]-offset] += 1
+                #print('RT bin in-offset', bin_in[l1]-offset)
+                #print(thetas_in[l1], binned_theta_out[l1, l2])
 
             else:
                 # absorbed in one of the surface layers
-                n_rays_in_bin_abs[bin_in[l1]] += 1
+                n_rays_in_bin_abs[bin_in[l1]-offset] += 1
+                #print('A bin in', bin_in[l1]-offset, l1, l2)
                 per_layer = A_surface_layers[l1, l2]
-                A_mat[:, bin_in[l1]] += per_layer
-                local_angle_mat[binned_local_angles[l1, l2], bin_in[l1]] += 1
+                A_mat[:, bin_in[l1]-offset] += per_layer
+                local_angle_mat[binned_local_angles[l1, l2], bin_in[l1]-offset] += 1
 
     # normalize
     out_mat = out_mat/n_rays_in_bin
@@ -295,6 +334,8 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         local_angle_mat = local_angle_mat/np.sum(local_angle_mat, 0)
         local_angle_mat[np.isnan(local_angle_mat)] = 0
         local_angle_mat = COO(local_angle_mat)
+
+        #print(calc_profile)
 
         if len(calc_profile) > 0:
             n_a_in = int(len(angle_vector)/2)
@@ -523,6 +564,10 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
         for c, vals in enumerate(product(xs, ys)):
             I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks, alphas, r_a_0, theta, phi,
             surfaces, widths, z_pos, I_thresh, pol)
+
+            phi_o[th_o < 0] = phi_o + np.pi
+            th_o = abs(th_o)
+
             profiles = profiles + profile/(n_reps*nx*ny)
             thetas[c+offset] = th_o
             phis[c+offset] = phi_o

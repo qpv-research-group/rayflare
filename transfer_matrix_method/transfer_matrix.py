@@ -155,12 +155,22 @@ def TMM(layers, incidence, transmission, surf_name, options,
                          dims=['pol', 'wl', 'angle'],
                          coords={'pol': pols, 'wl': wavelengths, 'angle': thetas},
                          name='T')
-        Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
-                              dims=['pol', 'angle', 'wl', 'layer'],
-                              coords={'pol': pols,
-                                      'wl': wavelengths,
-                                      'angle': thetas,
-                                      'layer': range(1, n_layers + 1)}, name='Alayer')
+
+        if front_or_rear == "front":
+            Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
+                                  dims=['pol', 'angle', 'wl', 'layer'],
+                                  coords={'pol': pols,
+                                          'wl': wavelengths,
+                                          'angle': thetas,
+                                          'layer': range(1, n_layers + 1)}, name='Alayer')
+
+        else:
+            Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
+                                  dims=['pol', 'angle', 'wl', 'layer'],
+                                  coords={'pol': pols,
+                                          'wl': wavelengths,
+                                          'angle': np.pi-thetas,
+                                          'layer': range(1, n_layers + 1)}, name='Alayer')
 
         theta_t = xr.DataArray(np.empty((len(pols), len(wavelengths), n_angles)),
                                dims=['pol', 'wl', 'angle'],
@@ -179,9 +189,6 @@ def TMM(layers, incidence, transmission, surf_name, options,
         T_loop = np.empty((len(wavelengths), n_angles))
         Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers), dtype=np.complex_)
         th_t_loop = np.empty((len(wavelengths), n_angles))
-
-        if front_or_rear == 'rear':
-            Alayer_loop = np.flip(Alayer_loop, axis=2)
 
         if profile:
             Aprof_loop = np.empty((n_angles, len(wavelengths), len(dist)))
@@ -206,6 +213,9 @@ def TMM(layers, incidence, transmission, surf_name, options,
             T_loop[T_loop < 0] = 0
             Alayer_loop[Alayer_loop < 0] = 0
 
+            if front_or_rear == 'rear':
+                Alayer_loop = np.flip(Alayer_loop, axis=2)
+                print('flipping')
 
             R.loc[dict(pol=pol)] = R_loop
             T.loc[dict(pol=pol)] = T_loop
@@ -216,6 +226,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
                 Aprof.loc[dict(pol=pol)] = Aprof_loop
                 Aprof.transpose('pol', 'wl', 'angle', 'z')
 
+
         Alayer = Alayer.transpose('pol', 'wl', 'angle', 'layer')
 
         if profile:
@@ -225,6 +236,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
         if options['pol'] == 'u':
             allres = allres.reduce(np.mean, 'pol').assign_coords(pol='u').expand_dims('pol')
+
 
         # populate matrices
 
