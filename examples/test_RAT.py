@@ -11,13 +11,14 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+n_wl = 8*5
 
-wavelengths = np.linspace(300, 1200, 50)*1e-9
+wavelengths = np.linspace(300, 1800, n_wl)*1e-9
 
 options = default_options
 options['n_theta_bins'] = 100
 options['wavelengths'] = wavelengths
-options['c_azimuth'] = 0.0001
+options['c_azimuth'] = 0.1
 options['phi_symmetry'] = np.pi/2
 
 
@@ -40,18 +41,14 @@ theta_r = theta_all[:options['n_theta_bins']]
 theta_t = theta_all[options['n_theta_bins']:]
 
 
-problem = TMM(layers, Air, Si, 'test', options, True, None, [], 'front', False)
+results_front = TMM(layers, Air, Si, 'test', options, True, None, [], 'front', False)
 
-full = problem[0].todense()[4]
-
-
+full = results_front[0].todense()[n_wl-1]
 
 summat = theta_summary(full, angle_vector, options['n_theta_bins'])
 
-summat = xr.DataArray(summat, dims=[r'$\theta_{out}$', r'$\theta_{in}$'], coords={r'$\theta_{out}$': theta_all, r'$\theta_{in}$': theta_all})
-#
-# Rth = summat[0:options['n_theta_bins'],:]
-# Tth = summat[options['n_theta_bins']:, :]
+Rth = summat[0:options['n_theta_bins'],:]
+Tth = summat[options['n_theta_bins']:, :]
 #
 # theta_r = np.unique(angle_vector[:,1])[:options['n_theta_bins']]
 # theta_t = np.unique(angle_vector[:,1])[options['n_theta_bins']:]
@@ -69,63 +66,103 @@ summat = xr.DataArray(summat, dims=[r'$\theta_{out}$', r'$\theta_{in}$'], coords
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = summat.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
 #
-
-
-problem_back = TMM(layers, Air, Si, 'test', options, True, None, [], 'rear', False)
-
-full_back = problem_back[0].todense()[4]
-
-
-
-summat_back = theta_summary(full_back, angle_vector, options["n_theta_bins"])
-
-
-#summat_back = xr.DataArray(summat_back, dims=[r'$\theta_{out}$', r'$\theta_{in}$'], coords={r'$\theta_{out}$': theta_all, r'$\theta_{in}$': theta_all})
-# Rth = summat[0:options['n_theta_bins'],:]
-# Tth = summat[options['n_theta_bins']:, :]
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = summat.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
 #
-# theta_r = np.unique(angle_vector[:,1])[:options['n_theta_bins']]
-# theta_t = np.unique(angle_vector[:,1])[options['n_theta_bins']:]
-# Rth = xr.DataArray(Rth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'])#, coords={r'$\sin(\theta_{out})$': np.linspace(0,1,options['n_theta_bins']),
-#                                                                             #r'$\sin(\theta_{in})$': np.linspace(0,1,options['n_theta_bins'])})
-# Tth = xr.DataArray(Tth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'])#, coords={r'$\sin(\theta_{out})$': np.linspace(1,0,options['n_theta_bins']),
-#                                                                             #r'$\sin(\theta_{in})$': np.linspace(0,1,options['n_theta_bins'])})
+# plt.show()
 #
-# Rth = xr.DataArray(Rth, dims=[r'$\theta_{out}$', r'$\theta_{in}$'])#, coords={r'$\theta_{out}$': theta_r,
-#                                                                     #        r'$\theta_{in}$': theta_r})
-# Tth = xr.DataArray(Tth, dims=[r'$\theta_{out}$', r'$\theta_{in}$'])#, coords={r'$\theta_{out}$': theta_t,
-#                                                                     #        r'$\theta_{in}$': theta_r})
-
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = summat_back.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
+# palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+# palhf.reverse()
+# seamap = mpl.colors.ListedColormap(palhf)
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
 #
 # fig = plt.figure()
 # ax = plt.subplot(111)
 # ax = Tth.plot.imshow(ax=ax, cmap=seamap)
 # #ax = plt.subplot(212)
-# fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
 # #ax = Tth.plot.imshow(ax=ax)
 #
 # plt.show()
 
-whole_mat = xr.concat((summat[:, :options['n_theta_bins']], summat_back[:, options['n_theta_bins']:]), dim=r'$\theta_{in}$')
+
+results_back = TMM(layers, Air, Si, 'test', options, True, None, [], 'rear', False)
+
+full = results_back[0].todense()[n_wl-1]
+
+theta_all = np.unique(angle_vector[:,1])
+theta_r = theta_all[:options['n_theta_bins']]
+theta_t = theta_all[options['n_theta_bins']:]
+
+
+summat_back = theta_summary(full, angle_vector, options['n_theta_bins'], "rear")
+
+
+Rth = summat_back[options['n_theta_bins']:, :]
+Tth = summat_back[0:options['n_theta_bins']:, :]
+#
+# theta_r = np.unique(angle_vector[:,1])[:options['n_theta_bins']]
+# theta_t = np.unique(angle_vector[:,1])[options['n_theta_bins']:]
+# Rth = xr.DataArray(Rth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'])#, coords={r'$\sin(\theta_{out})$': np.linspace(0,1,options['n_theta_bins']),
+#                                                                            # r'$\sin(\theta_{in})$': np.linspace(0,1,options['n_theta_bins'])})
+# Tth = xr.DataArray(Tth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'])#, coords={r'$\sin(\theta_{out})$': np.linspace(1,0,options['n_theta_bins']),
+#                                                                             #r'$\sin(\theta_{in})$': np.linspace(0,1,options['n_theta_bins'])})
+#
+# Rth = xr.DataArray(Rth, dims=[r'$\theta_{out}$', r'$\theta_{in}$'])#, coords={r'$\theta_{out}$': theta_r,
+#                                                                            # r'$\theta_{in}$': theta_r})
+# Tth = xr.DataArray(Tth, dims=[r'$\theta_{out}$', r'$\theta_{in}$'])#, coords={r'$\theta_{out}$': theta_t,
+#                                                                            # r'$\theta_{in}$': theta_r})
+#
+#
+# palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+# palhf.reverse()
+# seamap = mpl.colors.ListedColormap(palhf)
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = summat_back.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Tth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+
+
+
+
+
+whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
 
 whole_mat_imshow = whole_mat.rename({r'$\theta_{in}$': 'theta_in', r'$\theta_{out}$': 'theta_out'})
 
@@ -133,32 +170,33 @@ whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100)
 
 whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
 
+
 fig = plt.figure()
 ax = plt.subplot(111)
 ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
 #ax = plt.subplot(212)
-fig.savefig('matrix.png', bbox_inches='tight', format='png')
+
 #ax = Tth.plot.imshow(ax=ax)
 
 plt.show()
 
 from sparse import nansum
 
-# indexing: wl, th_out, th_in
-Rf = nansum(problem[0][:, 0:(int(len(angle_vector)/2))], 1)[:, 10].todense()
-Tf = nansum(problem[0][:, (int(len(angle_vector)/2)):], 1)[:, 10].todense()
-Af_1 = problem[2].Alayer[0, :, 10, 0]
-Af_2 = problem[2].Alayer[0, :, 10, 1]
+Rf = nansum(results_front[0][:, 0:(int(len(angle_vector)/2))], 1)[:, 10].todense()
+Tf = nansum(results_front[0][:, (int(len(angle_vector)/2)):], 1)[:, 10].todense()
+Af_1 = results_front[1][:,0,10].todense()
+Af_2 = results_front[1][:,1,10].todense()
 
-Tb = nansum(problem_back[0][:, 0:(int(len(angle_vector)/2))], 1)[:, len(angle_vector)-11].todense()
-Rb = nansum(problem_back[0][:, (int(len(angle_vector)/2)):], 1)[:, len(angle_vector)-11].todense()
-Ab_1 = problem_back[2].Alayer[0,:,-11,0]
-Ab_2 = problem_back[2].Alayer[0,:,-11,1]
+
+Rb = nansum(results_back[0][:, (int(len(angle_vector)/2)):], 1)[:, -11].todense()
+Tb = nansum(results_back[0][:, 0:(int(len(angle_vector)/2))], 1)[:, -11].todense()
+Ab_1 = results_back[1][:,0,-11].todense()
+Ab_2 = results_back[1][:,1,-11].todense()
 
 
 plt.figure()
 plt.plot(wavelengths*1e9, Rf, label='Rf')
-plt.plot(wavelengths*1e9, Tf, '-.', label='Tf')
+plt.plot(wavelengths*1e9, Tf, label='Tf')
 plt.plot(wavelengths*1e9, Af_1, '--', label='Af_1')
 plt.plot(wavelengths*1e9, Af_2, ':', label='Af_2')
 plt.plot(wavelengths*1e9, Rb, label='Rb')

@@ -15,15 +15,16 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+n_wl = 8*5
 
-wavelengths = np.linspace(300, 1200, 5)*1e-9
+wavelengths = np.linspace(300, 1800, n_wl)*1e-9
 
 options = default_options
-options['n_theta_bins'] = 20
+options['n_theta_bins'] = 100
 options['wavelengths'] = wavelengths
 options['c_azimuth'] = 0.1
 options['phi_symmetry'] = np.pi/2
-options['n_rays'] = 1000
+options['n_rays'] = 200000
 options['parallel'] = True
 
 
@@ -52,7 +53,7 @@ make_TMM_lookuptable(layers, Air, Si, 'test', options)
 
 results_front = RT(group, Air, Si, 'test', options, 1, 'front', len(layers))
 
-full = results_front[0].todense()[2]
+full = results_front[0].todense()[n_wl-1]
 
 theta_all = np.unique(angle_vector[:,1])
 theta_r = theta_all[:options['n_theta_bins']]
@@ -80,38 +81,38 @@ Tth = summat[options['n_theta_bins']:, :]
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = summat.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
-
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = Rth.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = Tth.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
-
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = summat.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
+# palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+# palhf.reverse()
+# seamap = mpl.colors.ListedColormap(palhf)
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Tth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
 
 
 #results_back= RT(group, Air, Si, 'test', options, 0, 'rear', 0, False)
@@ -119,7 +120,7 @@ plt.show()
 results_back = RT(group, Air, Si, 'test', options, 1, 'rear', len(layers))
 
 
-full = results_back[0].todense()[2]
+full = results_back[0].todense()[n_wl-1]
 
 theta_all = np.unique(angle_vector[:,1])
 theta_r = theta_all[:options['n_theta_bins']]
@@ -143,38 +144,38 @@ Tth = summat_back[0:options['n_theta_bins']:, :]
 #                                                                            # r'$\theta_{in}$': theta_r})
 # Tth = xr.DataArray(Tth, dims=[r'$\theta_{out}$', r'$\theta_{in}$'])#, coords={r'$\theta_{out}$': theta_t,
 #                                                                            # r'$\theta_{in}$': theta_r})
-
-
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = summat_back.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = Rth.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
-
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = Tth.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
+#
+#
+# palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+# palhf.reverse()
+# seamap = mpl.colors.ListedColormap(palhf)
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = summat_back.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
+#
+# fig = plt.figure()
+# ax = plt.subplot(111)
+# ax = Tth.plot.imshow(ax=ax, cmap=seamap)
+# #ax = plt.subplot(212)
+# #fig.savefig('matrix.png', bbox_inches='tight', format='png')
+# #ax = Tth.plot.imshow(ax=ax)
+#
+# plt.show()
 
 
 

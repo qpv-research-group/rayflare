@@ -36,7 +36,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
     def make_matrix_wl(wl):
         # binning into matrix, including phi
-        RT_mat = np.zeros((len(theta_bins_in)*2, len(theta_bins_in)*2))
+        RT_mat = np.zeros((len(theta_bins_in)*2, len(theta_bins_in)))
         A_mat = np.zeros((n_layers, len(theta_bins_in)))
 
         for i1 in range(len(theta_bins_in)):
@@ -60,7 +60,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
             #print(bin_out_r, i1+offset)
 
-            RT_mat[bin_out_r, i1+offset] = R_prob
+            RT_mat[bin_out_r, i1] = R_prob
             #print(R_prob)
             # transmission
             theta_t = np.abs(-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta_lookup[i1])) + quadrant)
@@ -75,11 +75,12 @@ def TMM(layers, incidence, transmission, surf_name, options,
                 phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
                 bin_out_t = np.argmin(abs(angle_vector[:, 0] - theta_out_bin)) + phi_ind
 
-                RT_mat[bin_out_t, i1+offset] = T_prob
+                RT_mat[bin_out_t, i1] = T_prob
                 #print(bin_out_t, i1+offset)
 
             # absorption
             A_mat[:, i1] = Alayer_prob
+
 
         fullmat = COO(RT_mat)
         A_mat = COO(A_mat)
@@ -156,21 +157,14 @@ def TMM(layers, incidence, transmission, surf_name, options,
                          coords={'pol': pols, 'wl': wavelengths, 'angle': thetas},
                          name='T')
 
-        if front_or_rear == "front":
-            Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
-                                  dims=['pol', 'angle', 'wl', 'layer'],
-                                  coords={'pol': pols,
-                                          'wl': wavelengths,
-                                          'angle': thetas,
-                                          'layer': range(1, n_layers + 1)}, name='Alayer')
 
-        else:
-            Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
-                                  dims=['pol', 'angle', 'wl', 'layer'],
-                                  coords={'pol': pols,
-                                          'wl': wavelengths,
-                                          'angle': np.pi-thetas,
-                                          'layer': range(1, n_layers + 1)}, name='Alayer')
+        Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
+                              dims=['pol', 'angle', 'wl', 'layer'],
+                              coords={'pol': pols,
+                                      'wl': wavelengths,
+                                      'angle': thetas,
+                                      'layer': range(1, n_layers + 1)}, name='Alayer')
+
 
         theta_t = xr.DataArray(np.empty((len(pols), len(wavelengths), n_angles)),
                                dims=['pol', 'wl', 'angle'],
@@ -267,7 +261,6 @@ def TMM(layers, incidence, transmission, surf_name, options,
         print(theta_bins_in)
         mats = [make_matrix_wl(wl) for wl in wavelengths]
 
-
         fullmat = stack([item[0] for item in mats])
         A_mat = stack([item[1] for item in mats])
 
@@ -275,7 +268,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
             save_npz(savepath_RT, fullmat)
             save_npz(savepath_A, A_mat)
 
-    return fullmat, A_mat, allres
+    return fullmat, A_mat #, allres
 
 
 class tmm_structure:
