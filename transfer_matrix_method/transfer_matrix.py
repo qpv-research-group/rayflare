@@ -241,7 +241,6 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
             phis_out = fold_phi(angle_vector_phi + np.pi, options['phi_symmetry'])
             theta_lookup = angles_in[:,1]
-            offset = 0
             quadrant = np.pi
 
 
@@ -251,7 +250,6 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
             phis_out = fold_phi(angle_vector_phi + np.pi, options['phi_symmetry'])
             theta_lookup = angles_in[:,1][::-1]
-            offset = np.int(len(angle_vector)/2)
             quadrant = 0
 
         phis_out[phis_out == 0] = 1e-10

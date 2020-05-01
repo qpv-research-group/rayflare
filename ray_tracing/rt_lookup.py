@@ -38,20 +38,22 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
     This is used to calculate absorption profiles using TMM.
     """
 
+    if Fr_or_TMM > 0 or save:
+        structpath = os.path.join(results_path, options['project_name']) # also need this to get lookup table
+    if save:
 
-    structpath = os.path.join(results_path, options['project_name'])
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
+        if not os.path.isdir(structpath):
+            os.mkdir(structpath)
 
-    savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
-    savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    prof_mat_path = os.path.join(results_path, options['project_name'],
-                                 surf_name + front_or_rear + 'profmat.nc')
+        savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
+        savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
+        prof_mat_path = os.path.join(results_path, options['project_name'],
+                                     surf_name + front_or_rear + 'profmat.nc')
 
-    if Fr_or_TMM > 0:
-        savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')
+        if Fr_or_TMM > 0:
+            savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')
 
-    if os.path.isfile(savepath_RT):
+    if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')
         allArrays = load_npz(savepath_RT)
         absArrays = load_npz(savepath_A)
@@ -173,12 +175,14 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         allArrays = stack([item[0] for item in allres])
         absArrays = stack([item[1] for item in allres])
 
-        save_npz(savepath_RT, allArrays)
-        save_npz(savepath_A, absArrays)
+        if save:
+            save_npz(savepath_RT, allArrays)
+            save_npz(savepath_A, absArrays)
 
         if Fr_or_TMM > 0:
             local_angles = stack([item[2] for item in allres])
-            save_npz(savepath_prof, local_angles)
+            if save:
+                save_npz(savepath_prof, local_angles)
             #make_profile_data(options, np.unique(angle_vector[:,1]), int(len(angle_vector) / 2),
             #                  front_or_rear, surf_name, n_absorbing_layers, widths)
 
@@ -188,8 +192,11 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
                 intgr.name = 'intgr'
                 profile.name = 'profile'
                 allres = xr.merge([intgr, profile])
-                allres.to_netcdf(prof_mat_path)
-                save_npz(savepath_prof, local_angles)
+
+                if save:
+                    allres.to_netcdf(prof_mat_path)
+                    save_npz(savepath_prof, local_angles)
+
                 return allArrays, absArrays, local_angles, profile, intgr
 
             else:

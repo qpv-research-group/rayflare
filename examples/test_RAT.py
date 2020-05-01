@@ -11,7 +11,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-n_wl = 8*5
+n_wl = 80
 
 wavelengths = np.linspace(300, 1800, n_wl)*1e-9
 
@@ -20,6 +20,9 @@ options['n_theta_bins'] = 100
 options['wavelengths'] = wavelengths
 options['c_azimuth'] = 0.1
 options['phi_symmetry'] = np.pi/2
+options['parallel'] = True
+options['pol'] = 'u'
+
 
 
 options.project_name = 'testing'
@@ -180,18 +183,20 @@ ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
 
 plt.show()
 
+angle_index = 100
+
 from sparse import nansum
 
-Rf = nansum(results_front[0][:, 0:(int(len(angle_vector)/2))], 1)[:, 10].todense()
-Tf = nansum(results_front[0][:, (int(len(angle_vector)/2)):], 1)[:, 10].todense()
-Af_1 = results_front[1][:,0,10].todense()
-Af_2 = results_front[1][:,1,10].todense()
+Rf = nansum(results_front[0][:, 0:(int(len(angle_vector)/2))], 1)[:, angle_index ].todense()
+Tf = nansum(results_front[0][:, (int(len(angle_vector)/2)):], 1)[:, angle_index ].todense()
+Af_1 = results_front[1][:,0,angle_index].todense()
+Af_2 = results_front[1][:,1,angle_index].todense()
 
 
-Rb = nansum(results_back[0][:, (int(len(angle_vector)/2)):], 1)[:, -11].todense()
-Tb = nansum(results_back[0][:, 0:(int(len(angle_vector)/2))], 1)[:, -11].todense()
-Ab_1 = results_back[1][:,0,-11].todense()
-Ab_2 = results_back[1][:,1,-11].todense()
+Rb = nansum(results_back[0][:, (int(len(angle_vector)/2)):], 1)[:, -(angle_index +1)].todense()
+Tb = nansum(results_back[0][:, 0:(int(len(angle_vector)/2))], 1)[:, -(angle_index +1)].todense()
+Ab_1 = results_back[1][:,0,-(angle_index +1)].todense()
+Ab_2 = results_back[1][:,1,-(angle_index +1)].todense()
 
 
 plt.figure()
@@ -205,5 +210,35 @@ plt.plot(wavelengths*1e9, Ab_1,  '--', label='Ab_1')
 plt.plot(wavelengths*1e9, Ab_2,  ':',label='Ab_2')
 plt.plot(wavelengths*1e9, Rf+Tf+Af_1+Af_2, 'k-')
 plt.plot(wavelengths*1e9, Rb+Tb+Ab_1+Ab_2, 'r-')
+plt.legend()
+plt.show()
+
+#  compare with just TMM
+inc_angle = angle_vector[angle_index, 1]*180/np.pi
+from solcore.absorption_calculator import OptiStack, calculate_rat
+
+layers  = [Layer(500e-9, GaAs), Layer(200e-9, Ge)]
+OptSt = OptiStack(layers, no_back_reflection=False, substrate=Si, incidence=Air)
+
+RAT = calculate_rat(OptSt, options['wavelengths']*1e9, angle=inc_angle, no_back_reflection=False, pol=options['pol'])
+
+OptSt_flip = OptiStack(layers[::-1], no_back_reflection=False, substrate=Air, incidence=Si)
+
+RAT_flip = calculate_rat(OptSt_flip, options['wavelengths']*1e9, angle=inc_angle, no_back_reflection=False, pol=options['pol'])
+
+plt.figure()
+plt.plot(wavelengths*1e9, RAT['R'], 'r-')
+plt.plot(wavelengths*1e9, RAT['T'], 'r--')
+plt.plot(wavelengths*1e9, Rf, label='Rf')
+plt.plot(wavelengths*1e9, Tf, label='Tf')
+plt.plot(wavelengths*1e9, RAT['A_per_layer'][1], label='A1_TMM')
+plt.plot(wavelengths*1e9, RAT['A_per_layer'][2], label='A2_TMM')
+plt.plot(wavelengths*1e9, Af_1, label='Af1')
+plt.plot(wavelengths*1e9, Af_2, label='Af2')
+plt.plot(wavelengths*1e9, RAT['R'] + RAT['T'] + RAT['A_per_layer'][1] + RAT['A_per_layer'][2], 'k-')
+# plt.plot(wavelengths*1e9, RAT_flip['R'], 'k-')
+# plt.plot(wavelengths*1e9, RAT_flip['T'], 'k--')
+# plt.plot(wavelengths*1e9, RAT_flip['A_per_layer'][1] + RAT_flip['A_per_layer'][2])
+# plt.plot(wavelengths*1e9, RAT_flip['R'] + RAT_flip['T'] + RAT_flip['A_per_layer'][1] + RAT_flip['A_per_layer'][2], 'k-')
 plt.legend()
 plt.show()
