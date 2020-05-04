@@ -22,20 +22,21 @@ bulkthick = 300e-6
 
 # matrix multiplication
 wavelengths = np.linspace(300, 1800, 50)*1e-9
-
+git statu
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'test_matrix2'
 options.n_rays = 5000
-options.n_theta_bins = 4
+options.n_theta_bins = 3
 options.phi_symmetry = np.pi/4
-options.I_thresh = 1e-5
+options.I_thresh = 1e-8
 options.lookuptable_angles = 200
 options.parallel = True
 options.c_azimuth = 0.01
 options.theta_in = 0*np.pi/180
 options.phi_in = 0
+options.only_incidence_angle = False
 
 Ge = material('Ge')()
 GaAs = material('GaAs')()
@@ -210,3 +211,14 @@ plt.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][-1], label='SiN')
 
 plt.legend()
 plt.show()
+
+
+from sparse import load_npz
+
+RTmat = load_npz('/home/phoebe/Documents/rayflare/results/test_matrix2/GaInP_GaAs_SiGeSn_RTfrontRT.npz')
+
+TMMmat = load_npz('/home/phoebe/Documents/rayflare/results/test_matrix2/GaInP_GaAs_SiGeSn_TMMfrontRT.npz')
+
+RTmat_0 = RTmat[0].todense()
+
+TMMmat_0 = TMMmat[0].todense()

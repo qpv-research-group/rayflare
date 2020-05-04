@@ -46,7 +46,7 @@ def process_structure(SC, options):
 
                 prof_layers = struct.prof_layers
 
-                make_TMM_lookuptable(struct.layers, substrate, incidence, struct.name,
+                make_TMM_lookuptable(struct.layers, incidence, substrate, struct.name,
                                               options, coherent, coherency_list, prof_layers)
 
 

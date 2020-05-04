@@ -123,6 +123,8 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
                 else:
                     phis_in = np.tile(options['phi_in'], n_reps)
 
+
+
         else:
             if options['random_angles']:
                 thetas_in = np.random.random(n_angles)*np.pi/2
@@ -132,6 +134,7 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
                 n_reps = int(np.ceil(n_angles/len(angles_in)))
                 thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
                 phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]
+
 
         if front_or_rear == 'front':
             mats = [incidence]
@@ -164,6 +167,8 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
 
         xs = np.linspace(x_lim/100, x_lim-(x_lim/100), nx)
         ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
+
+        print('n_th_in', len(thetas_in), len(xs))
 
         if options['parallel']:
             allres = Parallel(n_jobs=options['n_jobs'])(delayed(RT_wl)
