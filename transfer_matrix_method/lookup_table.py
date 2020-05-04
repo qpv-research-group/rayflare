@@ -1,6 +1,6 @@
 import xarray as xr
 import numpy as np
-from transfer_matrix_method.transfer_matrix import tmm_structure
+from transfer_matrix_method.tmm import tmm_structure
 import os
 from config import results_path
 from solcore.absorption_calculator import OptiStack

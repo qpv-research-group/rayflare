@@ -3,16 +3,11 @@ import os
 # solcore imports
 from solcore.structure import Layer
 from solcore import material
-from solcore.light_source import LightSource
-from solcore.constants import q
-from solcore.material_system.create_new_material import create_new_material
 from solcore import si
-from textures.standard_rt_textures import regular_pyramids
 from structure import Interface, BulkLayer, Structure
-from process_structure import process_structure, calculate_RAT
+from matrix_formalism.process_structure import process_structure, calculate_RAT
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # matrix multiplication
 wavelengths = np.linspace(1000, 1200, 20)*1e-9
@@ -94,10 +89,9 @@ plt.plot(wavelengths*1e9, RAT['A_bulk'][0])
 plt.legend(['R', 'T', 'A'])
 
 
-from angles import theta_summary, make_angle_vector
+from angles import make_angle_vector
 from config import results_path
 from sparse import load_npz
-import xarray as xr
 
 #_, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
 #                                       options['c_azimuth'])

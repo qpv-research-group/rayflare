@@ -1,4 +1,4 @@
-from ray_tracing.rt_lookup import RTSurface
+from ray_tracing.rt import RTSurface
 import math
 import numpy as np
 

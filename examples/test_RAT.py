@@ -1,4 +1,4 @@
-from transfer_matrix_method.transfer_matrix import TMM
+from transfer_matrix_method.tmm import TMM
 from solcore.structure import Layer
 from solcore import material
 from angles import make_angle_vector, theta_summary

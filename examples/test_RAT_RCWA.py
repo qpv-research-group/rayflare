@@ -1,4 +1,4 @@
-from ray_tracing.rt_lookup import RT
+from ray_tracing.rt import RT
 from rigorous_coupled_wave_analysis.rcwa import rcwa_structure, RCWA
 from textures.standard_rt_textures import regular_pyramids
 from transfer_matrix_method.lookup_table import make_TMM_lookuptable
@@ -22,7 +22,7 @@ orders = 4
 wavelengths = np.linspace(300, 1800, n_wl)*1e-9
 
 options = default_options
-options['n_theta_bins'] = 20
+options['n_theta_bins'] = 100
 options['wavelengths'] = wavelengths
 options['c_azimuth'] = 0.1
 options['phi_symmetry'] = np.pi/2

@@ -1,4 +1,4 @@
-from ray_tracing.rt_lookup import RT
+from ray_tracing.rt import RT
 from textures.standard_rt_textures import regular_pyramids
 from transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from structure import RTgroup

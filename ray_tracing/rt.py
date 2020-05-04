@@ -102,16 +102,26 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
 
         if only_incidence_angle:
             print('Calculating matrix only for incidence theta/phi')
+            if options['theta_in'] == 0:
+                th_in = 0.0001
+            else:
+                th_in = options['theta_in']
+
             angles_in = angle_vector[:int(len(angle_vector) / 2), :]
             n_reps = int(np.ceil(n_angles / len(angles_in)))
-            thetas_in = np.tile(options['theta_in'], n_reps)
+            thetas_in = np.tile(th_in, n_reps)
+            print('only inc angle' , thetas_in)
             n_angles = n_reps
 
             if options['phi_in'] == 'all':
                 # get relevant phis
                 phis_in = np.tile(options['phi_in'], n_reps)
             else:
-                phis_in = np.tile(options['phi_in'], n_reps)
+                if options['phi_in'] == 0:
+                    phis_in = np.tile(0.0001, n_reps)
+
+                else:
+                    phis_in = np.tile(options['phi_in'], n_reps)
 
         else:
             if options['random_angles']:
@@ -239,7 +249,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     #theta_out = abs(theta_out) # discards info about phi!
     phi_out = fold_phi(phi_out, phi_sym)
     phis_in = fold_phi(phis_in, phi_sym)
-    #print(theta_out)
 
     if side == -1:
         not_absorbed = np.where(theta_out < (np.pi+0.1))
@@ -249,8 +258,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         theta_out[not_absorbed] = np.pi-theta_out[not_absorbed]
         #phi_out = np.pi-phi_out # unsure about this part
 
-    print(thetas_in)
-    #print(theta_out)
     #phi_out = fold_phi(phi_out, phi_sym)
     #phis_in = fold_phi(phis_in, phi_sym)
 
@@ -270,7 +277,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     binned_theta_in = np.digitize(thetas_in, theta_intv, right=True) - 1
 
     binned_theta_out = np.digitize(theta_out, theta_intv, right=True) - 1
-
     #print(binned_theta_out, theta_out, theta_intv)
 
 
@@ -291,6 +297,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
 
     bin_out = phi_out.groupby('theta_bin').apply(overall_bin,
                                                  args=(phi_intv, angle_vector[:, 0])).data
+
 
     out_mat = np.zeros((len(angle_vector), int(len(angle_vector) / 2)))
     # everything is coming in from above so we don't need 90 -> 180 in incoming bins
