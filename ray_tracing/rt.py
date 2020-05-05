@@ -13,6 +13,7 @@ from config import results_path
 from joblib import Parallel, delayed
 from time import time
 from copy import deepcopy
+from warnings import warn
 
 
 def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
@@ -131,6 +132,8 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
                 phis_in = np.random.random(n_angles)*2*np.pi
             else:
                 angles_in = angle_vector[:int(len(angle_vector)/2),:]
+                if n_angles/len(angles_in) < 1:
+                    warn('The number of rays is not sufficient to populate the redistribution matrix!')
                 n_reps = int(np.ceil(n_angles/len(angles_in)))
                 thetas_in = np.tile(angles_in[:,1], n_reps)[:n_angles]
                 phis_in = np.tile(angles_in[:,2], n_reps)[:n_angles]

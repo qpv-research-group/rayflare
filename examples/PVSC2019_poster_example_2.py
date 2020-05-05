@@ -34,13 +34,13 @@ import seaborn as sns
 #matplotlib.rc('font', **font)
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1200, 100)*1e-9
+wavelengths = np.linspace(300, 1200, 50)*1e-9
 
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
-options.project_name = 'Perovskite_Si'
-options.n_rays = 1000
+options.project_name = 'Perovskite_Si_1e6'
+options.n_rays = 100000
 options.n_theta_bins = 50
 options.phi_symmetry = np.pi/4
 options.I_thresh = 1e-4
@@ -113,9 +113,8 @@ results_per_layer_front = np.sum(results_per_pass['a'][0], 0)[:,[0,1,3,5,7,8]]
 results_per_layer_back = np.sum(results_per_pass['a'][1], 0)
 
 
-allres = np.flip(np.hstack((RAT['R'].T, results_per_layer_front, RAT['A_bulk'].T,
+allres = np.flip(np.hstack((R_0[:,None], R_escape[:,None], results_per_layer_front, RAT['A_bulk'].T,
                     results_per_layer_back, RAT['T'].T)),1)
-
 
 # calculated photogenerated current (Jsc with 100% EQE)
 
@@ -152,6 +151,8 @@ ax.text(900, 0.5, 'Si: \n' + str(round(Jph_Si,1)) + ' mA/cm$^2$', ha='center')
 # fig.savefig('samplefigure.png', bbox_inches='tight', format='png')
 plt.show()
 
+from sparse import load_npz
+RTmat = load_npz('/Users/phoebe/rayflare/results/Perovskite_Si/aSi_ITO_2frontRT.npz')
 # plot absorption profiles
 
 if len(front_surf.prof_layers) > 0:
@@ -195,19 +196,35 @@ import xarray as xr
 _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
 
-sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
 
-full = sprs[19].todense()
+sprs_front = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
+sprs_rear = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
+wl_index =20
+full_f = sprs_front[wl_index].todense()
+full_r = sprs_rear[wl_index].todense()
+
+summat= theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+
+summat_back = theta_summary(full_r, angle_vector, options['n_theta_bins'], "rear")
+
+whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+
+whole_mat_imshow = whole_mat.rename({r'$\theta_{in}$': 'theta_in', r'$\theta_{out}$': 'theta_out'})
+
+whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
+
+whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
 
 
-summat, Rsum, Tsum = theta_summary(full, angle_vector)
+fig = plt.figure()
+ax = plt.subplot(111)
+ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
+#ax = plt.subplot(212)
 
-Rth = summat[0:50,:]
-Tth = summat[50:, :]
-Rth = xr.DataArray(Rth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,50),
-                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,50)})
-Tth = xr.DataArray(Tth, dims=[r'$\sin(\theta_{out})$', r'$\sin(\theta_{in})$'], coords={r'$\sin(\theta_{out})$': np.linspace(0,1,50),
-                                                                            r'$\sin(\theta_{in})$': np.linspace(0,1,50)})
+#ax = Tth.plot.imshow(ax=ax)
+
+plt.show()
+
 
 import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
@@ -215,7 +232,7 @@ palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
 fig = plt.figure()
 ax = plt.subplot(111)
-ax = Rth.plot.imshow(ax=ax, cmap=seamap)
+ax = summat_back.plot.imshow(ax=ax, cmap=seamap)
 #ax = plt.subplot(212)
 fig.savefig('matrix.png', bbox_inches='tight', format='png')
 #ax = Tth.plot.imshow(ax=ax)

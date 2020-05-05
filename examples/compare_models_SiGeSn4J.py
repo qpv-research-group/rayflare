@@ -22,7 +22,7 @@ bulkthick = 300e-6
 
 # matrix multiplication
 wavelengths = np.linspace(300, 1800, 50)*1e-9
-git statu
+
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
