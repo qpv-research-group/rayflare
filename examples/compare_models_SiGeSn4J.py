@@ -39,6 +39,7 @@ bulkthick = 300e-6
 # matrix multiplication
 wavelengths = np.linspace(300, 1850, 200)*1e-9
 
+
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
