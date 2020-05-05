@@ -21,15 +21,7 @@ pal = sns.cubehelix_palette(10, start=.5, rot=-.9)
 
 cols = cycler('color', pal)
 
-params  = {'legend.fontsize': 'small',
-         'axes.labelsize': 'small',
-         'axes.titlesize':'small',
-         'xtick.labelsize':'small',
-         'ytick.labelsize':'small',
-           'axes.prop_cycle': cols}
-
-plt.rcParams.update(params)
-
+plt.rcParams['axes.prop_cycle'] = cols
 
 bulkthick = 300e-6
 #font = {'family' : 'Lato Medium',
@@ -43,16 +35,17 @@ options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'test_matrix2'
-options.n_rays = 50000
+options.n_rays = 5000
 options.n_theta_bins = 30
 options.phi_symmetry = np.pi/4
-options.I_thresh = 1e-5
+options.I_thresh = 1e-8
 options.lookuptable_angles = 200
 options.parallel = True
 options.c_azimuth = 0.001
-options.theta_in = 0*np.pi/180
+options.theta_in = 30*np.pi/180
 options.phi_in = 'all'
 options.only_incidence_angle = False
+options.pol = 's'
 
 Ge = material('Ge')()
 GaAs = material('GaAs')()
@@ -64,21 +57,16 @@ Ta2O5 = material('410', nk_db=True)()
 MgF2 = material('203', nk_db=True)()
 SiGeSn = material('SiGeSn')()
 
-# stack based on doi:10.1038/s41563-018-0115-4
+
 front_materials = [Layer(120e-9, MgF2), Layer(74e-9, Ta2O5), Layer(464e-9, GaInP), Layer(1682e-9, GaAs), Layer(1289e-9, SiGeSn)]
 back_materials = [Layer(100E-9, SiN)]
-
-# whether pyramids are upright or inverted is relative to front incidence.
-# so if the same etch is applied to both sides of a slab of silicon, one surface
-# will have 'upright' pyramids and the other side will have 'not upright' (inverted)
-# pyramids in the model
 
 
 ## TMM, matrix framework
 
-front_surf = Interface('TMM', layers=front_materials, name = 'GaInP_GaAs_SiGeSn_TMM',
+front_surf = Interface('TMM', layers=front_materials, name = 'GaInP_GaAs_SiGeSn_TMM' + options.pol,
                        coherent=True)
-back_surf = Interface('TMM', layers=back_materials, name = 'SiN_Ag_TMM',
+back_surf = Interface('TMM', layers=back_materials, name = 'SiN_Ag_TMM' + options.pol,
                       coherent=True)
 
 
@@ -100,7 +88,7 @@ results_per_layer_front = np.sum(results_per_pass['a'][0], 0)
 results_per_layer_back = np.sum(results_per_pass['a'][1], 0)
 total = results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + results_TMM_Matrix[0].A_bulk[0] +  np.sum(results_per_layer_front, 1)
 
-fig, axes = plt.subplots(2, 2, figsize=(9,7))
+fig, axes = plt.subplots(2, 2, figsize=(8,6))
 ax1 = axes[0,0]
 ax2 = axes[0,1]
 ax3 = axes[1,0]
@@ -128,9 +116,9 @@ ax1.set_title('a)', loc = 'left')
 
 surf = regular_pyramids(elevation_angle=0, upright=True) # [texture, reverse]
 
-front_surf = Interface('RT_TMM', layers=front_materials, texture=surf, name = 'GaInP_GaAs_SiGeSn_RT',
+front_surf = Interface('RT_TMM', layers=front_materials, texture=surf, name = 'GaInP_GaAs_SiGeSn_RT' + options.pol,
                        coherent=True)
-back_surf = Interface('RT_TMM', layers=back_materials, texture = surf, name = 'SiN_Ag_RT_50k',
+back_surf = Interface('RT_TMM', layers=back_materials, texture = surf, name = 'SiN_Ag_RT' + options.pol,
                       coherent=True)
 
 
@@ -171,9 +159,9 @@ ax2.set_title('b)', loc = 'left')
 
 ## RCWA
 
-front_surf = Interface('RCWA', layers=front_materials, name = 'GaInP_GaAs_SiGeSn_RCWA',
+front_surf = Interface('RCWA', layers=front_materials, name = 'GaInP_GaAs_SiGeSn_RCWA' + options.pol,
                        coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=3)
-back_surf = Interface('RCWA', layers=back_materials, name = 'SiN_Ag_RCWA',
+back_surf = Interface('RCWA', layers=back_materials, name = 'SiN_Ag_RCWA' + options.pol,
                       coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=3)
 
 
@@ -241,9 +229,9 @@ ax4.set_ylabel('Reflection / Absorption')
 ax4.set_title('d)', loc = 'left')
 
 handles, labels = ax4.get_legend_handles_labels()
-fig.legend(handles, labels, bbox_to_anchor=(0, 0, 0.42, 0.46), loc='upper right')
+fig.legend(handles, labels, bbox_to_anchor=(0, 0, 0.45, 0.5), loc='upper right')
 
-fig.savefig('model_validation2.pdf', bbox_inches='tight', format='pdf')
+#fig.savefig('model_validation.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 
 
