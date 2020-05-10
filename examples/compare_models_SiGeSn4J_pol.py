@@ -21,7 +21,15 @@ pal = sns.cubehelix_palette(10, start=.5, rot=-.9)
 
 cols = cycler('color', pal)
 
-plt.rcParams['axes.prop_cycle'] = cols
+params  = {'legend.fontsize': 'small',
+         'axes.labelsize': 'small',
+         'axes.titlesize':'small',
+         'xtick.labelsize':'small',
+         'ytick.labelsize':'small',
+           'axes.prop_cycle': cols}
+
+plt.rcParams.update(params)
+
 
 bulkthick = 300e-6
 #font = {'family' : 'Lato Medium',
@@ -35,17 +43,17 @@ options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'test_matrix2'
-options.n_rays = 5000
+options.n_rays = 20000
 options.n_theta_bins = 30
 options.phi_symmetry = np.pi/4
-options.I_thresh = 1e-8
+options.I_thresh = 4e-2
 options.lookuptable_angles = 200
 options.parallel = True
 options.c_azimuth = 0.001
-options.theta_in = 30*np.pi/180
+options.theta_in = 70*np.pi/180
 options.phi_in = 'all'
 options.only_incidence_angle = False
-options.pol = 's'
+options.pol = 'u'
 
 Ge = material('Ge')()
 GaAs = material('GaAs')()
@@ -229,9 +237,10 @@ ax4.set_ylabel('Reflection / Absorption')
 ax4.set_title('d)', loc = 'left')
 
 handles, labels = ax4.get_legend_handles_labels()
-fig.legend(handles, labels, bbox_to_anchor=(0, 0, 0.45, 0.5), loc='upper right')
+fig.legend(handles, labels, bbox_to_anchor=(0, 0, 0.42, 0.46), loc='upper right')
 
-#fig.savefig('model_validation.pdf', bbox_inches='tight', format='pdf')
+#fig.savefig('model_validation_p70deg.pdf', bbox_inches='tight', format='pdf')
+#fig.savefig('model_validation_s70deg.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 
 
