@@ -5,7 +5,8 @@ from solcore.structure import Layer
 from solcore import material
 from solcore import si
 from structure import Interface, BulkLayer, Structure
-from matrix_formalism.process_structure import process_structure, calculate_RAT
+from matrix_formalism.process_structure import process_structure
+from matrix_formalism.multiply_matrices import calculate_RAT
 
 import matplotlib.pyplot as plt
 
@@ -35,16 +36,6 @@ options = {'nm_spacing': 0.5,
 
 Si = material('Si')()
 Air = material('Air')()
-MgF2 = material('MgF2_RdeM')()
-ITO_back = material('ITO_lowdoping')()
-Perovskite = material('Perovskite_CsBr')()
-Ag = material('Ag_Jiang')()
-aSi_i = material('aSi_i')()
-aSi_p = material('aSi_p')()
-aSi_n = material('aSi_n')()
-LiF = material('LiF')()
-IZO = material('IZO')()
-C60 = material('C60')()
 
 # materials with constant n, zero k
 Spiro = [12e-9, np.array([0,1]), np.array([1.65, 1.65]), np.array([0,0])]
@@ -56,7 +47,7 @@ d_vectors = ((x, 0),(0,x))
 area_fill_factor = 0.36
 hw = np.sqrt(area_fill_factor)*500
 
-front_materials = [Layer(si('100nm'), IZO)]
+front_materials = []
 back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': Air, 'center': (x/2, x/2),
                                                      'halfwidths': (hw, hw), 'angle': 45}])]
 
@@ -66,9 +57,8 @@ back_materials = [Layer(si('120nm'), Si, geometry=[{'type': 'rectangle', 'mat': 
 # pyramids in the model
 
 
-front_surf = Interface('TMM', layers=front_materials, name = 'planar_IZO', coherent=True,
-                       prof_layers=[1])
-back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating', d_vectors=d_vectors, rcwa_orders=200)
+front_surf = Interface('TMM', layers=front_materials, name = 'planar', coherent=True)
+back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating', d_vectors=d_vectors, rcwa_orders=20)
 #back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
 
 bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
@@ -88,7 +78,7 @@ plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0])
 plt.legend(['R', 'T', 'A'])
 
-
+plt.show()
 from angles import make_angle_vector
 from config import results_path
 from sparse import load_npz
@@ -124,7 +114,7 @@ from sparse import load_npz
 _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
 
-sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
+sprs = load_npz(os.path.join(results_path, options['project_name'], SC[2].name + 'frontRT.npz'))
 
 full = sprs[15].todense()
 
@@ -132,10 +122,5 @@ plt.figure()
 plt.imshow(full)
 plt.colorbar()
 
-sprs = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
+plt.show()
 
-full = sprs[15].todense()
-
-plt.figure()
-plt.imshow(full)
-plt.colorbar()

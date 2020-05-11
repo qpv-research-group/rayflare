@@ -34,12 +34,12 @@ import seaborn as sns
 #matplotlib.rc('font', **font)
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1200, 50)*1e-9
+wavelengths = np.linspace(300, 1200, 150)*1e-9
 
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
-options.project_name = 'Perovskite_Si_1e6'
+options.project_name = 'Perovskite_Si_1e6_150wl'
 options.n_rays = 100000
 options.n_theta_bins = 50
 options.phi_symmetry = np.pi/4
@@ -136,7 +136,7 @@ bulk_A_text= ysmoothed[:,4]
 # plot total R, A, T
 fig = plt.figure()
 ax = plt.subplot(111)
-ax.stackplot(options['wavelengths']*1e9, allres.T,
+ax.stackplot(options['wavelengths']*1e9, ysmoothed.T,
               labels=['Ag', 'ITO', 'aSi-n', 'aSi-i', 'c-Si (bulk)', 'aSi-i', 'aSi-p',
                       'Perovskite','C$_{60}$','IZO',
             'MgF$_2$', 'R$_{escape}$', 'R$_0$'], colors = pal)
@@ -193,13 +193,18 @@ from config import results_path
 from sparse import load_npz
 import xarray as xr
 
+import matplotlib as mpl
+palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+palhf.reverse()
+seamap = mpl.colors.ListedColormap(palhf)
+
 _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
 
 
 sprs_front = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
 sprs_rear = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
-wl_index =20
+wl_index =0
 full_f = sprs_front[wl_index].todense()
 full_r = sprs_rear[wl_index].todense()
 
@@ -209,11 +214,12 @@ summat_back = theta_summary(full_r, angle_vector, options['n_theta_bins'], "rear
 
 whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
 
-whole_mat_imshow = whole_mat.rename({r'$\theta_{in}$': 'theta_in', r'$\theta_{out}$': 'theta_out'})
+whole_mat_imshow = whole_mat.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_{out}$': r'$\sin(\theta_{out})$'})
 
-whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
 
-whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
+#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
+
+#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
 
 
 fig = plt.figure()

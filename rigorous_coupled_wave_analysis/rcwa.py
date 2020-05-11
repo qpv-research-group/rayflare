@@ -605,8 +605,8 @@ def rcwa_absorption_per_layer_lossfunc(S, n_layers, freq, imag_e):
         # A[i1] = np.real(sum(S.GetPowerFlux('layer_' + str(layer))) - sum(S.GetPowerFlux('layer_' + str(layer+1))))
         I = np.real(S.GetLayerVolumeIntegral(Layer='layer_' + str(layer), Quantity='U'))
         A[i1] = 0.5*freq*I*imag_e[i1+1]
-        print('layer_' + str(layer), imag_e[i1+1], I)
-        print(A[i1])
+        # print('layer_' + str(layer), imag_e[i1+1], I)
+        # print(A[i1])
 
     A = np.array([x if x > 0 else 0 for x in A])
 
