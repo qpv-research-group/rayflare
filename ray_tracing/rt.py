@@ -416,7 +416,7 @@ class rt_structure:
         phi = options['phi']
         I_thresh = options['I_thresh']
     
-        widths =  self.widths
+        widths = self.widths
         widths.insert(0, 0)
         widths.append(0)
         widths = 1e6*np.array(widths)  # convert to um
@@ -449,8 +449,8 @@ class rt_structure:
         nx = options['nx']
         ny = options['ny']
     
-        xs = np.linspace(x_lim/100, x_lim-(x_lim/100), nx)
-        ys = np.linspace(y_lim/100, y_lim-(y_lim/100), ny)
+        xs = np.linspace(x_lim/3, x_lim-(x_lim/3), nx)
+        ys = np.linspace(y_lim/3, y_lim-(y_lim/3), ny)
     
         # need to calculate r_a and r_b
         # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
@@ -571,6 +571,7 @@ class rt_structure:
 
 
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys):
+    print(widths)
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -587,8 +588,10 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
             I, profile, A_per_layer, th_o, phi_o = single_ray_stack(vals[0], vals[1], nks, alphas, r_a_0, theta, phi,
             surfaces, widths, z_pos, I_thresh, pol)
 
-            phi_o[th_o < 0] = phi_o + np.pi
-            th_o = abs(th_o)
+            #print(phi_o)
+            #print(th_o)
+            #phi_o[th_o < 0] = phi_o + np.pi
+            #th_o = abs(th_o)
 
             profiles = profiles + profile/(n_reps*nx*ny)
             thetas[c+offset] = th_o
@@ -838,10 +841,15 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
 
             # staying in the same material, so mat_index does not change, but surf_index does
             surf_index = surf_index + direction
+            print('overall ref')
 
         if res == 1:  # transmission
             surf_index = surf_index + direction
             mat_index = mat_index + direction  # is this right?
+            print('overall trns')
+
+        print('dir, surf ind, mat ind, res', direction, surf_index, mat_index, res)
+        print('d', d)
 
 
         I_b = I
@@ -938,6 +946,7 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
     if rnd <= R:  # REFLECTION
         d = np.real(d - 2 * np.dot(d, N) * N)
         d = d / np.linalg.norm(d)
+        print('surf r', d)
 
     else:  # TRANSMISSION)
         # transmission, refraction
@@ -949,6 +958,7 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
         side = -side
         d = np.real(tr_par + tr_perp)
         d = d / np.linalg.norm(d)
+        print('surf t', d)
 
     return d, side, None # never absorbed, A = False
 
@@ -992,7 +1002,8 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
     d0 = d
     intersect = True
     checked_translation = False
-
+    side_0 = side
+    print('d0', d)
     # [top, right, bottom, left]
     translation = np.array([[0, -Ly, 0], [-Lx, 0, 0], [0, Ly, 0], [Lx, 0, 0]])
     i1 = 0
@@ -1000,25 +1011,60 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
         i1 = i1+1
 
         result = check_intersect(r_a, d, tri)
+        print('results', result)
         if result == False and not checked_translation:
             which_side, tt = exit_side(r_a, d, Lx, Ly)
 
             r_a = r_a + translation[which_side]
+            print('translation', which_side)
+            print('after normal translation', r_a)
             checked_translation = True
+            #result = check_intersect(r_a, d, tri)
 
         elif result == False and checked_translation:
 
-            o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
-            o_p = np.real(atan2(d[1], d[0]))
+            if (side == 1 and d[2] < 0 and r_a[2] > z_cov) or \
+                    (side == -1 and d[2] > 0 and r_a[
+                        2] < z_cov):  # going down but above surface
 
-            if np.sign(d0[2]) == np.sign(d[2]):
-                intersect = False
-                final_res = 1
+
+                if r_a[0] > Lx or r_a[0] < 0:
+                    r_a[0] = r_a[0] % Lx # translate back into until cell before doing any additional translation
+                if r_a[1] > Ly or r_a[1] < 0:
+                    r_a[1] = r_a[1] % Ly # translate back into until cell before doing any additional translation
+                print('weird situation', r_a, side)
+                exit, t = exit_side(r_a, d, Lx, Ly)
+
+                r_a = r_a + t * d + translation[exit]
+
+                print('after traversing', r_a, d, exit)
+                checked_translation = True
 
             else:
-                intersect = False
-                final_res = 0
+                o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
+                o_p = np.real(atan2(d[1], d[0]))
 
+                # if np.sign(d0[2]) == np.sign(d[2]):
+                #     intersect = False
+                #     final_res = 1
+                #
+                # else:
+                #     intersect = False
+                #     final_res = 0
+
+                if side == side_0:
+                    intersect = False
+                    final_res = 0
+                    print('ref')
+                    print(side, side_0, d)
+
+                else:
+                    intersect = False
+                    final_res = 1
+                    print('trns')
+                    print(side, side_0, d)
+
+                return final_res, o_t, o_p, r_a, d, theta  # theta is LOCAL incidence angle (relative to texture)
 
         else:
             # there has been an intersection
@@ -1041,11 +1087,13 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
             d, side, A = decide[Fr_or_TMM](n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable)
 
             r_a = np.real(intersn + d / 1e9) # this is to make sure the raytracer doesn't immediately just find the same intersection again
+            print('interns', intersn, r_a)
 
             checked_translation = False # reset, need to be able to translate the ray back into the unit cell again if necessary
 
             if A is not None:
                 intersect = False
+                checked_translation = True
                 final_res = 2
                 o_t = A
                 o_p = 0
@@ -1055,16 +1103,21 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
         # we also need to update r_a so that check_translation can correctly identify the next unit cell
         # the ray will move into
 
-        if (side == 1 and d[2] < 0 and r_a[2] > z_cov) or \
-                (side == -1 and d[2] > 0 and r_a[2] < z_cov) and checked_translation:  # going down but above surface
+        # if (side == 1 and d[2] < 0 and r_a[2] > z_cov) or \
+        #         (side == -1 and d[2] > 0 and r_a[2] < z_cov) and checked_translation:  # going down but above surface
+        #
+        #     print('weird situation', r_a, side)
+        #     #r_a[0] = r_a[0] % Lx # translate back into until cell before doing any additional translation
+        #     #r_a[1] = r_a[1] % Ly
+        #     exit, t = exit_side(r_a, d, Lx, Ly)
+        #
+        #     r_a = r_a + t*d + translation[exit]
+        #     #r_a[0] = r_a[0] % Lx # translate back into until cell before doing any additional translation
+        #     #r_a[1] = r_a[1] % Ly
+        #     print('after translation', r_a, d, exit)
+        #     checked_translation = False
 
-            exit, t = exit_side(r_a, d, Lx, Ly)
 
-            r_a = r_a + t*d + translation[exit]
-
-            checked_translation = False
-
-    return final_res, o_t, o_p, r_a, d, theta # theta is LOCAL incidence angle (relative to texture)
 
 def check_intersect(r_a, d, tri):
 

@@ -12,29 +12,16 @@ from textures.standard_rt_textures import regular_pyramids
 from solcore.material_system import create_new_material
 import matplotlib.pyplot as plt
 
-import seaborn as sns
-from cycler import cycler
 #create_new_material('Si_OPTOS', 'data/Si_OPTOS_n.txt', 'data/Si_OPTOS_k.txt')
-pal = sns.cubehelix_palette()
 
-cols = cycler('color', pal)
-
-params = {'legend.fontsize': 'small',
-          'axes.labelsize': 'small',
-          'axes.titlesize': 'small',
-          'xtick.labelsize': 'small',
-          'ytick.labelsize': 'small',
-          'axes.prop_cycle': cols}
-
-plt.rcParams.update(params)
 angle_degrees_in = 8
 
 # matrix multiplication
 wavelengths = np.linspace(900, 1200, 30)*1e-9
 options = {'nm_spacing': 0.5,
-           'project_name': 'optos_checks',
+           'project_name': 'optos_checks_2',
            'calc_profile': False,
-           'n_theta_bins': 100,
+           'n_theta_bins': 30,
            'c_azimuth': 0.25,
            'pol': 'u',
            'wavelengths': wavelengths,
@@ -46,7 +33,7 @@ options = {'nm_spacing': 0.5,
            #'prof_layers': [1,2],
            'n_rays': 100000,
            'random_angles': False,
-           'nx': 5, 'ny': 5,
+           'nx': 20, 'ny': 20,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
            'only_incidence_angle': True
@@ -59,11 +46,6 @@ Air = material('Air')()
 # materials with constant n, zero k
 x = 1000
 
-d_vectors = ((x, 0),(0,x))
-area_fill_factor = 0.36
-hw = np.sqrt(area_fill_factor)*500
-
-
 front_materials = []
 back_materials = []
 
@@ -74,10 +56,10 @@ back_materials = []
 surf = regular_pyramids(elevation_angle=55, upright=False)
 
 
-front_surf = Interface('RT_TMM', texture = surf, layers=[],
+front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)],
                        name = 'inv_pyramids' + str(options['n_rays']))
-back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating_60', d_vectors=d_vectors, rcwa_orders=60)
-#back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
+back_surf = Interface('TMM', layers=[], name = 'planar_back' + str(options['n_rays']))
+
 
 bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
@@ -93,20 +75,22 @@ results_per_pass = results[1]
 # load OPTOS/measured data
 
 sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
-meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
+#meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
 
 plt.figure()
-plt.plot(wavelengths*1e9, RAT['R'][0])
-plt.plot(wavelengths*1e9, RAT['T'][0])
+#plt.plot(wavelengths*1e9, RAT['R'][0])
+#plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'ko')
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-')
+plt.plot(wavelengths*1e9, 1-RAT['R'][0]-RAT['T'][0], 'k-')
 plt.plot(sim[:,0], sim[:,1])
-plt.plot(meas[:,0], meas[:,1])
+#plt.plot(meas[:,0], meas[:,1])
 plt.ylim([0, 1])
 plt.legend(['R', 'T', 'A'])
 
 plt.show()
 
+np.savetxt('fig7_rayflare.txt', RAT['A_bulk'][0])
 
 from angles import make_angle_vector
 from config import results_path
@@ -128,63 +112,33 @@ summat = theta_summary(full, angle_vector, options['n_theta_bins'], 'rear')
 
 summat_r = summat[options['n_theta_bins']:, :]
 
-summat_r= summat_r.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+summat_r = summat_r.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_{out}$': r'$\sin(\theta_{out})$'})
 
-summat_r= summat_r.assign_coords(a=np.sin(summat_r.coords['a']).data,
-                                                  b=np.sin(summat_r.coords['b']).data)
+summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coords[r'$\sin(\theta_{in})$']).data,
+                                    r'$\sin(\theta_{out})$': np.sin(summat_r.coords[r'$\sin(\theta_{out})$']).data})
 
+#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
 
-summat_r= summat_r.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
+
 
 #ax = plt.subplot(212)
 
 #ax = Tth.plot.imshow(ax=ax)
 
+plt.show()
 
+import seaborn as sns
 import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-fig = plt.figure(figsize=(10,3.5))
-ax = fig.add_subplot(1,2,1, aspect='equal')
-ax = summat_r.plot.imshow(ax=ax, cmap=seamap)
+
+fig = plt.figure()
+ax = plt.subplot(111)
+ax = summat_r.plot.imshow(ax=ax, cmap=seamap, vmax=0.3)
 #ax = plt.subplot(212)
-#fig.savefig('perovskite_Si_frontsurf_rearR.pdf', bbox_inches='tight', format='pdf')
-#ax = Tth.plot.imshow(ax=ax)
-
-#plt.show()
-
-
-
-sprs = load_npz(os.path.join(results_path, options['project_name'], SC[2].name + 'frontRT.npz'))
-
-full = sprs[wl_index].todense()
-
-summat = theta_summary(full, angle_vector, options['n_theta_bins'], 'front')
-
-summat_r = summat[:options['n_theta_bins'], :]
-
-
-summat_r= summat_r.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-summat_r= summat_r.assign_coords(a=np.sin(summat_r.coords['a']).data,
-                                                  b=np.sin(summat_r.coords['b']).data)
-
-
-summat_r= summat_r.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-
-
-import matplotlib as mpl
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-#fig = plt.figure(figsize=(5,4))
-ax2 = fig.add_subplot(1,2,2, aspect='equal')
-ax2 = summat_r.plot.imshow(ax=ax2, cmap=seamap)
-#ax = plt.subplot(212)
-fig.savefig('optos_comparison_matrices.pdf', bbox_inches='tight', format='pdf')
+#fig.savefig('matrix.png', bbox_inches='tight', format='png')
 #ax = Tth.plot.imshow(ax=ax)
 
 plt.show()
