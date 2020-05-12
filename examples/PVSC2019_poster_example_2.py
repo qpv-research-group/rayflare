@@ -16,6 +16,21 @@ from options import default_options
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from cycler import cycler
+
+pal = sns.cubehelix_palette()
+
+cols = cycler('color', pal)
+
+params = {'legend.fontsize': 'small',
+          'axes.labelsize': 'small',
+          'axes.titlesize': 'small',
+          'xtick.labelsize': 'small',
+          'ytick.labelsize': 'small',
+          'axes.prop_cycle': cols}
+
+plt.rcParams.update(params)
+
 # cur_path = os.path.dirname(os.path.abspath(__file__))
 # # new materials from data
 # create_new_material('Perovskite_CsBr', os.path.join(cur_path, 'data/CsBr10p_1to2_n.txt'), os.path.join(cur_path, 'data/CsBr10p_1to2_k.txt'))
@@ -27,26 +42,26 @@ import seaborn as sns
 # create_new_material('MgF2_RdeM', os.path.join(cur_path, 'data/MgF2_RdeM_n.txt'), os.path.join(cur_path, 'data/MgF2_RdeM_k.txt'))
 # create_new_material('C60', os.path.join(cur_path, 'data/C60_Ren_n.txt'), os.path.join(cur_path, 'data/C60_Ren_k.txt'))
 # create_new_material('IZO', os.path.join(cur_path, 'data/IZO_Ballif_rO2_10pcnt_n.txt'), os.path.join(cur_path, 'data/IZO_Ballif_rO2_10pcnt_k.txt'))
-
+#
 
 #font = {'family' : 'Lato Medium',
 #        'size'   : 14}
 #matplotlib.rc('font', **font)
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1200, 150)*1e-9
+wavelengths = np.linspace(300, 1200, 200)*1e-9
 
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'Perovskite_Si_1e6_150wl'
 options.n_rays = 100000
-options.n_theta_bins = 50
+options.n_theta_bins = 100
 options.phi_symmetry = np.pi/4
 options.I_thresh = 1e-4
 options.lookuptable_angles = 200
 options.parallel = True
-options.only_incidence_angle = False
+options.only_incidence_angle = True
 
 Si = material('Si')()
 Air = material('Air')()
@@ -129,31 +144,57 @@ pal.reverse()
 
 from scipy.ndimage.filters import gaussian_filter1d
 
-ysmoothed = gaussian_filter1d(allres, sigma=1, axis=0)
+ysmoothed = gaussian_filter1d(allres, sigma=2, axis=0)
 
 bulk_A_text= ysmoothed[:,4]
 
 # plot total R, A, T
-fig = plt.figure()
+fig = plt.figure(figsize=(5,4))
 ax = plt.subplot(111)
 ax.stackplot(options['wavelengths']*1e9, ysmoothed.T,
               labels=['Ag', 'ITO', 'aSi-n', 'aSi-i', 'c-Si (bulk)', 'aSi-i', 'aSi-p',
                       'Perovskite','C$_{60}$','IZO',
             'MgF$_2$', 'R$_{escape}$', 'R$_0$'], colors = pal)
-lgd=ax.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
+lgd=ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 ax.set_xlabel('Wavelength (nm)')
-ax.set_ylabel('Absorption')
+ax.set_ylabel('R/A/T')
 ax.set_xlim(300, 1200)
 ax.set_ylim(0, 1)
 ax.text(530, 0.5, 'Perovskite: \n' + str(round(Jph_Perovskite,1)) + ' mA/cm$^2$', ha='center')
 ax.text(900, 0.5, 'Si: \n' + str(round(Jph_Si,1)) + ' mA/cm$^2$', ha='center')
 
-# fig.savefig('samplefigure.png', bbox_inches='tight', format='png')
+fig.savefig('perovskite_Si_summary.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 
-from sparse import load_npz
-RTmat = load_npz('/Users/phoebe/rayflare/results/Perovskite_Si/aSi_ITO_2frontRT.npz')
-# plot absorption profiles
+
+label = [str(x) if (x) % 5 == 0 else None for x in np.arange(22)]
+
+pal = sns.cubehelix_palette(24, start=2.8, rot=0.7)
+pal.reverse()
+fig=plt.figure(figsize=(8, 3.5))
+ax=fig.add_subplot(1,2,1)
+ax.stackplot(options['wavelengths']*1e9, R_per_pass[1:25], colors=pal, labels=label)
+ax.set_xlim([1000, 1200])
+ax.set_xlabel('Wavelength (nm)')
+ax.set_ylabel('Escape reflection')
+ax.legend(loc='upper left')
+#fig.savefig('perovskite_Si_R_per_pass.pdf', bbox_inches='tight', format='pdf')
+
+
+
+#label = [str(x) if (x) % 5 == 0 else None for x in np.arange(25)]
+#pal = sns.cubehelix_palette(25, start=2.8, rot=0.7)
+#pal.reverse()
+#fig=plt.figure()
+ax2=fig.add_subplot(1,2,2)
+ax2.stackplot(options['wavelengths']*1e9, results_per_pass['A'][0][0:24], colors=pal, labels=label)
+ax2.set_xlim([1000, 1200])
+ax2.set_xlabel('Wavelength (nm)')
+ax2.set_ylabel('Bulk (Si) absorption per pass')
+#ax2.legend(loc='upper right')
+fig.savefig('perovskite_Si_A_R_per_pass.pdf', bbox_inches='tight', format='pdf')
+plt.show()
+
 
 if len(front_surf.prof_layers) > 0:
     profile = results[2]
@@ -204,43 +245,83 @@ _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_sym
 
 sprs_front = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
 sprs_rear = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
-wl_index =0
+
+wl_to_plot = 1100e-9
+
+wl_index = np.argmin(np.abs(wavelengths-wl_to_plot))
+
 full_f = sprs_front[wl_index].todense()
 full_r = sprs_rear[wl_index].todense()
 
-summat= theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#summat= theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
 
-summat_back = theta_summary(full_r, angle_vector, options['n_theta_bins'], "rear")
+summat = theta_summary(full_r, angle_vector, options['n_theta_bins'], "rear")
 
-whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+## reflection
 
-whole_mat_imshow = whole_mat.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_{out}$': r'$\sin(\theta_{out})$'})
+#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+summat_back = summat[options['n_theta_bins']:]
 
+whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+
+whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
+
+
+whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
 
 #whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
 
 #whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
 
 
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
 
-#ax = Tth.plot.imshow(ax=ax)
-
-plt.show()
 
 
 import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-fig = plt.figure()
-ax = plt.subplot(111)
-ax = summat_back.plot.imshow(ax=ax, cmap=seamap)
+fig = plt.figure(figsize=(10,3.5))
+ax = fig.add_subplot(1,2,1, aspect='equal')
+ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
 #ax = plt.subplot(212)
-fig.savefig('matrix.png', bbox_inches='tight', format='png')
+#fig.savefig('perovskite_Si_frontsurf_rearR.pdf', bbox_inches='tight', format='pdf')
+#ax = Tth.plot.imshow(ax=ax)
+
+#plt.show()
+
+
+## transmission
+
+#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+summat_back = summat[:options['n_theta_bins']]
+
+whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+
+whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
+
+
+whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+
+#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
+
+#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
+
+
+
+
+
+import matplotlib as mpl
+palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+palhf.reverse()
+seamap = mpl.colors.ListedColormap(palhf)
+#fig = plt.figure(figsize=(5,4))
+ax2 = fig.add_subplot(1,2,2, aspect='equal')
+ax2 = whole_mat_imshow.plot.imshow(ax=ax2, cmap=seamap)
+#ax = plt.subplot(212)
+fig.savefig('perovskite_Si_frontsurf_rearRT.pdf', bbox_inches='tight', format='pdf')
 #ax = Tth.plot.imshow(ax=ax)
 
 plt.show()
