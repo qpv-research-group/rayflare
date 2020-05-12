@@ -12,8 +12,21 @@ from textures.standard_rt_textures import regular_pyramids
 from solcore.material_system import create_new_material
 import matplotlib.pyplot as plt
 
+import seaborn as sns
+from cycler import cycler
 #create_new_material('Si_OPTOS', 'data/Si_OPTOS_n.txt', 'data/Si_OPTOS_k.txt')
+pal = sns.cubehelix_palette()
 
+cols = cycler('color', pal)
+
+params = {'legend.fontsize': 'small',
+          'axes.labelsize': 'small',
+          'axes.titlesize': 'small',
+          'xtick.labelsize': 'small',
+          'ytick.labelsize': 'small',
+          'axes.prop_cycle': cols}
+
+plt.rcParams.update(params)
 angle_degrees_in = 8
 
 # matrix multiplication
@@ -124,19 +137,16 @@ summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coord
 
 #ax = Tth.plot.imshow(ax=ax)
 
-plt.show()
 
-import seaborn as sns
 import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-
-fig = plt.figure(figsize=(10, 3.5))
-ax = fig.add_subplot(1,2,1)
-ax = summat_r.plot.imshow(ax=ax, cmap=seamap, vmax=0.3)
+fig = plt.figure(figsize=(10,3.5))
+ax = fig.add_subplot(1,2,1, aspect='equal')
+ax = summat_r.plot.imshow(ax=ax, cmap=seamap)
 #ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
+#fig.savefig('perovskite_Si_frontsurf_rearR.pdf', bbox_inches='tight', format='pdf')
 #ax = Tth.plot.imshow(ax=ax)
 
 #plt.show()
@@ -157,22 +167,18 @@ summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coord
                                     r'$\sin(\theta_{out})$': np.sin(summat_r.coords[r'$\sin(\theta_{out})$']).data})
 
 
-plt.show()
 
-import seaborn as sns
+
 import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-
-
-ax2 = fig.add_subplot(1,2,2)
-ax2 = summat_r.plot.imshow(ax=ax2, cmap=seamap, vmax=0.3)
+#fig = plt.figure(figsize=(5,4))
+ax2 = fig.add_subplot(1,2,2, aspect='equal')
+ax2 = summat_r.plot.imshow(ax=ax2, cmap=seamap)
 #ax = plt.subplot(212)
-fig.savefig('OPTOS_comp_matrices.pdf', bbox_inches='tight', format='pdf')
+fig.savefig('perovskite_Si_frontsurf_rearRT.pdf', bbox_inches='tight', format='pdf')
 #ax = Tth.plot.imshow(ax=ax)
 
 plt.show()
-
-
 
