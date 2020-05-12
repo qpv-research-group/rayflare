@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 #create_new_material('Si_OPTOS', 'data/Si_OPTOS_n.txt', 'data/Si_OPTOS_k.txt')
 
-angle_degrees_in = 0
+angle_degrees_in = 8
 
 # matrix multiplication
 wavelengths = np.linspace(900, 1200, 30)*1e-9
@@ -31,7 +31,7 @@ options = {'nm_spacing': 0.5,
            #'coherency_list': None,
            'lookuptable_angles': 200,
            #'prof_layers': [1,2],
-           'n_rays': 100000,
+           'n_rays': 200000,
            'random_angles': False,
            'nx': 5, 'ny': 5,
            'parallel': True, 'n_jobs': -1,
@@ -56,7 +56,7 @@ back_materials = []
 surf = regular_pyramids(elevation_angle=55, upright=False)
 
 
-front_surf = Interface('RT_TMM', texture = surf, layers=[],
+front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)],
                        name = 'inv_pyramids' + str(options['n_rays']))
 back_surf = Interface('TMM', layers=[], name = 'planar_back' + str(options['n_rays']))
 
@@ -75,21 +75,22 @@ results_per_pass = results[1]
 # load OPTOS/measured data
 
 sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
-meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
+#meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
 
 plt.figure()
-plt.plot(wavelengths*1e9, RAT['R'][0])
-plt.plot(wavelengths*1e9, RAT['T'][0])
+#plt.plot(wavelengths*1e9, RAT['R'][0])
+#plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'ko')
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-')
 plt.plot(wavelengths*1e9, 1-RAT['R'][0]-RAT['T'][0], 'k-')
 plt.plot(sim[:,0], sim[:,1])
-plt.plot(meas[:,0], meas[:,1])
+#plt.plot(meas[:,0], meas[:,1])
 plt.ylim([0, 1])
 plt.legend(['R', 'T', 'A'])
 
 plt.show()
 
+np.savetxt('fig7_rayflare.txt', RAT['A_bulk'][0])
 
 from angles import make_angle_vector
 from config import results_path

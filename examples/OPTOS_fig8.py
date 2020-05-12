@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 #create_new_material('Si_OPTOS', 'data/Si_OPTOS_n.txt', 'data/Si_OPTOS_k.txt')
 
-angle_degrees_in = 0
+angle_degrees_in = 8
 
 # matrix multiplication
 wavelengths = np.linspace(900, 1200, 30)*1e-9
@@ -46,6 +46,11 @@ Air = material('Air')()
 # materials with constant n, zero k
 x = 1000
 
+d_vectors = ((x, 0),(0,x))
+area_fill_factor = 0.36
+hw = np.sqrt(area_fill_factor)*500
+
+
 front_materials = []
 back_materials = []
 
@@ -58,8 +63,8 @@ surf = regular_pyramids(elevation_angle=55, upright=False)
 
 front_surf = Interface('RT_TMM', texture = surf, layers=[],
                        name = 'inv_pyramids' + str(options['n_rays']))
-back_surf = Interface('TMM', layers=[], name = 'planar_back' + str(options['n_rays']))
-
+back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating_60', d_vectors=d_vectors, rcwa_orders=60)
+#back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
 
 bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
@@ -82,7 +87,6 @@ plt.plot(wavelengths*1e9, RAT['R'][0])
 plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'ko')
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-')
-plt.plot(wavelengths*1e9, 1-RAT['R'][0]-RAT['T'][0], 'k-')
 plt.plot(sim[:,0], sim[:,1])
 plt.plot(meas[:,0], meas[:,1])
 plt.ylim([0, 1])
@@ -116,11 +120,6 @@ summat_r = summat_r.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_
 summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coords[r'$\sin(\theta_{in})$']).data,
                                     r'$\sin(\theta_{out})$': np.sin(summat_r.coords[r'$\sin(\theta_{out})$']).data})
 
-#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
-
-#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
-
-
 #ax = plt.subplot(212)
 
 #ax = Tth.plot.imshow(ax=ax)
@@ -133,12 +132,47 @@ palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
 
-fig = plt.figure()
-ax = plt.subplot(111)
+fig = plt.figure(figsize=(10, 3.5))
+ax = fig.add_subplot(1,2,1)
 ax = summat_r.plot.imshow(ax=ax, cmap=seamap, vmax=0.3)
 #ax = plt.subplot(212)
 #fig.savefig('matrix.png', bbox_inches='tight', format='png')
 #ax = Tth.plot.imshow(ax=ax)
 
+#plt.show()
+
+
+
+sprs = load_npz(os.path.join(results_path, options['project_name'], SC[2].name + 'frontRT.npz'))
+
+full = sprs[wl_index].todense()
+
+summat = theta_summary(full, angle_vector, options['n_theta_bins'], 'front')
+
+summat_r = summat[:options['n_theta_bins'], :]
+
+summat_r = summat_r.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_{out}$': r'$\sin(\theta_{out})$'})
+
+summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coords[r'$\sin(\theta_{in})$']).data,
+                                    r'$\sin(\theta_{out})$': np.sin(summat_r.coords[r'$\sin(\theta_{out})$']).data})
+
+
 plt.show()
+
+import seaborn as sns
+import matplotlib as mpl
+palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+palhf.reverse()
+seamap = mpl.colors.ListedColormap(palhf)
+
+
+ax2 = fig.add_subplot(1,2,2)
+ax2 = summat_r.plot.imshow(ax=ax2, cmap=seamap, vmax=0.3)
+#ax = plt.subplot(212)
+fig.savefig('OPTOS_comp_matrices.pdf', bbox_inches='tight', format='pdf')
+#ax = Tth.plot.imshow(ax=ax)
+
+plt.show()
+
+
 

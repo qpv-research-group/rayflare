@@ -73,6 +73,7 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
             for i2, pol in enumerate(pols):
 
                 for i3, theta in enumerate(thetas):
+
                     tmm_struct =  tmm_structure(optstacks[i1], coherent=coherent, coherency_list=coherency_lists[i1])
                     #print(side, pol, theta)
                     res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, nm_spacing=1e5)

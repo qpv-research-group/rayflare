@@ -78,16 +78,18 @@ sim = np.loadtxt('data/optos_fig6_sim.csv', delimiter=',')
 meas = np.loadtxt('data/optos_fig6_data.csv', delimiter=',')
 
 plt.figure()
-plt.plot(wavelengths*1e9, RAT['R'][0])
-plt.plot(wavelengths*1e9, RAT['T'][0])
+#plt.plot(wavelengths*1e9, RAT['R'][0])
+#plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'ko')
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-')
 plt.plot(sim[:,0], sim[:,1])
-plt.plot(meas[:,0], meas[:,1])
+#plt.plot(meas[:,0], meas[:,1])
 plt.ylim([0, 0.7])
 plt.legend(['R', 'T', 'A'])
 
 plt.show()
+
+np.savetxt('fig6_rayflare.txt', RAT['A_bulk'][0])
 
 
 from angles import make_angle_vector
