@@ -48,18 +48,18 @@ def fold_phi(phis, phi_sym):
     return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
 
 def theta_summary(out_mat, angle_vector, n_theta_bins, front_or_rear="front"):
-    """Accepts an RT redistribution matrix and sums it over all the azimuthal angle bins to create an output
+    """
+    Accepts an RT redistribution matrix and sums it over all the azimuthal angle bins to create an output
     in terms of theta_in and theta_out.
     :param out_mat: an RT (or just R or T) redistribution matrix
     :param angle_vector: corresponding angle_vector array (output from make_angle_vector)
     :return sum_mat: the theta summary matrix
     :return R: the overall reflection probability for every incidence theta
-    :return T: the overall transmission probaility for every incidence theta"""
-
-    # need to fix normalization
+    :return T: the overall transmission probaility for every incidence theta
+    """
 
     theta_all = np.unique(angle_vector[:, 1])
-    theta_r = theta_all[:n_theta_bins]
+    #theta_r = theta_all[:n_theta_bins]
     theta_t = theta_all[n_theta_bins:]
 
 

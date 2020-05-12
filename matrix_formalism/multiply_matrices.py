@@ -110,9 +110,9 @@ def make_D(alphas, thick, thetas):
     :param thetas: incident thetas in angle_vector (second column)
     :return:
     """
-    print(alphas, abs(np.cos(thetas[None, :])))
+    #print(alphas, abs(np.cos(thetas[None, :])))
     diag = np.exp(-alphas[:, None] * thick / abs(np.cos(thetas[None, :])))
-    print(diag)
+    #print(diag)
     D_1 = stack([COO(np.diag(x)) for x in diag])
     return D_1
 
@@ -238,6 +238,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Ib.append([])
 
     len_calcs = np.array([len(x) for x in calc_prof_list])
+    print(len_calcs)
+    print(np.any(len_calcs > 0))
 
     if np.any(len_calcs > 0):
         print('a')
@@ -421,29 +423,37 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
 
             while np.any(power > options['I_thresh']):
                 print(i2)
+
+                print('before d2u', np.sum(vf_1[i1]))
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
+                print('after 2du', np.sum(vf_1[i1]))
                 #print('vf_1 after', vf_1[i1])
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
-                #print('vb_1', vb_1[i1])
+                print('before back ref', np.sum(vb_1[i1]))
                 # remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
                 vb_2[i1] = dot_wl(Rf[i1 + 1], vb_1[i1])  # reflect from back surface
+                print('after back ref', np.sum(vb_2[i1]))
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
                 #print('vb_2', vb_2[i1])
+                print('after u2d', np.sum(vf_2[i1]))
                 vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1]) # prepare for rear incidence
+                print('after u2d/before front ref', np.sum(vf_2[i1]))
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
+                print('after front ref', np.sum(vf_1[i1]))
                 #print('Rf, Rb, and vf2', Rf[i1][20].todense(), Rb[i1][20].todense(), vf_2[i1][20])
-                print('powersrem', np.sum(vb_2[i1], 1), np.sum(vf_2[i1], 1), np.sum(vf_1[i1], 1))
+                #print('powersrem', np.sum(vb_2[i1], 1), np.sum(vf_2[i1], 1), np.sum(vf_1[i1], 1))
                 # remaining_power.append(np.sum(vf_2, axis=1))
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
                 power = np.sum(vf_1[i1], axis=1)
-                print('power', power)
+                #print('power', power)
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
-
+                print('lost in front ref', np.sum(vr[i1]))
                 #print('Tf, vb1', Tf[i1 + 1][20].todense(), vb_1[i1][20])
                 vt[i1].append(dot_wl(Tf[i1 + 1], vb_1[i1]))  # transmitted into medium below through back surface
+                print('lost in back ref', np.sum(vt[i1]))
                 a[i1 + 1].append(dot_wl(Af[i1 + 1], vb_1[i1]))  # absorbed in 2nd surface
                 a[i1].append(dot_wl(Ab[i1], vf_2[i1]))  # absorbed in 1st surface (from the back)
 
