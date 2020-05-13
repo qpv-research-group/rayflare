@@ -32,7 +32,7 @@ angle_degrees_in = 8
 # matrix multiplication
 wavelengths = np.linspace(900, 1200, 30)*1e-9
 options = {'nm_spacing': 0.5,
-           'project_name': 'optos_checks',
+           'project_name': 'optos_checks_2',
            'calc_profile': False,
            'n_theta_bins': 100,
            'c_azimuth': 0.25,
@@ -44,9 +44,9 @@ options = {'nm_spacing': 0.5,
            #'coherency_list': None,
            'lookuptable_angles': 200,
            #'prof_layers': [1,2],
-           'n_rays': 100000,
+           'n_rays': 500000,
            'random_angles': False,
-           'nx': 5, 'ny': 5,
+           'nx': 15, 'ny': 15,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
            'only_incidence_angle': True
@@ -74,7 +74,7 @@ back_materials = []
 surf = regular_pyramids(elevation_angle=55, upright=False)
 
 
-front_surf = Interface('RT_TMM', texture = surf, layers=[],
+front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)],
                        name = 'inv_pyramids' + str(options['n_rays']))
 back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating_60', d_vectors=d_vectors, rcwa_orders=60)
 #back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)

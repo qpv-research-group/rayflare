@@ -19,7 +19,7 @@ angle_degrees_in = 8
 # matrix multiplication
 wavelengths = np.linspace(900, 1200, 30)*1e-9
 options = {'nm_spacing': 0.5,
-           'project_name': 'optos_checks',
+           'project_name': 'optos_checks_2',
            'calc_profile': False,
            'n_theta_bins': 100,
            'c_azimuth': 0.25,
@@ -31,9 +31,9 @@ options = {'nm_spacing': 0.5,
            #'coherency_list': None,
            'lookuptable_angles': 200,
            #'prof_layers': [1,2],
-           'n_rays': 100000,
+           'n_rays': 500000,
            'random_angles': False,
-           'nx': 20, 'ny': 20,
+           'nx': 15, 'ny': 15,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
            'only_incidence_angle': True
@@ -69,6 +69,11 @@ process_structure(SC, options)
 
 results = calculate_RAT(SC, options)
 
+results_per_pass = results[1]
+R_per_pass = np.sum(results_per_pass['r'][0], 2)
+R_0 = R_per_pass[0]
+R_escape = np.sum(R_per_pass[1:, :], 0)
+
 RAT = results[0]
 results_per_pass = results[1]
 
@@ -80,13 +85,14 @@ sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
 plt.figure()
 #plt.plot(wavelengths*1e9, RAT['R'][0])
 #plt.plot(wavelengths*1e9, RAT['T'][0])
-plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'ko')
-plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-')
+plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-o', label='A Rayflare')
+plt.plot(wavelengths*1e9, R_0, 'y', label='R0')
+plt.plot(wavelengths*1e9, R_escape, 'g', label='escape R')
 plt.plot(wavelengths*1e9, 1-RAT['R'][0]-RAT['T'][0], 'k-')
-plt.plot(sim[:,0], sim[:,1])
+plt.plot(sim[:,0], sim[:,1], label='A OPTOS')
 #plt.plot(meas[:,0], meas[:,1])
 plt.ylim([0, 1])
-plt.legend(['R', 'T', 'A'])
+plt.legend()
 
 plt.show()
 

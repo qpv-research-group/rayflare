@@ -2,11 +2,11 @@ from ray_tracing.rt import RTSurface
 import math
 import numpy as np
 
-def regular_pyramids(elevation_angle=55, upright=True):
+def regular_pyramids(elevation_angle=55, upright=True, size=1):
 
     char_angle = math.radians(elevation_angle)
-    Lx = 1
-    Ly = 1
+    Lx = size*1
+    Ly = size*1
     h = Lx*math.tan(char_angle)/2
     x = np.array([0, Lx/2, Lx, 0, Lx])
     y = np.array([0, Ly/2, 0, Ly, Ly])
