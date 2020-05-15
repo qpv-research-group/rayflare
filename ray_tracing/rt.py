@@ -923,6 +923,7 @@ def single_ray_interface(x, y,  nks, r_a_0, theta, phi, surfaces, pol, wl, Fr_or
                                      nks[mat_index+1], surf, surf.Lx, surf.Ly, direction,
                                      surf.zcov, pol, wl, Fr_or_TMM, lookuptable)
 
+
         if res == 0:  # reflection
             direction = -direction # changing direction due to reflection
 
@@ -1064,7 +1065,6 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
             if (side == 1 and d[2] < 0 and r_a[2] > tri.z_min) or (side == -1 and d[2] > 0 and r_a[2] < tri.z_max):
                 # going down but above surface
 
-
                 if r_a[0] > Lx or r_a[0] < 0:
                     r_a[0] = r_a[0] % Lx # translate back into until cell before doing any additional translation
                 if r_a[1] > Ly or r_a[1] < 0:
@@ -1077,7 +1077,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
                 #print('after traversing', r_a, d, exit)
                 checked_translation = True
 
-            if 1:
+            else:
                 o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
                 o_p = np.real(atan2(d[1], d[0]))
 
@@ -1138,6 +1138,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
                 final_res = 2
                 o_t = A
                 o_p = 0
+                return final_res, o_t, o_p, r_a, d, theta  # theta is LOCAL incidence angle (relative to texture)
 
         # if we are above surface, going downwards, or below surface, going upwards, and we have not yet
         # reached z_cov, we should keep trying to translate, so want to set check_translation = false
