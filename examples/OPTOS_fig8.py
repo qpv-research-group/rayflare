@@ -79,7 +79,7 @@ front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)
 back_surf = Interface('RCWA', layers=back_materials, name = 'crossed_grating_60', d_vectors=d_vectors, rcwa_orders=60)
 #back_surf = Interface('TMM', layers=[], name = 'planar_back', coherent=True)
 
-bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
+bulk_Si = BulkLayer(201.8e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
 SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Air)
 
@@ -92,8 +92,7 @@ results_per_pass = results[1]
 
 # load OPTOS/measured data
 
-sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
-meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
+sim = np.loadtxt('data/optos_fig8_sim.csv', delimiter=',')
 
 plt.figure()
 plt.plot(wavelengths*1e9, RAT['R'][0])
@@ -101,12 +100,12 @@ plt.plot(wavelengths*1e9, RAT['T'][0])
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'ko')
 plt.plot(wavelengths*1e9, RAT['A_bulk'][0], 'k-')
 plt.plot(sim[:,0], sim[:,1])
-plt.plot(meas[:,0], meas[:,1])
 plt.ylim([0, 1])
 plt.legend(['R', 'T', 'A'])
 
 plt.show()
 
+np.savetxt('fig8_rayflare.txt', RAT['A_bulk'][0])
 
 from angles import make_angle_vector
 from config import results_path
@@ -147,7 +146,9 @@ palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
 fig = plt.figure(figsize=(10,3.5))
 ax = fig.add_subplot(1,2,1, aspect='equal')
+ax.text(-0.15, 1, 'a)')
 ax = summat_r.plot.imshow(ax=ax, cmap=seamap)
+
 #ax = plt.subplot(212)
 #fig.savefig('perovskite_Si_frontsurf_rearR.pdf', bbox_inches='tight', format='pdf')
 #ax = Tth.plot.imshow(ax=ax)
@@ -182,7 +183,9 @@ palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
 #fig = plt.figure(figsize=(5,4))
 ax2 = fig.add_subplot(1,2,2, aspect='equal')
+ax2.text(-0.15, 1, 'b)')
 ax2 = summat_r.plot.imshow(ax=ax2, cmap=seamap)
+
 #ax = plt.subplot(212)
 fig.savefig('optos_comparison_matrices.pdf', bbox_inches='tight', format='pdf')
 #ax = Tth.plot.imshow(ax=ax)

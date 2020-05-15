@@ -31,9 +31,11 @@ options = {'nm_spacing': 0.5,
            #'coherency_list': None,
            'lookuptable_angles': 200,
            #'prof_layers': [1,2],
-           'n_rays': 500000,
+           #'n_rays': 1e6,
+           'n_rays': 50000,
            'random_angles': False,
-           'nx': 15, 'ny': 15,
+           'nx': 4, 'ny': 4,
+           'random_ray_position': False,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
            'only_incidence_angle': True
@@ -56,12 +58,12 @@ back_materials = []
 surf = regular_pyramids(elevation_angle=55, upright=False)
 
 
-front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)],
+front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.01nm'), Air)],
                        name = 'inv_pyramids' + str(options['n_rays']))
 back_surf = Interface('TMM', layers=[], name = 'planar_back' + str(options['n_rays']))
 
 
-bulk_Si = BulkLayer(200e-6, Si, name = 'Si_bulk') # bulk thickness in m
+bulk_Si = BulkLayer(201.8e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
 SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Air)
 

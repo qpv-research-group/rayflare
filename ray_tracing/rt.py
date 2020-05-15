@@ -168,8 +168,13 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         x_lim = surfaces[0].Lx
         y_lim = surfaces[0].Ly
 
-        xs = np.linspace(x_lim/101, x_lim-(x_lim/99), nx)
-        ys = np.linspace(y_lim/100, y_lim-(y_lim/102), ny)
+        if options['random_ray_position']:
+            xs = np.random.uniform(0, x_lim, nx)
+            ys = np.random.uniform(0, y_lim, ny)
+
+        else:
+            xs = np.linspace(x_lim/101, x_lim-(x_lim/99), nx)
+            ys = np.linspace(y_lim/100, y_lim-(y_lim/102), ny)
 
         print('n_th_in', len(thetas_in), len(xs))
 
@@ -585,7 +590,7 @@ class rt_structure:
 
 
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys):
-    #print(widths)
+    print(widths)
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -618,12 +623,6 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
 
     #print('THETAS PARALLEL INTTER', thetas)
     return Is, profiles, A_layer, thetas, phis, n_passes
-
-
-
-
-
-
 
 
 def normalize(x):
@@ -811,7 +810,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
 
     # should end when either material = final material (len(materials)-1) & direction == 1 or
     # material = 0 & direction == -1
-    print('\n \n NEW RAY')
+    # print('\n \n NEW RAY')
 
     profile = np.zeros(len(z_pos))
     # do everything in microns
@@ -826,7 +825,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array([x, y, 0])
 
-    print('initial position', r_a, r_b)# set r_a and r_b so that ray has correct angle & intersects with first surface
+    # print('initial position', r_a, r_b)# set r_a and r_b so that ray has correct angle & intersects with first surface
 
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a) # direction (unit vector) of ray
     n_passes = 0
@@ -838,16 +837,16 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
         depths.append(z_pos[depth_indices[i1]] - \
              np.cumsum(widths)[i1 - 1])
 
-    #print('alphas', alphas)
+    ## print('alphas', alphas)
     while not stop:
 
 
         surf = surfaces[surf_index]
-        print('heading towards', surf_index)
-        print('r_a before', r_a)
+        # print('heading towards', surf_index)
+        # print('r_a before', r_a)
         r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
         r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
-        print('r_a after', r_a)
+        # print('r_a after', r_a)
 
         if direction == 1:
             ni = nks[mat_index]
@@ -866,12 +865,12 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
 
             # staying in the same material, so mat_index does not change, but surf_index does
             surf_index = surf_index + direction
-            print('overall ref')
+            # print('overall ref')
 
         if res == 1:  # transmission
             surf_index = surf_index + direction
             mat_index = mat_index + direction  # is this right?
-            print('overall trns')
+            # print('overall trns')
 
         #print('dir, surf ind, mat ind, res', direction, surf_index, mat_index, res)
         #print('d', d)
@@ -978,7 +977,7 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
     else:
         R = calc_R(n0, n1, abs(theta), pol)
 
-    print('theta, R', theta, R)
+    # print('theta, R', theta, R)
 
     if rnd <= R:  # REFLECTION
         d = np.real(d - 2 * np.dot(d, N) * N)
@@ -1050,7 +1049,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
         i1 = i1+1
 
         result = check_intersect(r_a, d, tri)
-        print('results', result)
+        #print('results', result)
         if result == False and not checked_translation:
             which_side, tt = exit_side(r_a, d, Lx, Ly)
             #print('before translation', r_a)

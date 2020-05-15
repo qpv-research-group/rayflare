@@ -7,34 +7,41 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from cycler import cycler
-
-pal = sns.cubehelix_palette(7, start=.5, rot=-.9)
+pal = sns.cubehelix_palette()
 
 cols = cycler('color', pal)
 
-plt.rcParams['axes.prop_cycle'] = cols
+params = {'legend.fontsize': 'small',
+          'axes.labelsize': 'small',
+          'axes.titlesize': 'small',
+          'xtick.labelsize': 'small',
+          'ytick.labelsize': 'small',
+          'axes.prop_cycle': cols}
+
+plt.rcParams.update(params)
 
 Air = material('Air')()
 Si = material('566', nk_db=True)()
 
-size=2
+size = 2
 #for size in [4]:
 n_passes = []
-for nxy in [20]:
+nxy = 30
+
+calc = False
+
+options = {'wavelengths': np.arange(300, 1201, 20) * 1e-9, 'theta': 0 * np.pi / 180, 'phi': 0,
+           'I_thresh': 1e-2, 'nx': nxy, 'ny': nxy,
+           'parallel': True, 'pol': 'u', 'n_rays': 10 * nxy ** 2, 'depth_spacing': si('1um'),
+           'random_ray_position': True}
+
+if calc:
+
 
     flat_surf = planar_surface()
     triangle_surf = regular_pyramids(55, upright=False, size=size)
 
-    #options = {'wavelengths': np.linspace(700, 1700, 100)*1e-9, 'theta': 45*np.pi/180, 'phi': 0,
-    #           'I_thresh': 1e-4, 'nx': 5, 'ny': 5,
-    #           'parallel': True, 'pol': 'p', 'n_rays': 2000, 'depth_spacing': 1, 'n_jobs': -1}
 
-    options = {'wavelengths': np.linspace(1050, 1200, 10)*1e-9, 'theta': 0*np.pi/180, 'phi': 0,
-               'I_thresh': 1e-2, 'nx': nxy, 'ny': nxy,
-               'parallel': True, 'pol': 'u', 'n_rays': 2*nxy**2, 'depth_spacing': si('1um'), 'n_jobs': -1,
-               'random_ray_position': True}
-    #structure = RTgroup(textures=[flat_surf, flat_surf, flat_surf, flat_surf], materials = [GaAs, Si, Ge],
-    #                    widths=[si('100um'), si('70um'), si('50um')], depth_spacing=1)
 
     rtstr = rt_structure(textures=[triangle_surf, flat_surf],
                         materials = [Si],
@@ -44,23 +51,23 @@ for nxy in [20]:
     print(str(size), time()-start)
     result = result_new
 
-
-    PVlighthouse = np.loadtxt('data/RAT_data.csv', delimiter=',', skiprows=1)
+    pal = sns.diverging_palette(150, 275, s=80, l=55, n=9, center='dark')
+    PVlighthouse = np.loadtxt('data/RAT_data_300um_2um_55.csv', delimiter=',', skiprows=1)
     sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
     #meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
     plt.figure()
-    plt.plot(options['wavelengths']*1e9, result['R'], 'k-o')
-    #plt.plot(options['wavelengths']*1e9, result['R0'], 'y-o')
-    plt.plot(options['wavelengths']*1e9, result['T'], 'r-o')
-    plt.plot(options['wavelengths']*1e9, result['A_per_layer'], 'g-o')
-    plt.plot(PVlighthouse[:,0], PVlighthouse[:,2], 'k--o')
-    plt.plot(PVlighthouse[:,0], PVlighthouse[:,9], 'r--o')
-    plt.plot(PVlighthouse[:,0], PVlighthouse[:,3], 'y--o')
-    plt.plot(PVlighthouse[:,0], PVlighthouse[:,5], 'g--o')
+    plt.plot(options['wavelengths']*1e9, result['R'], '-o', color=pal[0])
+    plt.plot(options['wavelengths']*1e9, result['R0'], '-o', color=pal[1])
+    plt.plot(options['wavelengths']*1e9, result['T'], '-o', color=pal[2])
+    plt.plot(options['wavelengths']*1e9, result['A_per_layer'], '-o', color=pal[3])
+    plt.plot(PVlighthouse[:,0], PVlighthouse[:,2], '--', color=pal[0])
+    plt.plot(PVlighthouse[:,0], PVlighthouse[:,9], '--', color=pal[2])
+    plt.plot(PVlighthouse[:,0], PVlighthouse[:,3], '--', color=pal[1])
+    plt.plot(PVlighthouse[:,0], PVlighthouse[:,5], '--', color=pal[3])
     #plt.plot(sim[:,0], sim[:,1])
-    #plt.ylim(0,1)
-    plt.plot(options['wavelengths']*1e9, result['R']+result['T']+np.sum(result['A_per_layer'],1), 'g')
-    plt.plot(PVlighthouse[:,0], PVlighthouse[:,2] + PVlighthouse[:,9] + PVlighthouse[:,5], 'g')
+    plt.ylim(0,1)
+    #plt.plot(options['wavelengths']*1e9, result['R']+result['T']+np.sum(result['A_per_layer'],1), 'g')
+    #plt.plot(PVlighthouse[:,0], PVlighthouse[:,2] + PVlighthouse[:,9] + PVlighthouse[:,5], 'g')
     #plt.legend(['R', 'T', 'L1', 'L2', 'L3'])
     plt.title(str(size))
     plt.show()
@@ -69,8 +76,13 @@ for nxy in [20]:
     #plt.plot(result['profile'][15].T)
     #plt.show()
 
+    to_save = np.vstack((options['wavelengths']*1e9, result['R'], result['R0'], result['T'], result['A_per_layer'][:,0])).T
+    np.savetxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_2', to_save)
+
     A_single_pass = 1 - np.exp(-200e-6*Si.alpha(options['wavelengths']))
     A_single_pass_PVL = 1 - np.exp(-200e-6*Si.alpha(PVlighthouse[:,0]/1e9))
+
+
 
     plt.figure()
     #plt.plot(PVlighthouse[:,0], PVlighthouse[:,10], 'r--o')
@@ -81,3 +93,50 @@ for nxy in [20]:
 
     print('passes', np.mean(result['n_passes']))
     n_passes.append(np.mean(result['n_passes']))
+
+
+else:
+    result = np.loadtxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_2')
+    pal =sns.color_palette("hls", 4)
+    PVlighthouse = np.loadtxt('data/RAT_data_300um_2um_55.csv', delimiter=',', skiprows=1)
+    sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
+    # meas = np.loadtxt('data/optos_fig7_data.csv', delimiter=',')
+    fig=plt.figure(figsize=(9,3.7))
+    plt.subplot(1,2,1)
+    plt.plot(result[:,0], result[:,1], '-o', color=pal[0], label=r'R$_{total}$', fillstyle='none')
+    plt.plot(result[:,0], result[:,2], '-o', color=pal[1], label=r'R$_0$', fillstyle='none')
+    plt.plot(result[:,0], result[:,3], '-o', color=pal[2], label=r'T', fillstyle='none')
+    plt.plot(result[:,0], result[:,4], '-o', color=pal[3], label=r'A', fillstyle='none')
+    plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 2], '--', color=pal[0])
+    plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 9], '--', color=pal[2])
+    plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 3], '--', color=pal[1])
+    plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 5], '--', color=pal[3])
+    plt.text(150, 1, 'a)')
+    plt.plot(-1, -1, '-ok', label='RayFlare')
+    plt.plot(-1, -1, '--k', label='PVLighthouse')
+    plt.xlabel('Wavelength (nm)')
+    plt.ylabel('R / A / T')
+    plt.ylim(0, 1)
+    plt.xlim(300, 1200)
+
+    plt.legend()
+    #plt.show()
+
+    A_single_pass = 1 - np.exp(-200e-6 * Si.alpha(options['wavelengths']))
+    A_single_pass_PVL = 1 - np.exp(-200e-6 * Si.alpha(PVlighthouse[:, 0] / 1e9))
+
+    #plt.figure()
+    plt.subplot(1,2,2)
+    # plt.plot(PVlighthouse[:,0], PVlighthouse[:,10], 'r--o')
+    plt.plot(result[:,0], result[:,4] / A_single_pass, '-k',  label='RayFlare raytracer')
+
+    plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 5] / A_single_pass_PVL, '--b', label='PVLighthouse')
+    plt.legend(loc='upper left')
+    plt.xlabel('Wavelength (nm)')
+    plt.ylabel('Path length enhancement')
+    plt.xlim(300, 1200)
+    plt.text(150, 36, 'b)')
+
+    fig.savefig('PVLighthousecomp.pdf', bbox_inches='tight', format='pdf')
+    plt.show()
+
