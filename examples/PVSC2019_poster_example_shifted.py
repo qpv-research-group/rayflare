@@ -49,25 +49,29 @@ plt.rcParams.update(params)
 #matplotlib.rc('font', **font)
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1200, 200)*1e-9
+wavelengths = np.linspace(300, 1200, 40)*1e-9
 
 options = default_options
 options.nm_spacing = 0.5
 options.wavelengths = wavelengths
-options.project_name = 'Perovskite_Si_1e6_150wl'
-options.n_rays = 100000
-options.n_theta_bins = 100
+options.project_name = 'Perovskite_Si_1e6_shifted'
+options.n_rays = 10000
+options.n_theta_bins = 30
 options.phi_symmetry = np.pi/4
 options.I_thresh = 1e-4
 options.lookuptable_angles = 200
 options.parallel = True
 options.only_incidence_angle = True
+options.random_ray_position = False
+options.nx = 5
+options.ny = 5
+options.c_azimuth = 0.1
 
 Si = material('Si')()
 Air = material('Air')()
 MgF2 = material('MgF2_RdeM')()
 ITO_back = material('ITO_lowdoping')()
-Perovskite = material('Perovskite_CsBr')()
+Perovskite = material('Perovskite_CsBr_1p6eV')()
 Ag = material('Ag_Jiang')()
 aSi_i = material('aSi_i')()
 aSi_p = material('aSi_p')()

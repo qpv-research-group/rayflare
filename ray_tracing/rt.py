@@ -1165,14 +1165,15 @@ def check_intersect(r_a, d, tri):
 
     # all the stuff which is only surface-dependent (and not dependent on incoming direction) is
     # in the surface object tri.
-    pref = 1 / np.sum(np.matlib.repmat(np.transpose([-d]), 1, tri.size).T * tri.crossP, axis=1)
+    D = np.matlib.repmat(np.transpose([-d]), 1, tri.size).T
+    pref = 1 / np.sum(D * tri.crossP, axis=1)
     corner = r_a - tri.P_0s
     t = pref * np.sum(tri.crossP * corner, axis=1)
-    u = pref * np.sum(np.cross(tri.P_2s - tri.P_0s, np.matlib.repmat(np.transpose([-d]), 1, tri.size).T) * corner, axis=1)
-    v = pref * np.sum(np.cross(np.matlib.repmat(np.transpose([-d]), 1, tri.size).T, tri.P_1s - tri.P_0s) * corner, axis=1)
+    u = pref * np.sum(np.cross(tri.P_2s - tri.P_0s, D) * corner, axis=1)
+    v = pref * np.sum(np.cross(D, tri.P_1s - tri.P_0s) * corner, axis=1)
     As = np.vstack((t, u, v))
 
-    which_intersect = (As[1, :] + As[2, :] <= 1) & (np.all(As[[1, 2],] >= -1e-10, axis=0)) & (As[0, :] > 0)
+    which_intersect = (u + v <= 1) & (np.all(np.vstack((u, v)) >= -1e-10, axis=0)) & (t > 0)
     # get errors if set exactly to zero.
     if sum(which_intersect) > 0:
 
