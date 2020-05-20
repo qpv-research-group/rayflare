@@ -173,8 +173,12 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
             ys = np.random.uniform(0, y_lim, ny)
 
         else:
-            xs = np.linspace(x_lim/101, x_lim-(x_lim/99), nx)
-            ys = np.linspace(y_lim/100, y_lim-(y_lim/102), ny)
+            if options['avoid_edges']:
+                xs = np.linspace(x_lim / 4, x_lim - (x_lim / 4), nx)
+                ys = np.linspace(y_lim / 4, y_lim - (y_lim / 4), ny)
+            else:
+                xs = np.linspace(x_lim/101, x_lim-(x_lim/99), nx)
+                ys = np.linspace(y_lim/100, y_lim-(y_lim/102), ny)
 
         print('n_th_in', len(thetas_in), len(xs))
 
@@ -459,15 +463,20 @@ class rt_structure:
             ys = np.random.uniform(0, y_lim, ny)
 
         else:
-            xs = np.linspace(x_lim/101, x_lim-(x_lim/99), nx)
-            ys = np.linspace(y_lim/100, y_lim-(y_lim/102), ny)
 
-        print(xs, ys)
-    
+            if options['avoid_edges']:
+                xs = np.linspace(x_lim / 4, x_lim - (x_lim / 4), nx)
+                ys = np.linspace(y_lim / 4, y_lim - (y_lim / 4), ny)
+
+            else:
+                xs = np.linspace(x_lim / 101, x_lim - (x_lim / 99), nx)
+                ys = np.linspace(y_lim / 100, y_lim - (y_lim / 102), ny)
+
         # need to calculate r_a and r_b
         # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
         # how many times we need to repeat
         n_reps = np.int(np.ceil(options['n_rays']/(nx*ny)))
+        # print('n_reps', n_reps)
 
         # thetas and phis divided into
         thetas = np.zeros((n_reps*nx*ny, len(wavelengths)))
@@ -477,6 +486,7 @@ class rt_structure:
         Is = np.zeros((n_reps*nx*ny, len(wavelengths)))
     
         pol = options['pol']
+        randomize = options['randomize']
 
         if not options['parallel']:
             for j1 in range(n_reps):
@@ -486,9 +496,10 @@ class rt_structure:
                 for c, vals in enumerate(product(xs, ys)):
 
                     for i1, wl in enumerate(wavelengths):
+                        print(wl)
                         I, profile, A_per_layer, th_o, phi_o, n_pass = single_ray_stack(vals[0], vals[1], nks[:, i1],
                                                                                           alphas[:, i1], r_a_0, theta, phi,
-                                                                                          surfaces, widths, z_pos, I_thresh, pol)
+                                                                                          surfaces, widths, z_pos, I_thresh, pol, randomize)
                         absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
                         thetas[c+offset, i1] = th_o
                         phis[c+offset, i1] = phi_o
@@ -507,7 +518,7 @@ class rt_structure:
         else:
 
             allres = Parallel(n_jobs=-1)(delayed(parallel_inner)(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
-                                                                  surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys) for
+                                                                  surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize) for
                                         i1 in range(len(wavelengths)))
 
             #allres = [parallel_inner(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
@@ -589,7 +600,7 @@ class rt_structure:
 
 
 
-def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys):
+def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize):
     print(widths)
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
@@ -606,7 +617,7 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
         # print(offset, n_reps)
         for c, vals in enumerate(product(xs, ys)):
             I, profile, A_per_layer, th_o, phi_o, n_pass = single_ray_stack(vals[0], vals[1], nks, alphas, r_a_0, theta, phi,
-            surfaces, widths, z_pos, I_thresh, pol)
+            surfaces, widths, z_pos, I_thresh, pol, randomize)
 
             #print(phi_o)
             #print(th_o)
@@ -793,7 +804,8 @@ def calc_angle(x):
     v1 = np.array([0, 1])
     return np.math.atan2(np.linalg.det([x, v1]), np.dot(x, v1))  # - 180 to 180
 
-def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol):
+def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths,
+                     z_pos, I_thresh, pol = 'u', randomize = False):
     # final_res = 0: reflection
     # final_res = 1: transmission
     # This should get a list of surfaces and materials (optical constants, alpha + widths); there is one less surface than material
@@ -811,6 +823,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
     # should end when either material = final material (len(materials)-1) & direction == 1 or
     # material = 0 & direction == -1
     # print('\n \n NEW RAY')
+
 
     profile = np.zeros(len(z_pos))
     # do everything in microns
@@ -830,6 +843,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a) # direction (unit vector) of ray
     n_passes = 0
 
+    # print('r_a, d', r_a, d)
     depths = []
     depth_indices = []
     for i1 in range(len(widths)):
@@ -844,8 +858,16 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths, z_
         surf = surfaces[surf_index]
         # print('heading towards', surf_index)
         # print('r_a before', r_a)
-        r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
-        r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
+        if randomize & n_passes > 0:
+            print('surf', surf_index, surf.zcov, surf.z_max, surf.z_min, surf.Lx, surf.Ly)
+            h = surf.z_max - surf.z_min + 0.1
+            print('rb rand', r_b, d)
+            r_b = [np.random.rand()*surf.Lx, np.random.rand()*surf.Ly, surf.zcov]
+            r_a = r_b - h*d
+
+        else:
+            r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
+            r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
         # print('r_a after', r_a)
 
         if direction == 1:
@@ -905,6 +927,7 @@ def single_ray_interface(x, y,  nks, r_a_0, theta, phi, surfaces, pol, wl, Fr_or
     surf_index = 0
     stop = False
     I = 1
+
 
     # could be done before to avoid recalculating every time
     r_a = r_a_0 + np.array([x, y, 0])
@@ -983,7 +1006,6 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
     if rnd <= R:  # REFLECTION
         d = np.real(d - 2 * np.dot(d, N) * N)
         d = d / np.linalg.norm(d)
-        #print('surf r', d)
 
     else:  # TRANSMISSION)
         # transmission, refraction
@@ -997,7 +1019,6 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
         side = -side
         d = np.real(tr_par + tr_perp)
         d = d / np.linalg.norm(d)
-        #print('surf t', d)
 
     return d, side, None # never absorbed, A = False
 
@@ -1036,7 +1057,7 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
 
 def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=None, Fr_or_TMM=0, lookuptable=None):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
-
+    # print('intf check')
     # weird stuff happens around edges; can get transmission counted as reflection
     d0 = d
     intersect = True
@@ -1047,19 +1068,33 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
     translation = np.array([[0, -Ly, 0], [-Lx, 0, 0], [0, Ly, 0], [Lx, 0, 0]])
     i1 = 0
     while intersect:
+
         i1 = i1+1
 
         result = check_intersect(r_a, d, tri)
         #print('results', result)
         if result == False and not checked_translation:
-            which_side, tt = exit_side(r_a, d, Lx, Ly)
-            #print('before translation', r_a)
-            r_a = r_a + translation[which_side]
-            #print('translation', which_side)
-            #print('after normal translation', r_a, which_side)
-            checked_translation = True
+            if i1 > 1:
+
+                which_side, tt = exit_side(r_a, d, Lx, Ly)
+                #print('before translation', r_a)
+                r_a = r_a + translation[which_side]
+                #print('translation', which_side)
+                #print('after normal translation', r_a, which_side)
+                checked_translation = True
+
+            else:
+                # misses surface. Try again
+                print('MISS!', r_a, d)
+                if d[2] < 0: # coming from above
+                    r_a = [np.random.rand()*Lx, np.random.rand()*Ly, tri.z_max+0.01]
+                else:
+                    r_a = [np.random.rand()*Lx, np.random.rand()*Ly, tri.z_min-0.01]
+
+                i1 = 0
 
         elif result == False and checked_translation:
+
             #print(tri.z_min)
             #print(tri.z_max)
             if (side == 1 and d[2] < 0 and r_a[2] > tri.z_min) or (side == -1 and d[2] > 0 and r_a[2] < tri.z_max):
@@ -1073,7 +1108,6 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
                 exit, t = exit_side(r_a, d, Lx, Ly)
 
                 r_a = r_a + t * d + translation[exit]
-
                 #print('after traversing', r_a, d, exit)
                 checked_translation = True
 
@@ -1102,15 +1136,16 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
                 #     final_res = 1
                 #     #print('trns')
                 #     #print(side, side_0, d)
-
                 return final_res, o_t, o_p, r_a, d, theta  # theta is LOCAL incidence angle (relative to texture)
 
         else:
+
             # there has been an intersection
 
             intersn = result[0] # coordinate of the intersection (3D)
 
             theta =  result[1]
+
             N = result[2]*side # so angles get worked out correctly, relative to incident face normal
 
             if side == 1:
