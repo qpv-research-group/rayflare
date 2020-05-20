@@ -13,7 +13,23 @@ from angles import theta_summary
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-palhf =     pal =sns.color_palette("hls", 4)
+
+from cycler import cycler
+
+palhf = sns.color_palette("hls", 4)
+
+cols = cycler('color', palhf)
+
+params = {'legend.fontsize': 'small',
+          'axes.labelsize': 'small',
+          'axes.titlesize': 'small',
+          'xtick.labelsize': 'small',
+          'ytick.labelsize': 'small',
+          'axes.prop_cycle': cols}
+
+plt.rcParams.update(params)
+
+
 
 angle_degrees_in = 8
 
@@ -43,6 +59,11 @@ plt.plot(sim_fig8[:,0], sim_fig8[:,1], '--', color=palhf[2],  label= 'OPTOS - gr
 plt.plot(wavelengths, rayflare_fig8, '-o', color=palhf[2],  label= 'RayFlare - grating + pyramids', fillstyle='none')
 plt.plot(wavelengths, RAT['A_per_layer'][1], '-k', label='Planar')
 plt.legend(loc='lower left')
+plt.xlabel('Wavelength (nm)')
+plt.ylabel('Absorption in Si')
+plt.xlim([900, 1200])
+plt.ylim([0, 1])
+fig.savefig('OPTOScomp.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 
 

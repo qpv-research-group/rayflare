@@ -33,7 +33,7 @@ plt.rcParams.update(params)
 
 # cur_path = os.path.dirname(os.path.abspath(__file__))
 # # new materials from data
-# create_new_material('Perovskite_CsBr', os.path.join(cur_path, 'data/CsBr10p_1to2_n.txt'), os.path.join(cur_path, 'data/CsBr10p_1to2_k.txt'))
+# create_new_material('Perovskite_CsBr_1p6eV', os.path.join(cur_path, 'data/CsBr10p_1to2_n_shifted.txt'), os.path.join(cur_path, 'data/CsBr10p_1to2_k_shifted.txt'))
 # create_new_material('ITO_lowdoping', os.path.join(cur_path, 'data/model_back_ito_n.txt'), os.path.join(cur_path, 'data/model_back_ito_k.txt'))
 # create_new_material('Ag_Jiang', os.path.join(cur_path, 'data/Ag_UNSW_n.txt'), os.path.join(cur_path, 'data/Ag_UNSW_k.txt'))
 # create_new_material('aSi_i', os.path.join(cur_path, 'data/model_i_a_silicon_n.txt'),os.path.join(cur_path, 'data/model_i_a_silicon_k.txt'))
@@ -156,7 +156,7 @@ bulk_A_text= ysmoothed[:,4]
 # plot total R, A, T
 fig = plt.figure(figsize=(5,4))
 ax = plt.subplot(111)
-ax.stackplot(options['wavelengths']*1e9, ysmoothed.T,
+ax.stackplot(options['wavelengths']*1e9, allres.T,
               labels=['Ag', 'ITO', 'aSi-n', 'aSi-i', 'c-Si (bulk)', 'aSi-i', 'aSi-p',
                       'Perovskite','C$_{60}$','IZO',
             'MgF$_2$', 'R$_{escape}$', 'R$_0$'], colors = pal)

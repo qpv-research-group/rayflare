@@ -77,7 +77,7 @@ if calc:
     #plt.show()
 
     to_save = np.vstack((options['wavelengths']*1e9, result['R'], result['R0'], result['T'], result['A_per_layer'][:,0])).T
-    np.savetxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_2', to_save)
+    np.savetxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_3', to_save)
 
     A_single_pass = 1 - np.exp(-200e-6*Si.alpha(options['wavelengths']))
     A_single_pass_PVL = 1 - np.exp(-200e-6*Si.alpha(PVlighthouse[:,0]/1e9))
@@ -96,7 +96,7 @@ if calc:
 
 
 else:
-    result = np.loadtxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_2')
+    result = np.loadtxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_3')
     pal =sns.color_palette("hls", 4)
     PVlighthouse = np.loadtxt('data/RAT_data_300um_2um_55.csv', delimiter=',', skiprows=1)
     sim = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
@@ -124,12 +124,13 @@ else:
 
     A_single_pass = 1 - np.exp(-200e-6 * Si.alpha(options['wavelengths']))
     A_single_pass_PVL = 1 - np.exp(-200e-6 * Si.alpha(PVlighthouse[:, 0] / 1e9))
+    lambertian = 4*Si.n(options['wavelengths'])**2
 
     #plt.figure()
     plt.subplot(1,2,2)
     # plt.plot(PVlighthouse[:,0], PVlighthouse[:,10], 'r--o')
     plt.plot(result[:,0], result[:,4] / A_single_pass, '-k',  label='RayFlare raytracer')
-
+    plt.plot(options['wavelengths']*1e9, lambertian, label='Lambertian')
     plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 5] / A_single_pass_PVL, '--b', label='PVLighthouse')
     plt.legend(loc='upper left')
     plt.xlabel('Wavelength (nm)')
