@@ -822,7 +822,7 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths,
 
     # should end when either material = final material (len(materials)-1) & direction == 1 or
     # material = 0 & direction == -1
-    # print('\n \n NEW RAY')
+    #print('\n \n NEW RAY')
 
 
     profile = np.zeros(len(z_pos))
@@ -858,16 +858,21 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths,
         surf = surfaces[surf_index]
         # print('heading towards', surf_index)
         # print('r_a before', r_a)
-        if randomize & n_passes > 0:
-            print('surf', surf_index, surf.zcov, surf.z_max, surf.z_min, surf.Lx, surf.Ly)
+
+        if randomize and (n_passes > 0):
+            #print('surf', surf_index, surf.zcov, surf.z_max, surf.z_min, surf.Lx, surf.Ly)
             h = surf.z_max - surf.z_min + 0.1
-            print('rb rand', r_b, d)
+            #print('rb rand', r_b, d)
+            #print('randomize, r_a before', r_a, d, n_passes)
             r_b = [np.random.rand()*surf.Lx, np.random.rand()*surf.Ly, surf.zcov]
             r_a = r_b - h*d
+            #print('randomize, r_a after', r_a)
 
         else:
+            #print('ra before', r_a, d, n_passes)
             r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
             r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
+            #print('ra after', r_a, d)
         # print('r_a after', r_a)
 
         if direction == 1:
@@ -1085,7 +1090,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, wl=Non
 
             else:
                 # misses surface. Try again
-                print('MISS!', r_a, d)
+                # print('MISS!', r_a, d)
                 if d[2] < 0: # coming from above
                     r_a = [np.random.rand()*Lx, np.random.rand()*Ly, tri.z_max+0.01]
                 else:
