@@ -26,9 +26,9 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1):
 
     return [surf_fi, surf_ri]
 
-def planar_surface():
-    Lx = 1
-    Ly = 1
+def planar_surface(size = 1):
+    Lx = 1*size
+    Ly = 1*size
     x = np.array([0, Lx, Lx, 0])
     y = np.array([0, Ly, 0, Ly])
     z = np.array([0, 0, 0, 0])
@@ -57,3 +57,6 @@ def random_pyramids():
     surf_ri = RTSurface(Points_ri)
 
     return [surf_fi, surf_ri]
+
+
+def

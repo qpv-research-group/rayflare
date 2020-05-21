@@ -1010,20 +1010,18 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
 
     if rnd <= R:  # REFLECTION
         d = np.real(d - 2 * np.dot(d, N) * N)
-        d = d / np.linalg.norm(d)
 
     else:  # TRANSMISSION)
         # transmission, refraction
         # for now, ignore effect of k on refraction
 
         #tr_par = np.real((n0 / n1) ** side) * (d - np.dot(d, N) * N)
-        tr_par = np.real(n0 / n1)  * (d - np.dot(d, N) * N)
+        tr_par = (np.real(n0) / np.real(n1))  * (d - np.dot(d, N) * N)
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
-
-
         side = -side
         d = np.real(tr_par + tr_perp)
-        d = d / np.linalg.norm(d)
+
+    d = d / np.linalg.norm(d)
 
     return d, side, None # never absorbed, A = False
 
@@ -1044,8 +1042,8 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
         # transmission, refraction
         # for now, ignore effect of k on refraction
 
-        tr_par = ((np.real(n0) / np.real(n1)) ** side) * (d - np.dot(d, N) * N)
-
+        # tr_par = ((np.real(n0) / np.real(n1)) ** side) * (d - np.dot(d, N) * N)
+        tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
 
         side = -side
