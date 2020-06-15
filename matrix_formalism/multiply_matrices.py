@@ -117,9 +117,17 @@ def make_D(alphas, thick, thetas):
     return D_1
 
 def dot_wl(mat, vec):
+    print(mat.shape)
     result = np.empty((vec.shape[0], mat.shape[1]))
-    for i1 in range(vec.shape[0]):  # loop over wavelengths
-        result[i1, :] = dot(mat[i1], vec[i1])
+
+    if len(mat.shape) == 3:
+        for i1 in range(vec.shape[0]):  # loop over wavelengths
+            result[i1, :] = dot(mat[i1], vec[i1])
+
+    if len(mat.shape) == 2:
+        for i1 in range(vec.shape[0]):  # loop over wavelengths
+            result[i1, :] = dot(mat, vec[i1])
+
     return result
 
 def dot_wl_u2d(mat, vec):
@@ -183,9 +191,16 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
 
-        Rf.append(fullmat[:, :n_a_in, :])
-        Tf.append(fullmat[:, n_a_in:, :])
-        Af.append(absmat)
+        if len(fullmat.shape) == 3:
+            Rf.append(fullmat[:, :n_a_in, :])
+            Tf.append(fullmat[:, n_a_in:, :])
+            Af.append(absmat)
+
+        else:
+            print(fullmat.shape)
+            Rf.append(fullmat[:n_a_in, :])
+            Tf.append(fullmat[n_a_in:, :])
+            Af.append(absmat)
 
 
         if len(calc_prof_list[i1]) > 0:
@@ -219,9 +234,16 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
 
-        Rb.append(fullmat[:, n_a_in:, :])
-        Tb.append(fullmat[:, :n_a_in, :])
-        Ab.append(absmat)
+        if len(fullmat.shape) == 3:
+            Rb.append(fullmat[:, n_a_in:, :])
+            Tb.append(fullmat[:, :n_a_in, :])
+            Ab.append(absmat)
+
+        else:
+            Rb.append(fullmat[n_a_in:, :])
+            Tb.append(fullmat[:n_a_in, :])
+            Ab.append(absmat)
+
 
         if len(calc_prof_list[i1]) > 0:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,

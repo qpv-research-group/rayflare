@@ -49,9 +49,9 @@ options = {'nm_spacing': 0.5,
            #'coherency_list': None,
            'lookuptable_angles': 200,
            #'prof_layers': [1,2],
-           'n_rays': 1e5,
+           'n_rays': 150000,
            'random_angles': False,
-           'nx': 101, 'ny': 1,
+           'nx': 21, 'ny': 21,
            'parallel': True, 'n_jobs': -1,
            'phi_symmetry': np.pi/2,
            'only_incidence_angle': True,
@@ -79,11 +79,11 @@ back_materials = []
 # so if the same etch is applied to both sides of a slab of silicon, one surface
 # will have 'upright' pyramids and the other side will have 'not upright' (inverted)
 # pyramids in the model
-surf = V_grooves(elevation_angle=55, width=5)
+surf = regular_pyramids(elevation_angle=55, size=5, upright=True)
 
 
 front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)],
-                       name = 'vgrooves' + str(options['n_rays']))
+                       name = 'pyramids' + str(options['n_rays']))
 back_surf = Interface('Lambertian', layers=[], name = 'lambertian')
 
 bulk_Si = BulkLayer(201.8e-6, Si, name = 'Si_bulk') # bulk thickness in m
@@ -110,7 +110,11 @@ plt.ylim([0, 1])
 plt.legend()
 plt.show()
 
-np.savetxt('lambertian_rayflare.txt', RAT['A_bulk'][0])
+
+R_per_pass = np.sum(results_per_pass['r'][0], 2)
+R_0 = R_per_pass[0]
+
+np.savetxt('lambertianpyramids_rayflare.txt', np.vstack((RAT['A_bulk'][0], R_0)).T)
 
 theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])

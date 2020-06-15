@@ -59,4 +59,25 @@ def random_pyramids():
     return [surf_fi, surf_ri]
 
 
-def
+def V_grooves(elevation_angle=55, width=1, direction='y'):
+
+    char_angle = math.radians(elevation_angle)
+    h = width*math.tan(char_angle)/2
+    if direction == 'y':
+        x = np.array([0, width, 0, width, width/2, width/2])
+        y = np.array([0, 0, width, width, 0, 1])
+
+
+    if direction == 'x':
+        y = np.array([0, width, 0, width, width/2, width/2])
+        x = np.array([0, 0, width, width, 0, 1])
+
+    z = np.array([0, 0, 0, 0, h, h])
+
+    Points = np.vstack([x, y, z]).T
+    surf_fi = RTSurface(Points)
+
+    Points_ri = np.vstack([x, y, -z]).T
+    surf_ri = RTSurface(Points_ri)
+
+    return [surf_fi, surf_ri]

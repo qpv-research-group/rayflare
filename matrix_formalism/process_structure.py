@@ -4,6 +4,11 @@ from structure import Interface, RTgroup, BulkLayer
 from ray_tracing.rt import RT
 from rigorous_coupled_wave_analysis.rcwa import RCWA
 from transfer_matrix_method.tmm import TMM
+from angles import make_angle_vector
+from sparse import stack, COO, concatenate, save_npz
+from config import results_path
+from matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
+import os
 
 
 def process_structure(SC, options):
@@ -53,23 +58,19 @@ def process_structure(SC, options):
     for i1, struct in enumerate(SC):
         if type(struct) == Interface:
             # perfect mirror
-            # TODO update for new angle binning convention
+
             if struct.method == 'Mirror':
-                from angles import make_angle_vector
-                from sparse import stack, COO, concatenate, save_npz
-                from config import results_path
-                import os
-                _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
-                                       options['c_azimuth'])
-                diag = np.array([1] * int(len(angle_vector) / 2))
-                Rsp = stack([COO(np.diag(diag)) for _ in range(len(options['wavelengths']))])
-                Tsp = COO([], [], (len(options['wavelengths']), int(len(angle_vector) / 2), int(len(angle_vector) / 2)))
-                RTsp = concatenate((Rsp, Tsp), axis=1)
-                Asp = COO([], [], (len(options['wavelengths']), 0, int(len(angle_vector) / 2)))
-                savepath_RT = os.path.join(results_path, options['project_name'], struct.name + 'front' + 'RT.npz')
-                savepath_A = os.path.join(results_path, options['project_name'], struct.name + 'front' + 'A.npz')
-                save_npz(savepath_RT, RTsp)
-                save_npz(savepath_A, Asp)
+                theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
+                                                                options['c_azimuth'])
+                mirror_matrix(angle_vector, theta_intv, phi_intv, struct.name, options, front_or_rear='front', save=True)
+
+            if struct.method == 'Lambertian':
+                theta_intv, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
+                                                                options['c_azimuth'])
+
+                # assuming this is a Lambertian reflector right now
+                lambertian_matrix(angle_vector, theta_intv, struct.name, options, 'front', save = True)
+
 
             if struct.method == 'TMM':
                 print('Making matrix for planar surface using TMM for element ' + str(i1) + ' in structure')

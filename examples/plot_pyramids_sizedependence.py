@@ -46,6 +46,7 @@ sizes = np.linspace(2, 5, 30)
 
 res_rand = []
 
+
 for sz in sizes:
     print('SIZE',sz)
     flat_surf = planar_surface(size=sz)

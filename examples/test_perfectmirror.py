@@ -84,7 +84,7 @@ surf = V_grooves(elevation_angle=55, width=5)
 
 front_surf = Interface('RT_TMM', texture = surf, layers=[Layer(si('0.1nm'), Air)],
                        name = 'vgrooves' + str(options['n_rays']))
-back_surf = Interface('Lambertian', layers=[], name = 'lambertian')
+back_surf = Interface('Mirror', layers=[], name = 'mirror')
 
 bulk_Si = BulkLayer(201.8e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
@@ -111,6 +111,10 @@ plt.legend()
 plt.show()
 
 
+R_per_pass = np.sum(results_per_pass['r'][0], 2)
+R_0 = R_per_pass[0]
+
+np.savetxt('mirror_rayflare.txt', np.vstack((RAT['A_bulk'][0], R_0)).T)
 
 theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
