@@ -69,7 +69,8 @@ class Jsc_optim:
                                        Layer(material=GaAs, width=si('86nm')),
                                        Layer(material=InAlP, width=si('18nm'))] + grating)
         self.S4_setup = rcwa_structure(solar_cell, size, 37, options, Air, Ag)
-        spect = np.loadtxt('AM0.csv', delimiter=',')
+
+
         self.AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths*1e9)
 
 

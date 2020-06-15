@@ -1,0 +1,76 @@
+
+from rigorous_coupled_wave_analysis.rcwa import rcwa_structure
+
+from solcore.structure import Layer
+from solcore import material
+
+
+import numpy as np
+from solcore.solar_cell import SolarCell
+from solcore import si
+from solcore.constants import q, h, c
+from solcore.interpolate import interp1d
+import matplotlib.pyplot as plt
+
+
+GaAs = material('GaAs')()
+Air = material('Air')()
+
+InAlP = material('AlInP')(Al=0.5)
+InGaP = material('InGaP_WVASE')()
+
+Ag = material('Ag_Jiang')()
+
+SiN = material('Si3N4')()
+
+x = 600
+
+# anti-reflection coating
+ARC1 = [Layer(si('60nm'), SiN)]
+size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
+
+wavelengths = np.linspace(250, 930, 80) * 1e-9
+
+RCWA_wl = wavelengths
+
+options = {'nm_spacing': 0.5,
+           'n_theta_bins': 100,
+           'c_azimuth': 1e-7,
+           'pol': 'u',
+           'wavelengths': RCWA_wl, 'phi_in': 0,
+           'parallel': True, 'n_jobs': -1,
+           'phi_symmetry': np.pi / 2,
+           'project_name': 'ultrathin',
+           'theta_in': 60
+           }
+
+ropt = dict(LatticeTruncation='Circular',
+            DiscretizedEpsilon=True,
+            DiscretizationResolution=4,
+            PolarizationDecomposition=False,
+            PolarizationBasis='Default',
+            LanczosSmoothing=True,
+            SubpixelSmoothing=True,
+            ConserveMemory=False,
+            WeismannFormulation=True)
+
+options['rcwa_options'] = ropt
+
+grating = [Layer(si(100, 'nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                'radius': 100, 'angle': 0}])]
+
+solar_cell = SolarCell(ARC1 + [Layer(material=InGaP, width=si('19nm')),
+                               Layer(material=GaAs, width=si('86nm')),
+                               Layer(material=InAlP, width=si('18nm'))] + grating)
+
+S4_setup = rcwa_structure(solar_cell, size, 5, options, Air, Ag)
+
+RAT = S4_setup.calculate()
+spect = np.loadtxt('AM0.csv', delimiter=',')
+AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths*1e9)
+Jsc = 0.1 * (q / (h * c)) * np.trapz(S4_setup.wavelengths * 1e9 * RAT['A_layer'][:, 2] * AM0,
+                                     S4_setup.wavelengths * 1e9) / 1e9
+
+plt.figure()
+plt.plot(wavelengths*1e9, RAT['A_layer'])
+plt.show()

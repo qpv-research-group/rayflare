@@ -631,10 +631,7 @@ class rcwa_structure:
         :param structure: A solcore Structure object with layers and materials or a OptiStack object.
         :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
         :param orders: number of orders to retain in the RCWA calculations.
-        :param wavelength: Wavelengths (in nm) in which calculate the data.
-        :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
-        :param phi: azimuthal incidence angle in degrees. Default: 0
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
+
         :param substrate: semi-infinite transmission medium
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
@@ -707,7 +704,7 @@ class rcwa_structure:
 
 
     def calculate(self):
-
+        print(self.options['theta_in'], self.options['pol'])
         if self.options['parallel']:
             allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl)
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
@@ -737,15 +734,9 @@ class rcwa_structure:
         S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, rcwa_options)
 
 
-        if pol in 'sp':
-            if pol == 's':
-                s = 1
-                p = 0
-            elif pol == 'p':
-                s = 0
-                p = 1
+        if len(pol) == 2:
 
-            S.SetExcitationPlanewave((theta, phi), s, p, 0)
+            S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
             S.SetFrequency(1 / wl)
             out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
             R = out['R']
@@ -753,17 +744,34 @@ class rcwa_structure:
             A_layer = rcwa_absorption_per_layer(S, len(widths))
 
         else:
+            if pol in 'sp':
+                if pol == 's':
+                    s = 1
+                    p = 0
+                elif pol == 'p':
+                    s = 0
+                    p = 1
 
-            S.SetFrequency(1 / wl)
-            S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-            out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths))
-            S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # s-polarization
-            out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths))
+                S.SetExcitationPlanewave((theta, phi), s, p, 0)
+                S.SetFrequency(1 / wl)
+                out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
+                R = out['R']
+                T = out['T']
+                A_layer = rcwa_absorption_per_layer(S, len(widths))
 
+            else:
 
-            R = 0.5 * (out_p['R'] + out_s['R'])  # average
-            T = 0.5 * (out_p['T'] + out_s['T'])
-            A_layer = rcwa_absorption_per_layer(S, len(widths))
+                S.SetFrequency(1 / wl)
+                S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
+                out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths))
+                A_layer_p = rcwa_absorption_per_layer(S, len(widths))
+                S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # s-polarization
+                out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths))
+                A_layer_s = rcwa_absorption_per_layer(S, len(widths))
+
+                R = 0.5 * (out_p['R'] + out_s['R'])  # average
+                T = 0.5 * (out_p['T'] + out_s['T'])
+                A_layer = 0.5*(A_layer_s + A_layer_p)
 
         return R, T, A_layer
 
