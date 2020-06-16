@@ -498,87 +498,6 @@ def update_epsilon(S, stack_OS, shape_mats_OS, wl):
     return S
 
 
-def calculate_absorption_profile_rcwa(structure, size, orders, wavelength, rat_output,
-                                      z_limit=None, steps_size=2, dist=None, theta=0, phi=0, pol='u', substrate=None):
-    """ It calculates the absorbed energy density within the material. From the documentation:
-
-    'In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
-    density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
-
-    Integrating this absorption profile in the whole stack gives the same result that the absorption obtained with
-    calculate_rat as long as the spacial mesh (controlled by steps_thinest_layer) is fine enough. If the structure is
-    very thick and the mesh not thin enough, the calculation might diverege at short wavelengths.
-
-    For now, it only works for normal incident, coherent light.
-
-    :param structure: A solcore structure with layers and materials.
-    :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-    :param orders: number of orders to retain in the RCWA calculations.
-    :param wavelength: Wavelengths (in nm) in which calculate the data.
-    :param rat_output: output from calculate_rat_rcwa
-    :param z_limit: Maximum value in the z direction at which to calculate depth-dependent absorption (nm)
-    :param steps_size: if the dist is not specified, the step size in nm to use in the depth-dependent calculation
-    :param dist: the positions (in nm) at which to calculate depth-dependent absorption
-    :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
-    :param phi: azimuthal incidence angle in degrees. Default: 0
-    :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-    :param substrate: semi-infinite transmission medium
-    :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a
-    function of the position and the wavelength.
-    """
-
-    num_wl = len(wavelength)
-
-    if dist is None:
-        if z_limit is None:
-            stack = OptiStack(structure)
-            z_limit = np.sum(np.array(stack.widths))
-        dist = np.arange(0, z_limit, steps_size)
-
-    output = {'position': dist, 'absorption': np.zeros((num_wl, len(dist)))}
-
-    S, stack_OS, shape_mats_OS = initialise_S(structure, size, orders, substrate)
-
-    if pol in 'sp':
-        if pol == 's':
-            s = 1
-            p = 0
-        elif pol == 'p':
-            s = 0
-            p = 1
-
-        S.SetExcitationPlanewave((theta, phi), s, p, 0)
-        for i, wl in enumerate(wavelength):
-            update_epsilon(S, stack_OS, shape_mats_OS, wl)
-            S.SetFrequency(1 / wl)
-            A = rat_output['A'][i]
-            for j, d in enumerate(dist):
-                layer, d_in_layer = tmm.find_in_structure_with_inf(stack_OS.get_widths(),
-                                                                   d)  # don't need to change this
-                layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                output['absorption'][i, j] = data
-
-    else:
-        for i, wl in enumerate(wavelength):  # set the material values and indices in here
-            #print(i)
-            update_epsilon(S, stack_OS, shape_mats_OS, wl)
-            S.SetFrequency(1 / wl)
-            A = rat_output['A'][i]
-
-            for j, d in enumerate(dist):
-                layer, d_in_layer = tmm.find_in_structure_with_inf(stack_OS.get_widths(),
-                                                                   d)  # don't need to change this
-                layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                output['absorption'][i, j] = 0.5 * (data_p + data_s)
-
-    return output
-
-
 def rcwa_position_resolved(S, layer, depth, A):
     if A > 0:
         delta = 1e-9
@@ -725,13 +644,80 @@ class rcwa_structure:
         T = np.stack([item[1] for item in allres])
         A_mat = np.stack([item[2] for item in allres])
 
+        self.rat_output_A = np.sum(A_mat, 1) # used for profile calculation
 
         return {'R': R, 'T': T, 'A_layer': A_mat}
 
 
-    def RCWA_wl(self, wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):
+    def calculate_profile(self, z_limit=None, step_size=2, dist=None):
+        """ It calculates the absorbed energy density within the material. From the documentation:
 
-        S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, rcwa_options)
+        'In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
+        density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
+
+        Integrating this absorption profile in the whole stack gives the same result that the absorption obtained with
+        calculate_rat as long as the spacial mesh (controlled by steps_thinest_layer) is fine enough. If the structure is
+        very thick and the mesh not thin enough, the calculation might diverege at short wavelengths.
+
+        For now, it only works for normal incident, coherent light.
+
+        :param structure: A solcore structure with layers and materials.
+        :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
+        :param orders: number of orders to retain in the RCWA calculations.
+        :param wavelength: Wavelengths (in nm) in which calculate the data.
+        :param rat_output: output from calculate_rat_rcwa
+        :param z_limit: Maximum value in the z direction at which to calculate depth-dependent absorption (nm)
+        :param steps_size: if the dist is not specified, the step size in nm to use in the depth-dependent calculation
+        :param dist: the positions (in nm) at which to calculate depth-dependent absorption
+        :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
+        :param phi: azimuthal incidence angle in degrees. Default: 0
+        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
+        :param substrate: semi-infinite transmission medium
+        :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a
+        function of the position and the wavelength.
+        """
+
+
+        if dist is None:
+            if z_limit is None:
+                z_limit = np.sum(self.widths[1:-1])
+            dist = np.arange(0, z_limit, step_size)
+
+        self.dist = dist
+
+
+        if self.options['parallel']:
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl_prof)
+                                                             (self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
+                                                              dist,
+                                                              self.geom_list,
+                                                              self.layers_oc[i1], self.shapes_oc[i1],
+                                                              self.shapes_names, self.options['pol'],
+                                                              self.options['theta_in'], self.options['phi_in'],
+                                                              self.widths, self.size,
+                                                              self.orders, self.rcwa_options)
+                                                             for i1 in range(len(self.wavelengths)))
+
+        else:
+            allres = [
+                self.RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
+                                                              dist,
+                                                              self.geom_list,
+                                                              self.layers_oc[i1], self.shapes_oc[i1],
+                                                              self.shapes_names, self.options['pol'],
+                                                              self.options['theta_in'], self.options['phi_in'],
+                                                              self.widths, self.size,
+                                                              self.orders, self.rcwa_options)
+                for i1 in range(len(self.wavelengths))]
+
+        output = np.stack(allres)
+
+        return output
+
+
+    def RCWA_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):
+
+        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, rcwa_options)
 
 
         if len(pol) == 2:
@@ -774,6 +760,66 @@ class rcwa_structure:
                 A_layer = 0.5*(A_layer_s + A_layer_p)
 
         return R, T, A_layer
+
+
+    def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):
+#widths = stack_OS.get_widths()
+        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, rcwa_options)
+        profile_data = np.zeros(len(dist))
+
+
+        A = rat_output_A
+
+        if len(pol) == 2:
+
+            S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
+            S.SetFrequency(1 / wl)
+            for j, d in enumerate(dist):
+                layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                   d)  # don't need to change this
+                layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                profile_data[j] = data
+
+
+        else:
+            if pol in 'sp':
+                if pol == 's':
+                    s = 1
+                    p = 0
+                elif pol == 'p':
+                    s = 0
+                    p = 1
+
+                S.SetExcitationPlanewave((theta, phi), s, p, 0)
+
+
+                S.SetFrequency(1 / wl)
+
+                for j, d in enumerate(dist):
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                       d)  # don't need to change this
+                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                    data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                    profile_data[j] = data
+
+            else:
+
+
+                S.SetFrequency(1 / wl)
+                A = rat_output_A
+
+                for j, d in enumerate(dist):
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                       d)  # don't need to change this
+                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                    S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
+                    data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                    S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
+                    data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                    profile_data[j] = 0.5*(data_s + data_p)
+
+        return profile_data
 
 def overall_bin(x, phi_intv, angle_vector_0):
     phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
