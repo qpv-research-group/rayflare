@@ -623,7 +623,7 @@ class rcwa_structure:
 
 
     def calculate(self):
-        print(self.options['theta_in'], self.options['pol'])
+        #print(self.options['theta_in'], self.options['pol'])
         if self.options['parallel']:
             allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl)
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
@@ -758,6 +758,8 @@ class rcwa_structure:
                 R = 0.5 * (out_p['R'] + out_s['R'])  # average
                 T = 0.5 * (out_p['T'] + out_s['T'])
                 A_layer = 0.5*(A_layer_s + A_layer_p)
+
+
 
         return R, T, A_layer
 
