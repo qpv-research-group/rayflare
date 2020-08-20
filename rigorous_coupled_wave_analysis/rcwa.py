@@ -481,12 +481,19 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
 
 def necessary_materials(geom_list):
     shape_mats = []
+    geom_list_str = [None] * len(geom_list)
     for i1, geom in enumerate(geom_list):
         if bool(geom):
             shape_mats.append([x['mat'] for x in geom])
+            geom_list_str[i1] = [{}] * len(geom)
             for i2, g in enumerate(geom):
-                geom_list[i1][i2]['mat'] = str(g['mat'])
-    return list(set([val for sublist in shape_mats for val in sublist])), geom_list
+                for item in g.keys():
+                    if item != 'mat':
+                        geom_list_str[i1][i2][item] = g[item]
+                    else:
+                        geom_list_str[i1][i2][item] = str(g[item])
+
+    return list(set([val for sublist in shape_mats for val in sublist])), geom_list_str
 
 
 def update_epsilon(S, stack_OS, shape_mats_OS, wl):
@@ -602,7 +609,7 @@ class rcwa_structure:
         self.wavelengths = wavelengths
         self.rcwa_options = rcwa_options
         self.options = options
-        self.geom_list = geom_list
+        self.geom_list = geom_list_str
         self.shapes_oc = shapes_oc
         self.shapes_names = shapes_names
         self.widths = widths
@@ -623,6 +630,7 @@ class rcwa_structure:
 
 
     def calculate(self):
+
         #print(self.options['theta_in'], self.options['pol'])
         if self.options['parallel']:
             allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl)
