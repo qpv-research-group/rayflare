@@ -424,6 +424,7 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
     # pass widths
     #print(widths)
     S = S4.New(size, orders)
+
     S.SetOptions(  # these are the default
         LatticeTruncation = options['LatticeTruncation'],
         DiscretizedEpsilon = options['DiscretizedEpsilon'],
@@ -476,6 +477,8 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
                 elif shape['type'] == 'polygon':
                     S.SetRegionPolygon(layer_name, mat_name, shape['center'], shape['angle'], shape['vertices'])
 
+    # print(orders, len(S.GetBasisSet()))
+
     return S
 
 
@@ -519,10 +522,22 @@ def rcwa_absorption_per_layer(S, n_layers):
     A = np.empty(n_layers-2)
     for i1, layer in enumerate(np.arange(n_layers-2)+2):
         A[i1] = np.real(sum(S.GetPowerFlux('layer_' + str(layer))) - sum(S.GetPowerFlux('layer_' + str(layer+1))))
-
     A = np.array([x if x > 0 else 0 for x in A])
 
     return A
+
+def rcwa_absorption_per_layer_order(S, n_layers):
+    # layer 1 is incidence medium, layer n is the transmission medium
+    n_orders =  len(S.GetBasisSet())
+    A_per_order = np.empty((n_layers-2, n_orders))
+    for i1, layer in enumerate(np.arange(n_layers-2)+2):
+
+        per_order_top = np.sum(np.array(S.GetPowerFluxByOrder('layer_' + str(layer))), 1)
+        per_order_bottom = np.sum(np.array(S.GetPowerFluxByOrder('layer_' + str(layer+1))), 1)
+
+        A_per_order[i1,:] = np.real(per_order_top - per_order_bottom)
+
+    return A_per_order
 
 def rcwa_absorption_per_layer_lossfunc(S, n_layers, freq, imag_e):
     # layer 1 is incidence medium, layer n is the transmission medium
@@ -637,7 +652,7 @@ class rcwa_structure:
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
-                                                         self.orders, self.rcwa_options)
+                                                         self.orders, self.options['A_per_order'], self.rcwa_options)
                                                         for i1 in range(len(self.wavelengths)))
 
         else:
@@ -645,16 +660,34 @@ class rcwa_structure:
                 self.RCWA_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
-                                                         self.orders, self.rcwa_options)
+                                                         self.orders, self.options['A_per_order'], self.rcwa_options)
                 for i1 in range(len(self.wavelengths))]
 
-        R = np.stack([item[0] for item in allres])
-        T = np.stack([item[1] for item in allres])
-        A_mat = np.stack([item[2] for item in allres])
+        if self.options['A_per_order']:
+            R = np.stack([item[0] for item in allres])
+            T = np.stack([item[1] for item in allres])
+            A_mat = np.stack([item[2] for item in allres])
+            A_order = np.stack([item[3] for item in allres])
 
-        self.rat_output_A = np.sum(A_mat, 1) # used for profile calculation
+            self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
 
-        return {'R': R, 'T': T, 'A_layer': A_mat}
+            S_for_orders = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0],
+                             self.shapes_oc[0], self.shapes_names, self.widths, self.rcwa_options)
+
+            basis_set = S_for_orders.GetBasisSet()
+            f_mat = S_for_orders.GetReciprocalLattice()
+
+            return {'R': R, 'T': T, 'A_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
+
+        else:
+            R = np.stack([item[0] for item in allres])
+            T = np.stack([item[1] for item in allres])
+            A_mat = np.stack([item[2] for item in allres])
+
+            self.rat_output_A = np.sum(A_mat, 1) # used for profile calculation
+
+            return {'R': R, 'T': T, 'A_layer': A_mat}
+
 
 
     def calculate_profile(self, z_limit=None, step_size=2, dist=None):
@@ -723,53 +756,50 @@ class rcwa_structure:
         return output
 
 
-    def RCWA_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):
+    def RCWA_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
+                A_per_order, rcwa_options):
+
+        def vs_pol(s, p):
+            S.SetExcitationPlanewave((theta, phi), s, p, 0)
+            S.SetFrequency(1 / wl)
+            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
+            R = out['R']
+            T = out['T']
+            A_layer = rcwa_absorption_per_layer(S, len(widths))
+            if A_per_order:
+                A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))
+                return R, T, A_layer, A_per_layer_order
+            else:
+                return R, T, A_layer
 
         S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, rcwa_options)
 
 
         if len(pol) == 2:
 
-            S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
-            S.SetFrequency(1 / wl)
-            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
-            R = out['R']
-            T = out['T']
-            A_layer = rcwa_absorption_per_layer(S, len(widths))
+            results = vs_pol(pol[0], pol[1])
 
         else:
             if pol in 'sp':
-                if pol == 's':
-                    s = 1
-                    p = 0
-                elif pol == 'p':
-                    s = 0
-                    p = 1
-
-                S.SetExcitationPlanewave((theta, phi), s, p, 0)
-                S.SetFrequency(1 / wl)
-                out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
-                R = out['R']
-                T = out['T']
-                A_layer = rcwa_absorption_per_layer(S, len(widths))
+                results = vs_pol(int(pol == "s"), int(pol == "p"))
 
             else:
 
-                S.SetFrequency(1 / wl)
-                S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths))
-                A_layer_p = rcwa_absorption_per_layer(S, len(widths))
-                S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # s-polarization
-                out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths))
-                A_layer_s = rcwa_absorption_per_layer(S, len(widths))
+                res_s = vs_pol(1, 0)
+                res_p = vs_pol(0, 1)
+                R = (res_s[0] + res_p[0]) / 2
+                T = (res_s[1] + res_p[1]) / 2
+                A_layer = (res_s[2] + res_p[2]) / 2
 
-                R = 0.5 * (out_p['R'] + out_s['R'])  # average
-                T = 0.5 * (out_p['T'] + out_s['T'])
-                A_layer = 0.5*(A_layer_s + A_layer_p)
+                if A_per_order:
+                    A_per_layer_order = (res_s[3] + res_p[3]) / 2
+                    results = R, T, A_layer, A_per_layer_order
+
+                else:
+                    results = R, T, A_layer
 
 
-
-        return R, T, A_layer
+        return results
 
 
     def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):

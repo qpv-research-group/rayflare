@@ -290,7 +290,12 @@ class tmm_structure:
         if 'OptiStack' in str(type(stack)):
             stack.no_back_reflection = no_back_reflection
         else:
-            stack = OptiStack(stack, no_back_reflection=no_back_reflection)
+            if hasattr(stack, 'substrate'):
+                substrate = stack.substrate
+            else:
+                substrate = None
+            stack = OptiStack(stack, no_back_reflection=no_back_reflection,
+                              substrate=substrate)
 
         if not coherent:
             if coherency_list is not None:
