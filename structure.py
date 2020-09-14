@@ -1,4 +1,4 @@
-from ray_tracing.rt_lookup import RTSurface
+from ray_tracing.rt import RTSurface
 from solcore.structure import Layer
 
 class Structure(list):
@@ -61,7 +61,7 @@ class BulkLayer:
 
 class Interface:
 
-    def __init__(self, method, layers=[], texture=None, prof_layers=[],  **kwargs):
+    def __init__(self, method, layers=[], texture=None, prof_layers=[], coherent=True,  **kwargs):
         """ Layer class constructor.
 
         """
@@ -73,6 +73,7 @@ class Interface:
         self.materials = []
         self.n_depths = []
         self.widths = []
+        self.coherent = coherent
 
         cum_width = 0
 

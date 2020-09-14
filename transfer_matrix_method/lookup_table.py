@@ -1,13 +1,12 @@
 import xarray as xr
 import numpy as np
-from solcore import material
-from solcore.structure import Layer
-from transfer_matrix_method.transfer_matrix import calculate_rat, OptiStack
-import matplotlib.pyplot as plt
+from transfer_matrix_method.tmm import tmm_structure
 import os
 from config import results_path
+from solcore.absorption_calculator import OptiStack
 
-def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
+
+def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
                          coherent=True, coherency_list=None, prof_layers=None, sides=[1,-1]):
 
     structpath = os.path.join(results_path, options['project_name'])
@@ -35,7 +34,7 @@ def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
         if coherency_list is not None:
             coherency_lists = [coherency_list, coherency_list[::-1]]
         else:
-            coherency_lists = [None, None]
+            coherency_lists = [['c']*n_layers]*2
         # can calculate by angle, already vectorized over wavelength
         pols = ['s', 'p']
 
@@ -74,9 +73,10 @@ def make_TMM_lookuptable(layers, transmission, incidence, surf_name, options,
             for i2, pol in enumerate(pols):
 
                 for i3, theta in enumerate(thetas):
+
+                    tmm_struct =  tmm_structure(optstacks[i1], coherent=coherent, coherency_list=coherency_lists[i1])
                     #print(side, pol, theta)
-                    res = calculate_rat(optstacks[i1], wavelengths, angle=theta, pol=pol,
-                                    coherent=coherent, coherency_list=coherency_lists[i1], profile=profile, layers=prof_layers)
+                    res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, nm_spacing=1e5)
                     R_loop[:, i3] = np.real(res['R'])
                     T_loop[:, i3] = np.real(res['T'])
                     Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)

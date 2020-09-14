@@ -1,263 +1,47 @@
 import numpy as np
-import xarray as xr
-from sparse import load_npz, dot, tensordot, COO, stack
+from sparse import load_npz, dot, COO, stack
 from config import results_path
-from angles import make_angle_vector
-from solcore import material
+from angles import make_angle_vector, fold_phi
 import os
-import matplotlib.pyplot as plt
 import xarray as xr
-from time import time
-from solcore import material
-from solcore.structure import Layer
-
-# def make_profile_data(options, unique_thetas, n_a_in, side, layer_name, n_layers, widths):
-#
-#     if side == 1:
-#         side_str = 'front'
-#     else:
-#         side_str = 'rear'
-#
-#     prof_mat_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'profmat.nc')
-#     #int_mat_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'intmat.nc')
-#
-#     if os.path.isfile(prof_mat_path):
-#         print('Existing absorption profile calculation data found')
-#         #print(prof_mat_path)
-#         allres = xr.open_dataset(prof_mat_path)
-#         #print(allres)
-#         intgr = allres['intgr']
-#         profile = allres['profile']
-#
-#     else:
-#         angle_dist_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'Aprof.npz')
-#
-#         angle_distmat = load_npz(angle_dist_path)
-#         num_wl = len(options['wavelengths'])
-#         pr = xr.DataArray(angle_distmat.todense(), dims=['wl', 'local_theta', 'global_index'],
-#                           coords={'wl': options['wavelengths'] * 1e9, 'local_theta': unique_thetas,
-#                                   'global_index': np.arange(0, n_a_in)})
-#
-#         lookuptable = xr.open_dataset(
-#             os.path.join(results_path, options['project_name'], layer_name + '.nc'))
-#         data = lookuptable.loc[dict(side=side, pol=options['pol'])].interp(angle=pr.coords['local_theta'],
-#                                                                         wl=pr.coords['wl'])
-#
-#         params = data['Aprof'].drop(['layer', 'side', 'angle', 'pol']).transpose('wl', 'local_theta', 'layer', 'coeff')
-#
-#         s_params = params.loc[
-#             dict(coeff=['A1', 'A2', 'A3_r',
-#                         'A3_i'])]  # have to scale these to make sure integrated absorption is correct
-#         c_params = params.loc[dict(coeff=['a1', 'a3'])]  # these should not be scaled
-#
-#         scale_res = pr.groupby('global_index').apply(scale_func, scale_params=s_params)
-#         const_res = pr.groupby('global_index').apply(select_func, const_params=c_params)
-#
-#         params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=np.arange(0, n_layers))
-#
-#         #total_width = np.sum(layer_widths[i1])
-#
-#         z_list = []
-#         for l_w in widths:
-#             z_list.append(xr.DataArray(np.arange(0, l_w, options['nm_spacing'])))
-#
-#         offsets = np.cumsum([0] + widths)[:-1]
-#         start = time()
-#         #print(params)
-#         ans = params.groupby('wl').apply(scaled_profile, z=z_list, offset=offsets, side=side).drop('coeff')
-#         ans = ans.fillna(0)
-#
-#         #print('Took ' + str(time() - start) + ' seconds')
-#
-#         profile = ans.reduce(np.sum, 'layer')
-#
-#
-#         # there is no reason to do this again; this should be the same as the absorption per
-#         # layer before scaling (currently not saved)
-#         intgr = xr.DataArray(np.zeros((n_layers, num_wl, len(params.global_index))),
-#                            dims=['layer', 'wl', 'global_index'],
-#                            coords={'wl': params.wl, 'global_index': params.global_index})
-#
-#         for i2, width in enumerate(widths):
-#             A1 = params.loc[dict(coeff='A1', layer=i2)]
-#             A2 = params.loc[dict(coeff='A2', layer=i2)]
-#             A3_r = params.loc[dict(coeff='A3_r', layer=i2)]
-#             A3_i = params.loc[dict(coeff='A3_i', layer=i2)]
-#             a1 = params.loc[dict(coeff='a1', layer=i2)]
-#             a3 = params.loc[dict(coeff='a3', layer=i2)]
-#
-#             intgr_width = ((A1 / a1) * (np.exp(a1 * width) - 1) - (A2 / a1) * (np.exp(-a1 * width) - 1) - \
-#                          1j * ((A3_r + 1j * A3_i) / a3) * (np.exp(1j * a3 * width) - 1) + 1j * (
-#                                  (A3_r - 1j * A3_i) / a3) * (
-#                                  np.exp(-1j * a3 * width) - 1)).fillna(0)
-#
-#             intgr[i2] = intgr_width.reduce(np.sum, 'local_theta')
-#
-#         intgr = intgr.reduce(np.sum, 'layer')
-#         intgr.name = 'intgr'
-#         profile.name = 'profile'
-#         allres = xr.merge([intgr, profile])
-#         allres.to_netcdf(prof_mat_path)
-#
-#     return profile, intgr
-
-#
-# def make_profile_functions(options, unique_thetas, n_a_in, side, layer_name, prof_layers, widths, single_angle = False, angle_index = 0):
-#
-#     # class profile_func:
-#     #
-#     #     def __init__(self, x):
-#     #
-#     #         non_zero = x[np.all(x, axis=1)]
-#     #         self.A1 = non_zero.loc[dict(coeff='A1')]
-#     #         self.A2 = non_zero.loc[dict(coeff='A2')]
-#     #         self.A3_r = non_zero.loc[dict(coeff='A3_r')]
-#     #         self.A3_i = non_zero.loc[dict(coeff='A3_i')]
-#     #         self.a1 = non_zero.loc[dict(coeff='a1')]
-#     #         self.a3 = non_zero.loc[dict(coeff='a3')]
-#     #
-#     #     def run(self, side, z, offset):
-#     #         part1 = self.A1 * np.exp(self.a1 * z)
-#     #         part2 = self.A2 * np.exp(-self.a1 * z)
-#     #         part3 = (self.A3_r + 1j * self.A3_i) * np.exp(1j * self.a3 * z)
-#     #         part4 = (self.A3_r - 1j * self.A3_i) * np.exp(-1j * self.a3 * z)
-#     #         result = np.real(part1 + part2 + part3 + part4)
-#     #         if side == -1:
-#     #             result = np.flip(result, 1)
-#     #
-#     #         return result.reduce(np.sum, axis=0).assign_coords(dim_0= z + offset)
-#     #
-#     # def calc_prof(x, z, offset, side):
-#     #     part1 = x[:,0] * np.exp(x[:,4] * z)
-#     #     part2 = x[:,1] * np.exp(-x[:,4] * z)
-#     #     part3 = (x[:,2] + 1j * x[:,3]) * np.exp(1j * x[:,5] * z)
-#     #     part4 = (x[:,2] - 1j * x[:,3]) * np.exp(-1j * x[:,5] * z)
-#     #     result = np.real(part1 + part2 + part3 + part4)
-#     #     if side == -1:
-#     #         result = np.flip(result, 1)
-#     #
-#     #     return result.reduce(np.sum, axis=0).assign_coords(dim_0=z + offset)
-#     #
-#     # def get_relevant(x):
-#     #     non_zero = x[np.all(x, axis=1)]
-#     #     print(non_zero.shape)
-#     #     return non_zero
-#     #
-#     # def prof_per_angle(x):
-#     #     by_layer = x.groupby('layer').apply(profile_func)
-#     #     return by_layer
-#     #
-#     # def make_scaled_func(x):
-#     #     print('wl1')
-#     #     by_angle = x.groupby('global_index').apply(prof_per_angle)
-#     #     return by_angle
-#
-#     def profile_per_layer(xx, z, offset, side, non_zero):
-#         layer_index = xx.coords['layer'].item(0) - 1
-#         x = xx[non_zero]
-#         part1 = x[:,0] * np.exp(x[:,4] * z[layer_index])
-#         part2 = x[:,1] * np.exp(-x[:,4] * z[layer_index])
-#         part3 = (x[:,2] + 1j * x[:,3]) * np.exp(1j * x[:,5] * z[layer_index])
-#         part4 = (x[:,2] - 1j * x[:,3]) * np.exp(-1j * x[:,5] * z[layer_index])
-#         result = np.real(part1 + part2 + part3 + part4)
-#         if side == -1:
-#             result = np.flip(result, 1)
-#         return result.reduce(np.sum, axis=0).assign_coords(dim_0=z[layer_index] + offset[layer_index])
-#
-#     def profile_per_angle(x, z, offset, side, nz):
-#         i2 = x.coords['global_index'].item(0)
-#         non_zero=np.where(nz[:, i2])[0]
-#         by_layer = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side, non_zero=non_zero)
-#         return by_layer
-#
-#     def scaled_profile(x, z, offset, side):
-#         print('wl1')
-#         xloc = x.loc[dict(coeff='A1')].reduce(np.sum,'layer')
-#         nz = xloc != 0
-#         by_angle = x.groupby('global_index').apply(profile_per_angle, z=z, offset=offset, side=side, nz=nz)
-#         return by_angle
-#
-#     if side == 1:
-#         side_str = 'front'
-#     else:
-#         side_str = 'rear'
-#
-#     angle_dist_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'Aprof.npz')
-#
-#     angle_distmat = load_npz(angle_dist_path)
-#     #num_wl = len(options['wavelengths'])
-#     pr = xr.DataArray(angle_distmat.todense(), dims=['wl', 'local_theta', 'global_index'],
-#                       coords={'wl': options['wavelengths'] * 1e9, 'local_theta': unique_thetas,
-#                               'global_index': np.arange(0, n_a_in)})
-#
-#     if single_angle:
-#         pr = pr.loc[dict(global_index=[angle_index, 1])]
-#     print(pr)
-#     lookuptable = xr.open_dataset(os.path.join(results_path, options['project_name'], layer_name + '.nc'))
-#     #lookuptable layers are 1-indexed
-#     data = lookuptable.loc[dict(side=side, pol=options['pol'])].interp(angle=pr.coords['local_theta'],
-#                                                                        wl=pr.coords['wl'])
-#
-#     params = data['Aprof'].drop(['layer', 'side', 'angle', 'pol']).transpose('wl', 'local_theta', 'layer', 'coeff')
-#
-#     s_params = params.loc[
-#         dict(coeff=['A1', 'A2', 'A3_r',
-#                     'A3_i'])]  # have to scale these to make sure integrated absorption is correct
-#     c_params = params.loc[dict(coeff=['a1', 'a3'])]  # these should not be scaled
-#
-#     scale_res = pr.groupby('global_index').apply(scale_func, scale_params=s_params)
-#     const_res = pr.groupby('global_index').apply(select_func, const_params=c_params)
-#
-#     #params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=prof_layers)
-#     params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=np.arange(1, len(widths)+1))
-#     params = params.transpose('wl', 'local_theta', 'global_index', 'layer', 'coeff')
-#     print(params)
-#     # total_width = np.sum(layer_widths[i1])
-#     z_list = []
-#     for l_w in widths:
-#         z_list.append(xr.DataArray(np.arange(0, l_w, options['nm_spacing'])))
-#
-#     offsets = np.cumsum([0] + widths)[:-1]
-#     start = time()
-#     # print(params)
-#     print(params.loc[dict(coeff='A1', layer=prof_layers[0])][0])
-#     ans = params.loc[dict(layer=prof_layers)].groupby('wl').apply(scaled_profile, z=z_list, offset=offsets, side=side).drop('coeff')
-#     ans = ans.fillna(0)
-#
-#     print('Took ' + str(time() - start) + ' seconds')
-#
-#     profile = ans.reduce(np.sum, 'layer')
-#     start = time()
-#     # there is no reason to do this again; this should be the same as the absorption per
-#     # layer before scaling (currently not saved)
-#     intgr = xr.DataArray(np.zeros((len(widths), len(options['wavelengths']), len(params.global_index))),
-#                          dims=['layer', 'wl', 'global_index'],
-#                          coords={'wl': params.wl, 'global_index': params.global_index})
-#
-#     for i2, width in enumerate(widths):
-#         A1 = params.loc[dict(coeff='A1', layer=i2+1)]
-#         A2 = params.loc[dict(coeff='A2', layer=i2+1)]
-#         A3_r = params.loc[dict(coeff='A3_r', layer=i2+1)]
-#         A3_i = params.loc[dict(coeff='A3_i', layer=i2+1)]
-#         a1 = params.loc[dict(coeff='a1', layer=i2+1)]
-#         a3 = params.loc[dict(coeff='a3', layer=i2+1)]
-#
-#         intgr_width = ((A1 / a1) * (np.exp(a1 * width) - 1) - (A2 / a1) * (np.exp(-a1 * width) - 1) - \
-#                        1j * ((A3_r + 1j * A3_i) / a3) * (np.exp(1j * a3 * width) - 1) + 1j * (
-#                                (A3_r - 1j * A3_i) / a3) * (
-#                                np.exp(-1j * a3 * width) - 1)).fillna(0)
-#
-#         intgr[i2] = intgr_width.reduce(np.sum, 'local_theta')
-#
-#     intgr = intgr.reduce(np.sum, 'layer')
-#     print('Took ' + str(time() - start) + ' seconds')
-#     intgr.name = 'intgr'
-#     profile.name = 'profile'
-#
-#     return profile, intgr
+from structure import Interface, BulkLayer
 
 
-def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth):
+def calculate_RAT(SC, options):
+    """
+    After the list of Interface and BulkLayers has been processed by process_structure,
+    this function calculates the R, A and T by calling matrix_multiplication.
+    :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
+    :param options: options for the matrix calculations
+    """
+
+    bulk_mats = []
+    bulk_widths = []
+    layer_widths = []
+    n_layers = []
+    layer_names = []
+    calc_prof_list = []
+
+    for i1, struct in enumerate(SC):
+        if type(struct) == BulkLayer:
+            bulk_mats.append(struct.material)
+            bulk_widths.append(struct.width)
+        if type(struct) == Interface:
+            layer_names.append(struct.name)
+
+            n_layers.append(len(struct.layers))
+            layer_widths.append((np.array(struct.widths)*1e9).tolist())
+            calc_prof_list.append(struct.prof_layers)
+
+
+
+    results = matrix_multiplication(bulk_mats, bulk_widths, options,
+                                                               layer_widths, n_layers, layer_names, calc_prof_list)
+
+    return results
+
+
+def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym):
     """
     This function makes the v0 array, corresponding to the input power per angular channel
     at each wavelength, of size (num_wl, n_angle_bins_in) where n_angle_bins in = len(angle_vector)/2
@@ -270,8 +54,9 @@ def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth):
     :param c_azimuth: c_azimuth used to generate the matrices being multiplied
     :return: v0, an array of size (num_wl, n_angle_bins_in)
     """
-    theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, np.pi / 2, c_azimuth)
-    n_a_in = int(len(angle_vector) / 2)
+
+    theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_azimuth)
+    n_a_in = int(len(angle_vector)/2)
     v0 = np.zeros((num_wl, n_a_in))
     th_bin = np.digitize(th_in, theta_intv) - 1
     phi_intv = phi_intv[th_bin]
@@ -285,6 +70,38 @@ def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth):
         v0[:, bin] = 1
     return v0
 
+
+def out_to_in_matrix(phi_sym, angle_vector, theta_intv, phi_intv):
+
+    if phi_sym == 2*np.pi:
+        phi_sym = phi_sym - 0.0001
+    out_to_in = np.zeros((len(angle_vector), len(angle_vector)))
+    binned_theta_out = np.digitize(np.pi-angle_vector[:,1], theta_intv, right=True) - 1
+
+    phi_rebin = fold_phi(angle_vector[:,2] + np.pi, phi_sym)
+
+    phi_out = xr.DataArray(phi_rebin,
+                           coords={'theta_bin': (['angle_in'], binned_theta_out)},
+                           dims=['angle_in'])
+
+    bin_out = phi_out.groupby('theta_bin').apply(overall_bin,
+                                                 args=(phi_intv, angle_vector[:, 0])).data
+
+    out_to_in[bin_out, np.arange(len(angle_vector))] = 1
+
+    up_to_down = out_to_in[int(len(angle_vector)/2):, :int(len(angle_vector)/2)]
+    down_to_up = out_to_in[:int(len(angle_vector)/2), int(len(angle_vector)/2):]
+
+    return COO(up_to_down), COO(down_to_up)
+
+
+def overall_bin(x, phi_intv, angle_vector_0):
+    phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
+    bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
+    return bin
+
+
+
 def make_D(alphas, thick, thetas):
     """
     Makes the bulk absorption vector for the bulk material
@@ -293,92 +110,43 @@ def make_D(alphas, thick, thetas):
     :param thetas: incident thetas in angle_vector (second column)
     :return:
     """
-    diag = np.exp(-alphas[:, None] * thick / np.cos(thetas[None, :]))
+    #print(alphas, abs(np.cos(thetas[None, :])))
+    diag = np.exp(-alphas[:, None] * thick / abs(np.cos(thetas[None, :])))
+    #print(diag)
     D_1 = stack([COO(np.diag(x)) for x in diag])
     return D_1
 
 def dot_wl(mat, vec):
+    print(mat.shape)
     result = np.empty((vec.shape[0], mat.shape[1]))
-    for i1 in range(vec.shape[0]):
-        result[i1, :] = dot(mat[i1], vec[i1])
+
+    if len(mat.shape) == 3:
+        for i1 in range(vec.shape[0]):  # loop over wavelengths
+            result[i1, :] = dot(mat[i1], vec[i1])
+
+    if len(mat.shape) == 2:
+        for i1 in range(vec.shape[0]):  # loop over wavelengths
+            result[i1, :] = dot(mat, vec[i1])
+
+    return result
+
+def dot_wl_u2d(mat, vec):
+    result = np.empty((vec.shape[0], vec.shape[1]))
+    for i1 in range(vec.shape[0]):  # loop over wavelengths
+        result[i1, :] = dot(mat, vec[i1])
     return result
 
 def dot_wl_prof(mat, vec):
     result = np.empty((vec.shape[0], mat.shape[1], mat.shape[3]))
-    for i1 in range(vec.shape[0]):
+    for i1 in range(vec.shape[0]): # loop over wavelengths
         result[i1, :, :] = dot(mat[i1], vec[i1])
     return result
-#
-# def scale_func(x, scale_params):
-#     return x.data[:,:, None, None]*scale_params
-#
-# def select_func(x, const_params):
-#     return (x.data[:,:,None, None] != 0)*const_params
-#
-#
-# def profile_per_layer(x, z, offset, side):
-#     layer_index = x.coords['layer'].item(0)
-#     #print(x)
-#     non_zero = x[np.all(x, axis=1)]
-#     A1 = non_zero.loc[dict(coeff='A1')]
-#     A2 = non_zero.loc[dict(coeff='A2')]
-#     A3_r = non_zero.loc[dict(coeff='A3_r')]
-#     A3_i = non_zero.loc[dict(coeff='A3_i')]
-#     a1 = non_zero.loc[dict(coeff='a1')]
-#     a3 = non_zero.loc[dict(coeff='a3')]
-#
-#     part1 = A1* np.exp(a1 * z[layer_index])
-#     part2 = A2* np.exp(-a1 * z[layer_index])
-#     part3 = (A3_r + 1j*A3_i)* np.exp(1j * a3 * z[layer_index])
-#     part4 = (A3_r - 1j*A3_i) * np.exp(-1j * a3 * z[layer_index])
-#     result = np.real(part1 + part2 + part3 + part4)
-#     if side == -1:
-#         result = np.flip(result, 1)
-#
-#     return result.reduce(np.sum, axis=0).assign_coords(dim_0=z[layer_index]+offset[layer_index])
-#
-#
-# def profile_per_angle(x, z, offset, side):
-#     by_layer = x.groupby('layer').apply(profile_per_layer, nz=nz, z=z, offset=offset, side=side)
-#     return by_layer
-#
-#
-# def scaled_profile(x, z, offset, side):
-#     print('wl1')
-#     by_angle = x.groupby('global_index').apply(profile_per_angle, z=z, offset=offset, side=side)
-#     return by_angle
 
 
 def bulk_profile(x, ths):
     print('wl2')
     return np.exp(-x/ths)
 
-
-# def profile_per_layer(x, z, offset, side):
-#
-#     layer_index = x.coords['layer'].item(0)
-#     nz = x.where(x != 0, drop=True)
-#     # print(z[layer_index])
-#     part1 = nz.loc[dict(coeff='A1')] * np.exp(nz.loc[dict(coeff='a1')] * z[layer_index])
-#     part2 = nz.loc[dict(coeff='A2')] * np.exp(-nz.loc[dict(coeff='a1')] * z[layer_index])
-#     part3 = (nz.loc[dict(coeff='A3_r')] + 1j * nz.loc[dict(coeff='A3_i')]) * np.exp(
-#         1j * nz.loc[dict(coeff='a3')] * z[layer_index])
-#     part4 = (nz.loc[dict(coeff='A3_r')] - 1j * nz.loc[dict(coeff='A3_i')]) * np.exp(
-#         -1j * nz.loc[dict(coeff='a3')] * z[layer_index])
-#     result = np.real(part1 + part2 + part3 + part4)
-#     if side == -1:
-#          result = np.flip(result, 1)
-#         # print(result)
-#     return result.reduce(np.sum, 'local_theta').assign_coords(dim_0=z[layer_index]+offset[layer_index])
-#
-# def profile_per_angle(x, z, offset, side):
-#     by_layer = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
-#     return by_layer
-#
-# def scaled_profile(x, z, offset, side):
-#     print('wl')
-#     by_angle = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side)
-#     return by_angle
 
 def matrix_multiplication(bulk_mats, bulk_thick, options,
                           layer_widths=[], n_layers=[], layer_names=[], calc_prof_list=[]):
@@ -398,42 +166,15 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
     thetas = angle_vector[:n_a_in, 1]
 
     v0 = make_v0(options['theta_in'], options['phi_in'], num_wl,
-                 options['n_theta_bins'], options['c_azimuth'])
+                 options['n_theta_bins'], options['c_azimuth'], options['phi_symmetry'])
+
+    up2down, down2up = out_to_in_matrix(options['phi_symmetry'], angle_vector, theta_intv, phi_intv)
 
     D = []
     for i1 in range(n_bulks):
         D.append(make_D(bulk_mats[i1].alpha(options['wavelengths']), bulk_thick[i1], thetas))
 
-    unique_thetas = np.unique(thetas)
-
-    # Adown = []
-    #
-    # for i1 in range(n_bulks):
-    #     prof_mat_path = os.path.join(results_path, options['project_name'], 'bulk' + str(i1)+ 'profmat.nc')
-    #     # int_mat_path = os.path.join(results_path, options['project_name'], layer_name + side_str + 'intmat.nc')
-    #
-    #     if os.path.isfile(prof_mat_path):
-    #         print('Existing bulk absorption profile calculation data found')
-    #         bulk_prof = xr.open_dataset(prof_mat_path)['bulk_prof']
-    #
-    #     else:
-    #         alphas = xr.DataArray(bulk_mats[i1].alpha(options['wavelengths']),
-    #                               dims=['wl'], coords={'wl': options['wavelengths']})
-    #         thetas = xr.DataArray(thetas, dims=['global_index'],
-    #                               coords={'global_index': np.arange(0, n_a_in)})
-    #         z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing'] * 1e-9),
-    #                          dims=['z'],
-    #                          coords={'z': np.arange(0, bulk_thick[i1], options['nm_spacing'] * 1e-9)})
-    #
-    #         OD = alphas * z
-    #         print(OD)
-    #         bulk_prof = OD.groupby('wl').apply(bulk_profile, ths=thetas)
-    #         bulk_prof = bulk_prof.rename('bulk_prof')
-    #         bulk_prof.to_netcdf(prof_mat_path)
-    #         print(bulk_prof.shape)
-    #
-    #     Adown.append(bulk_prof)
-
+    #unique_thetas = np.unique(thetas)
 
     # front incidence matrices
     Rf = []
@@ -450,9 +191,16 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
 
-        Rf.append(fullmat[:, :n_a_in, :])
-        Tf.append(np.flip(fullmat[:, n_a_in:, :],1 ))
-        Af.append(absmat)
+        if len(fullmat.shape) == 3:
+            Rf.append(fullmat[:, :n_a_in, :])
+            Tf.append(fullmat[:, n_a_in:, :])
+            Af.append(absmat)
+
+        else:
+            print(fullmat.shape)
+            Rf.append(fullmat[:n_a_in, :])
+            Tf.append(fullmat[n_a_in:, :])
+            Af.append(absmat)
 
 
         if len(calc_prof_list[i1]) > 0:
@@ -486,9 +234,16 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
 
-        Rb.append(fullmat[:, :n_a_in, :])
-        Tb.append(np.flip(fullmat[:, n_a_in:, :],1 ))
-        Ab.append(absmat)
+        if len(fullmat.shape) == 3:
+            Rb.append(fullmat[:, n_a_in:, :])
+            Tb.append(fullmat[:, :n_a_in, :])
+            Ab.append(absmat)
+
+        else:
+            Rb.append(fullmat[n_a_in:, :])
+            Tb.append(fullmat[:n_a_in, :])
+            Ab.append(absmat)
+
 
         if len(calc_prof_list[i1]) > 0:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
@@ -505,8 +260,11 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Ib.append([])
 
     len_calcs = np.array([len(x) for x in calc_prof_list])
+    print(len_calcs)
+    print(np.any(len_calcs > 0))
 
     if np.any(len_calcs > 0):
+        print('a')
         a = [[] for _ in range(n_interfaces)]
         a_prof = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]
@@ -522,8 +280,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
 
         for i1 in range(n_bulks):
 
-            z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing']*1e-9), dims='z')
-
+            #z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing']*1e-9), dims='z')
+            # v0 is actually travelling down, but no reason to start in 'outgoing' ray format.
             vf_1[i1] = dot_wl(Tf[i1], v0) # pass through front surface
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
             a[i1].append(dot_wl(Af[i1], v0)) # absorbed in front surface at first interaction
@@ -547,7 +305,10 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             while np.any(power > options['I_thresh']):
                 print(i2)
                 #print(power)
+                vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
+                # vb_1 already an incoming ray
+
 
                 if len(If[i1+1]) > 0:
 
@@ -565,30 +326,9 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
                 nz_thetas = vf_1[i1] != 0
-                #print('bulk profile')
-                # Aprof_loop = np.zeros((num_wl, len(z)))
-                # for k1, wl in enumerate(options['wavelengths']):
-                #     th_wl = thetas[nz_thetas[k1]]
-                #     cs = xr.DataArray(np.cos(th_wl), dims='theta')
-                #     #print(cs)
-                #     pref_wl = xr.DataArray(vf_1[i1][k1][nz_thetas[k1]], dims='theta')
-                #     alpha = bulk_mats[i1].alpha(wl)
-                #     Aprof_loop[k1, :] = np.sum(pref_wl*(alpha/cs)*np.exp(-alpha*z/cs), 0)
 
-                # cs = xr.DataArray(np.cos(thetas), dims = 'theta')
-                # v_xr= xr.DataArray(vf_1[i1], dims = ['wl', 'theta'])
-                # v_xr = v_xr.chunk({'wl': 10})
-                #
-                # alpha = xr.DataArray(bulk_mats[i1].alpha(options['wavelengths']), dims=['wl'])
-                # alpha = alpha.chunk({'wl': 10})
-                # print(alpha)
-                # res=np.sum(v_xr*(alpha/cs)*np.exp(-alpha*z/cs),1).compute().visualize()
-                #
-                # print(res)
-                #
-                # A_prof[i1].append(res)
+                vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface. incoming -> up
 
-                vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
 
                 #print('rear profile')
@@ -601,32 +341,14 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
                     a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
 
                 #remaining_power.append(np.sum(vf_2, axis=1))
+
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
+
+                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1]) # prepare for rear incidence
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
                 power = np.sum(vf_1[i1], axis=1)
 
                 # nz_thetas = vb_2[i1] != 0
-
-                # Aprof_loop = np.zeros((num_wl, len(z)))
-                # for k1, wl in enumerate(options['wavelengths']):
-                #     th_wl = thetas[nz_thetas[k1]]
-                #     cs = xr.DataArray(np.cos(th_wl), dims='theta')
-                #     #print(cs)
-                #     pref_wl = xr.DataArray(vb_2[i1][k1][nz_thetas[k1]], dims='theta')
-                #     alpha = bulk_mats[i1].alpha(wl)
-                #     Aprof_loop[k1, :] = np.flip(np.sum(pref_wl*alpha*np.exp(-alpha*z/cs), 0))
-                # cs = xr.DataArray(np.cos(thetas), dims = 'theta')
-                # v_xr= xr.DataArray(vb_2[i1], dims = ['wl', 'theta'])
-                # v_xr = v_xr.chunk({'wl': 2})
-                #
-                # alpha = xr.DataArray(bulk_mats[i1].alpha(options['wavelengths']), dims=['wl'])
-                # alpha = alpha.chunk({'wl': 2})
-                # res=np.sum(v_xr*(alpha/cs)*np.exp(-alpha*z/cs),1).compute()
-                # print(res)
-                #
-                # A_prof[i1].append(np.flip(res,1))
-
-                #A_prof[i1].append(Aprof_loop)
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
                 vt[i1].append(dot_wl(Tf[i1+1], vb_1[i1]))  # transmitted into medium below through back surface
@@ -700,6 +422,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         return RAT, results_per_pass, profile, bulk_profile
 
     else:
+        print('b')
         a = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]
         vt = [[] for _ in range(n_bulks)]
@@ -722,20 +445,37 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
 
             while np.any(power > options['I_thresh']):
                 print(i2)
-                vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
 
+                print('before d2u', np.sum(vf_1[i1]))
+                vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
+                print('after 2du', np.sum(vf_1[i1]))
+                #print('vf_1 after', vf_1[i1])
+                vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
+                print('before back ref', np.sum(vb_1[i1]))
                 # remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
-                vb_2[i1] = dot_wl(Rf[i1 + 1], vb_1[i1])  # reflect from back surface
-                vf_2[i1] = dot_wl(D[i1], vb_2[i1])  # pass through bulk, upwards
 
+                vb_2[i1] = dot_wl(Rf[i1 + 1], vb_1[i1])  # reflect from back surface
+                print('after back ref', np.sum(vb_2[i1]))
+                vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
+                #print('vb_2', vb_2[i1])
+                print('after u2d', np.sum(vf_2[i1]))
+                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1]) # prepare for rear incidence
+                print('after u2d/before front ref', np.sum(vf_2[i1]))
+                vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
+                print('after front ref', np.sum(vf_1[i1]))
+                #print('Rf, Rb, and vf2', Rf[i1][20].todense(), Rb[i1][20].todense(), vf_2[i1][20])
+                #print('powersrem', np.sum(vb_2[i1], 1), np.sum(vf_2[i1], 1), np.sum(vf_1[i1], 1))
                 # remaining_power.append(np.sum(vf_2, axis=1))
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
-                vf_1[i1] = dot_wl(Rb[i1], vf_2[i1])  # reflect from front surface
                 power = np.sum(vf_1[i1], axis=1)
+                #print('power', power)
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
+                print('lost in front ref', np.sum(vr[i1]))
+                #print('Tf, vb1', Tf[i1 + 1][20].todense(), vb_1[i1][20])
                 vt[i1].append(dot_wl(Tf[i1 + 1], vb_1[i1]))  # transmitted into medium below through back surface
+                print('lost in back ref', np.sum(vt[i1]))
                 a[i1 + 1].append(dot_wl(Af[i1 + 1], vb_1[i1]))  # absorbed in 2nd surface
                 a[i1].append(dot_wl(Ab[i1], vf_2[i1]))  # absorbed in 1st surface (from the back)
 

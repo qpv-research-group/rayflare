@@ -1,0 +1,121 @@
+import numpy as np
+import os
+from config import results_path
+from sparse import COO, load_npz, save_npz
+from angles import fold_phi
+
+def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rear='front', save=True):
+    if save:
+        structpath = os.path.join(results_path, options['project_name'])  # also need this to get lookup table
+
+        if not os.path.isdir(structpath):
+            os.mkdir(structpath)
+
+        savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
+        savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
+
+    if os.path.isfile(savepath_RT) and save:
+        print('Existing angular redistribution matrices found')
+        allArray = load_npz(savepath_RT)
+
+    else:
+
+        theta_values = np.unique(angle_vector[angle_vector[:,1] < np.pi/2,1])
+        dtheta = np.diff(theta_intv[theta_intv <= np.pi/2])
+
+        dP = np.cos(theta_values)*dtheta
+
+        # matrix has indexing (out, in): row picks out 'out' entry, column picks out which v0 element
+
+        # since it doesn't matter what the incidence angle is for Lambertian scattering, all the columns rows be identical!
+
+        # how many phi entries are there for each theta?
+
+        n_phis = [np.sum(angle_vector[:,1] == theta) for theta in theta_values]
+
+        column = [x for sublist in [[dP[i1]/n]*n for i1, n in enumerate(n_phis)] for x in sublist]
+
+        whole_matrix = np.vstack([column]*int(len(angle_vector)/2)).T
+
+        # renormalize (rounding errors)
+
+        whole_matrix_R = whole_matrix/np.sum(whole_matrix,0)
+
+        whole_matrix_T = np.zeros_like(whole_matrix_R)
+
+        whole_matrix = np.vstack([whole_matrix_R, whole_matrix_T])
+
+        print(whole_matrix.shape)
+
+        A_matrix = np.zeros((1,int(len(angle_vector)/2)))
+
+        allArray = COO(whole_matrix)
+        absArray = COO(A_matrix)
+        if save:
+            save_npz(savepath_RT, allArray)
+            save_npz(savepath_A, absArray)
+
+
+    return allArray
+
+
+def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, front_or_rear='front', save=True):
+    if save:
+        structpath = os.path.join(results_path, options['project_name'])  # also need this to get lookup table
+
+        if not os.path.isdir(structpath):
+            os.mkdir(structpath)
+
+        savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
+        savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
+
+    if os.path.isfile(savepath_RT) and save:
+        print('Existing angular redistribution matrices found')
+        allArray = load_npz(savepath_RT)
+
+    else:
+
+        if front_or_rear == "front":
+
+            angle_vector_th = angle_vector[:int(len(angle_vector)/2),1]
+            angle_vector_phi = angle_vector[:int(len(angle_vector)/2),2]
+
+            phis_out = fold_phi(angle_vector_phi + np.pi, options['phi_symmetry'])
+
+
+        else:
+            angle_vector_th = angle_vector[int(len(angle_vector) / 2):, 1]
+            angle_vector_phi = angle_vector[int(len(angle_vector) / 2):, 2]
+
+            phis_out = fold_phi(angle_vector_phi + np.pi, options['phi_symmetry'])
+
+        # matrix will be all zeros with just one '1' in each column/row. Just need to determine where it goes
+
+        binned_theta = np.digitize(angle_vector_th, theta_intv, right=True) - 1
+
+        # print(binned_theta_out, theta_out, theta_intv)
+
+        # print(binned_theta_in)
+        # print(binned_theta_out)
+        # -1 to give the correct index for the bins in phi_intv
+
+
+        bin_in = np.arange(len(angle_vector_phi))
+
+        phi_ind = [np.digitize(phi, phi_intv[binned_theta[i1]], right=True) - 1 for i1, phi in enumerate(phis_out)]
+        overall_bin = [np.argmin(abs(angle_vector[:,0] - binned_theta[i1])) + phi_i for i1, phi_i in enumerate(phi_ind)]
+
+        whole_matrix = np.zeros((len(overall_bin)*2, len(overall_bin)))
+
+        whole_matrix[overall_bin, bin_in] = 1
+
+
+        A_matrix = np.zeros((1, len(overall_bin)))
+
+        allArray = COO(whole_matrix)
+        absArray = COO(A_matrix)
+        if save:
+            save_npz(savepath_RT, allArray)
+            save_npz(savepath_A, absArray)
+
+    return allArray
