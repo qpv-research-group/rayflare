@@ -21,9 +21,6 @@ project = 'RayFlare'
 copyright = '2020, Phoebe Pearce'
 author = 'Phoebe Pearce'
 
-# The full version, including alpha/beta/rc tags
-release = '0.0.1'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -41,6 +38,8 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+# The master toctree document.
+master_doc = 'index'
 
 # -- Options for HTML output -------------------------------------------------
 
