@@ -51,7 +51,6 @@ html_static_path = ['_static']
 
 html_theme = 'insegel'
 html_logo = 'logo.png'
-html_favicon = 'favicon.png'
 
 def setup(app):
    app.add_css_file("css/insegel.css")
