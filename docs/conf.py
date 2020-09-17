@@ -53,6 +53,8 @@ html_theme = 'insegel'
 html_logo = 'logo.png'
 html_favicon = 'favicon.ico'
 
+autodoc_mock_imports = ["solcore", "S4"]
+
 def setup(app):
    app.add_css_file("css/insegel.css")
 
