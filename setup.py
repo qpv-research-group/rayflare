@@ -1,5 +1,4 @@
-from setuptools import find_packages
-from numpy.distutils.core import Extension, setup
+from setuptools import find_packages, setup
 
 import os
 import sys
