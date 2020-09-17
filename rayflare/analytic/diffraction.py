@@ -1,4 +1,4 @@
-from rigorous_coupled_wave_analysis.rcwa import  fold_phi
+from rayflare.rigorous_coupled_wave_analysis.rcwa import fold_phi
 import numpy as np
 try:
     import S4

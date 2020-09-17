@@ -5,11 +5,7 @@ from rayflare.ray_tracing.rt import RT
 from rayflare.rigorous_coupled_wave_analysis.rcwa import RCWA
 from rayflare.transfer_matrix_method.tmm import TMM
 from rayflare.angles import make_angle_vector
-from sparse import stack, COO, concatenate, save_npz
-from rayflare.config import results_path
 from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
-import os
-
 
 def process_structure(SC, options):
     """
