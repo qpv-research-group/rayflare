@@ -20,6 +20,11 @@ def gen_data_files(*dirs):
     return results
 
 
+here = os.path.abspath(os.path.dirname(__file__))
+default_config = os.path.join(here, "rayflare", "rayflare_config.txt")
+config = ConfigParser()
+config.read([default_config])
+
 # Option for updating the manifest
 if "update_manifest" in sys.argv:
     # Update the MANIFEST.in file with all the data from within solcore
@@ -85,6 +90,7 @@ setup(
     keywords="photovoltaics modelling physics optics",
     packages=find_packages(exclude=[]),
     package_data={"": ["*.*"]},
+    data_files=gen_data_files("solcore"),
     include_package_data=True,
     setup_requires="pytest-runner",
     install_requires=install_requires,
