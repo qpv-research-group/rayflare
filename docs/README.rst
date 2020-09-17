@@ -1,5 +1,5 @@
 ********
-RayFlare
+Welcome
 ********
 Open-source, integrated optical modelling of complex stacks
 

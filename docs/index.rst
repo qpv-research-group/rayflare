@@ -9,6 +9,15 @@
    :maxdepth: 2
    :caption: Contents:
 
+   README
+   Theory/theory
+   Matrix/matrix_method
+   Ray_tracing/ray_tracing
+   TMM/tmm
+   RCWA/rcwa
+   Examples/examples.rst
+
+
 
 
 Indices and tables
