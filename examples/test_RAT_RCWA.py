@@ -1,4 +1,4 @@
-from ray_tracing.rt import RT
+from rayflare.ray_tracing.rt import RT
 from rigorous_coupled_wave_analysis.rcwa import rcwa_structure, RCWA
 from textures.standard_rt_textures import regular_pyramids
 from transfer_matrix_method.lookup_table import make_TMM_lookuptable

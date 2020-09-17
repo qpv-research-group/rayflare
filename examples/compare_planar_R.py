@@ -4,7 +4,6 @@ import os
 from solcore.structure import Layer
 from solcore import material
 from solcore import si
-from structure import Interface, BulkLayer, Structure
 from matrix_formalism.process_structure import process_structure
 from matrix_formalism.multiply_matrices import calculate_RAT
 from angles import theta_summary
@@ -65,7 +64,7 @@ plt.colorbar(a)
 plt.show()
 
 
-from ray_tracing.rt import calc_R
+from rayflare.ray_tracing.rt import calc_R
 calc_R_result = np.zeros((len(options['wavelengths']), len(unique_index)))
 
 for i1, angle in enumerate(unique_index):

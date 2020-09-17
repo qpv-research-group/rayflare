@@ -1,13 +1,13 @@
 import numpy as np
-from transfer_matrix_method.lookup_table import make_TMM_lookuptable
-from structure import Interface, RTgroup, BulkLayer
-from ray_tracing.rt import RT
-from rigorous_coupled_wave_analysis.rcwa import RCWA
-from transfer_matrix_method.tmm import TMM
-from angles import make_angle_vector
+from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
+from rayflare.structure import Interface, RTgroup, BulkLayer
+from rayflare.ray_tracing.rt import RT
+from rayflare.rigorous_coupled_wave_analysis.rcwa import RCWA
+from rayflare.transfer_matrix_method.tmm import TMM
+from rayflare.angles import make_angle_vector
 from sparse import stack, COO, concatenate, save_npz
-from config import results_path
-from matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
+from rayflare.config import results_path
+from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
 import os
 
 

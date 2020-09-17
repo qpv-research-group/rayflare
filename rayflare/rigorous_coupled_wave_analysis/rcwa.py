@@ -3,10 +3,10 @@ import tmm
 import xarray as xr
 from solcore.absorption_calculator import OptiStack
 from joblib import Parallel, delayed
-from angles import make_angle_vector
+from rayflare.angles import make_angle_vector
 import os
 from sparse import COO, save_npz, load_npz, stack
-from config import results_path
+from rayflare.config import results_path
 from time import time
 from solcore.constants import c
 
@@ -29,6 +29,7 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
     :param phi: azimuthal incidence angle in degrees. Default: 0
     :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
     :param transmission: semi-infinite transmission medium
+
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
     # TODO: when non-zero incidence angle, not binned correctly in matrix (just goes in theta = 0)
@@ -574,6 +575,7 @@ class rcwa_structure:
         :param orders: number of orders to retain in the RCWA calculations.
 
         :param substrate: semi-infinite transmission medium
+
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
@@ -714,7 +716,8 @@ class rcwa_structure:
         :param phi: azimuthal incidence angle in degrees. Default: 0
         :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
         :param substrate: semi-infinite transmission medium
-        :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a
+
+        :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a \
         function of the position and the wavelength.
         """
 

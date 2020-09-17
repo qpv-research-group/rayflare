@@ -1,10 +1,10 @@
 import numpy as np
 from sparse import load_npz, dot, COO, stack
-from config import results_path
-from angles import make_angle_vector, fold_phi
+from rayflare.config import results_path
+from rayflare.angles import make_angle_vector, fold_phi
 import os
 import xarray as xr
-from structure import Interface, BulkLayer
+from rayflare.structure import Interface, BulkLayer
 
 
 def calculate_RAT(SC, options):
@@ -47,11 +47,12 @@ def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym):
     at each wavelength, of size (num_wl, n_angle_bins_in) where n_angle_bins in = len(angle_vector)/2
 
     :param th_in: Polar angle of the incoming light (in radians)
-    :param phi_in: Azimuthal angle of the incoming light (in radians), or can be set as 'all'
+    :param phi_in: Azimuthal angle of the incoming light (in radians), or can be set as 'all' \
     in which case the power is spread equally over all the phi bins for the relevant theta.
     :param num_wl: Number of wavelengths
     :param n_theta_bins: Number of theta bins in the matrix multiplication
     :param c_azimuth: c_azimuth used to generate the matrices being multiplied
+
     :return: v0, an array of size (num_wl, n_angle_bins_in)
     """
 
@@ -108,6 +109,7 @@ def make_D(alphas, thick, thetas):
     :param alphas: absorption coefficient (m^{-1})
     :param thick: thickness of the slab in m
     :param thetas: incident thetas in angle_vector (second column)
+
     :return:
     """
     #print(alphas, abs(np.cos(thetas[None, :])))

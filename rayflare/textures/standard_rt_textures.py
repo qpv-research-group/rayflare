@@ -1,9 +1,16 @@
-from ray_tracing.rt import RTSurface
+from rayflare.ray_tracing.rt import RTSurface
 import math
 import numpy as np
 import os
 
 def regular_pyramids(elevation_angle=55, upright=True, size=1):
+    """
+
+    :param elevation_angle:
+    :param upright:
+    :param size:
+    :return:
+    """
 
     char_angle = math.radians(elevation_angle)
     Lx = size*1
@@ -27,6 +34,11 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1):
     return [surf_fi, surf_ri]
 
 def planar_surface(size = 1):
+    """
+
+    :param size:
+    :return:
+    """
     Lx = 1*size
     Ly = 1*size
     x = np.array([0, Lx, Lx, 0])
@@ -41,6 +53,10 @@ def planar_surface(size = 1):
 
 
 def random_pyramids():
+    """
+
+    :return:
+    """
     cur_path = os.path.dirname(os.path.abspath(__file__))
     z_map = np.loadtxt(os.path.join(cur_path, 'pyramids.csv'), delimiter=',')
     x = np.linspace(0, 20, z_map.shape[0])
@@ -60,7 +76,13 @@ def random_pyramids():
 
 
 def V_grooves(elevation_angle=55, width=1, direction='y'):
+    """
 
+    :param elevation_angle:
+    :param width:
+    :param direction:
+    :return:
+    """
     char_angle = math.radians(elevation_angle)
     h = width*math.tan(char_angle)/2
     if direction == 'y':

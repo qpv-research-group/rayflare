@@ -40,7 +40,7 @@ ax2.set_zlabel('z')
 # plt.show()
 
 
-from ray_tracing.rt import rt_structure
+from rayflare.ray_tracing.rt import rt_structure
 from time import time
 from textures.standard_rt_textures import regular_pyramids, planar_surface
 from solcore import material
