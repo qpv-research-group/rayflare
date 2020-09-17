@@ -1,1 +1,9 @@
 insegel==1.1.0
+numpy==1.18.3
+xarray==0.15.1
+sparse==0.9.1
+seaborn==0.10.1
+joblib==0.14.1
+matplotlib==3.2.1
+scipy==1.4.1
+solcore==5.7.1
