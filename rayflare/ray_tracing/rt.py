@@ -20,9 +20,10 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
        n_absorbing_layers=0, calc_profile=[], only_incidence_angle=False, widths=[], save=True):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
+
     :param group: an RTgroup object containing the surface textures
     :param incidence: incidence medium
-    :param: transmission: transmission medium
+    :param transmission: transmission medium
     :param surf_name: name of the surface (to save matrices)
     :param options: dictionary of options
     :param Fr_or_TMM: whether to use the Fresnel equations (0) or a TMM lookup table (1)

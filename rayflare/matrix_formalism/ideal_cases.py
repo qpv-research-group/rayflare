@@ -7,6 +7,7 @@ from rayflare.angles import fold_phi
 def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rear='front', save=True):
     """
     Generates a redistribution matrix for perfect Lambertian reflection.
+
     :param angle_vector: an angle_vector in the standard format
     :param theta_intv: the theta (polar) intervals (edges of the bins) to be used
     :param surf_name: surface name (for saving the matrix)
@@ -73,6 +74,7 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rea
 def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, front_or_rear='front', save=True):
     """
     Generates a redistribution matrix for a perfect mirror (100% reflection).
+
     :param angle_vector: an angle_vector in the standard format
     :param theta_intv: the theta (polar) intervals (edges of the bins) to be used
     :param phi_intv: the phi (azimuthal) intervals (edges of the bins)

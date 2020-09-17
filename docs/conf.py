@@ -50,7 +50,7 @@ html_static_path = ['_static']
 
 
 html_theme = 'insegel'
-html_logo = 'logo.png'
+html_logo = 'logo.svg'
 html_favicon = 'favicon.ico'
 
 autodoc_mock_imports = ["S4"]

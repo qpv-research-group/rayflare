@@ -11,6 +11,7 @@ def calculate_RAT(SC, options):
     """
     After the list of Interface and BulkLayers has been processed by process_structure,
     this function calculates the R, A and T by calling matrix_multiplication.
+
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations
     """
@@ -105,7 +106,8 @@ def overall_bin(x, phi_intv, angle_vector_0):
 
 def make_D(alphas, thick, thetas):
     """
-    Makes the bulk absorption vector for the bulk material
+    Makes the bulk absorption vector for the bulk material.
+
     :param alphas: absorption coefficient (m^{-1})
     :param thick: thickness of the slab in m
     :param thetas: incident thetas in angle_vector (second column)

@@ -11,6 +11,7 @@ def process_structure(SC, options):
     """
     Function which takes a list of Interface and BulkLayer objects and carries out the
     necessary calculations to populate the redistribution matrices.
+
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations
     """

@@ -10,6 +10,7 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
                          coherent=True, coherency_list=None, prof_layers=None, sides=[1,-1]):
     """
     Takes a layer stack and calculates and stores lookup tables for use with the ray-tracer.
+
     :param layers: a list of layers. These can be Solcore 'Layer' objects, or any other layer format accepted \
     by the Solcore class 'OptiStack'.
     :param incidence: semi-incidence medium. Should be an isntance of a Solcore material object
