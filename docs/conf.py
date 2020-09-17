@@ -21,7 +21,7 @@ copyright = '2020, Phoebe Pearce'
 author = 'Phoebe Pearce'
 
 
-# -- General configuration ---------------------------------------------------
+# -- General configuration -------------------git pull-------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom

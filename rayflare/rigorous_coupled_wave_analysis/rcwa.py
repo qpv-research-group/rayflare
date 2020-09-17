@@ -522,7 +522,8 @@ def rcwa_absorption_per_layer(S, n_layers):
     # layer 1 is incidence medium, layer n is the transmission medium
     A = np.empty(n_layers-2)
     for i1, layer in enumerate(np.arange(n_layers-2)+2):
-        A[i1] = np.real(sum(S.GetPowerFlux('layer_' + str(layer))) - sum(S.GetPowerFlux('layer_' + str(layer+1))))
+        A[i1] = np.real(sum(S.GetPowerFlux('layer_' + str(layer))) -
+                        sum(S.GetPowerFlux('layer_' + str(layer+1))))
     A = np.array([x if x > 0 else 0 for x in A])
 
     return A
@@ -565,7 +566,7 @@ def get_reciprocal_lattice(size, orders):
 
 
 class rcwa_structure:
-
+    # TODO: make this accept an OptiStack, and check the substrate of the SolarCell object
     def __init__(self, structure, size, orders, options, incidence, substrate):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined using an RCWA method implemented using the S4 package.
@@ -679,7 +680,7 @@ class rcwa_structure:
             basis_set = S_for_orders.GetBasisSet()
             f_mat = S_for_orders.GetReciprocalLattice()
 
-            return {'R': R, 'T': T, 'A_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
+            return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
 
         else:
             R = np.stack([item[0] for item in allres])
@@ -688,7 +689,7 @@ class rcwa_structure:
 
             self.rat_output_A = np.sum(A_mat, 1) # used for profile calculation
 
-            return {'R': R, 'T': T, 'A_layer': A_mat}
+            return {'R': R, 'T': T, 'A_per_layer': A_mat}
 
 
 
@@ -768,9 +769,9 @@ class rcwa_structure:
             out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
             R = out['R']
             T = out['T']
-            A_layer = rcwa_absorption_per_layer(S, len(widths))
+            A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
             if A_per_order:
-                A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))
+                A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
                 return R, T, A_layer, A_per_layer_order
             else:
                 return R, T, A_layer

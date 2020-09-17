@@ -1,1 +1,1 @@
-from .rcwa import RCWA
+from .rcwa import RCWA, rcwa_structure
