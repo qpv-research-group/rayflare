@@ -14,7 +14,8 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rea
     :param options: dictionary of user options
     :param front_or_rear: generate matrix for 'front' or 'rear' incidence?
     :param save: Boolean, whether to save the resulting matrix (True) or only return it (False). Default True
-    :return allArray: the redistribution matrix in sparse COO format.
+
+    :return: the redistribution matrix in sparse COO format.
     """
 
     if save:
@@ -82,7 +83,8 @@ def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, front_
     :param options: dictionary of user options
     :param front_or_rear: generate matrix for 'front' or 'rear' incidence?
     :param save: Boolean, whether to save the resulting matrix (True) or only return it (False). Default True
-    :return allArray: the redistribution matrix in sparse COO format.
+
+    :return: the redistribution matrix in sparse COO format.
     """
     if save:
         structpath = os.path.join(results_path, options['project_name'])  # also need this to get lookup table

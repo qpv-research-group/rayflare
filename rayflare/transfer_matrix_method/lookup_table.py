@@ -25,7 +25,7 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
     calculated and stored. Layer 0 is the incidence medium.
     :param sides: List of which sides of incidence should all parameters be calculated for; 1 indicates incidence from \
     the front and -1 is rear incidence. Default = [1, -1]
-    :return allres: xarray Dataset with the R, A, T and (if relevant) absorption profile coefficients for each \
+    :return: xarray Dataset with the R, A, T and (if relevant) absorption profile coefficients for each \
     wavelength, angle, polarization, side of incidence.
     """
 

@@ -32,8 +32,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
     :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence \
     medium, or rear incidence on the stack, from the transmission medium.
 
-    :return full_mat: R and T redistribution matrix
-    :return A_mat: matrix describing absorption per layer
+    :return: R and T redistribution matrix fullmat, matrix describing absorption per layer
     """
 
     def make_matrix_wl(wl):
