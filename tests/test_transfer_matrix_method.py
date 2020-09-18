@@ -1,5 +1,5 @@
 from pytest import mark, approx
-
+import numpy as np
 
 def test_tmm_structure():
     from rayflare.transfer_matrix_method import tmm_structure
