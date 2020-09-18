@@ -32,6 +32,7 @@ jobs:
       run: |
         python -m pip install --upgrade setuptools wheel pip twine numpy
         pip install -e .[dev]
+
     - name: Install Solcore Linux and MacOS
       if: matrix.os != 'windows-latest'
       run: pip install -e .
@@ -44,24 +45,5 @@ jobs:
 
     - name: Test with pytest
       run: |
+        pip install pytest
         pytest
-
-    - name: Build package
-      if: success() && startsWith(github.event.ref, 'refs/tags')
-      run: |
-        python setup.py update_manifest
-        python setup.py sdist
-    - name: Publish package
-      if: success() && startsWith(github.event.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@master
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_TOKEN }}
-
-    - name: Codecov
-      if: matrix.os == 'ubuntu-latest'
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      run: |
-        pip install codecov
-        codecov
