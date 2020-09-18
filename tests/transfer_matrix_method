@@ -1,6 +1,18 @@
 from pytest import mark, approx
 
+
 def test_tmm_structure():
+    from rayflare.transfer_matrix_method import tmm_structure
+
+
+    tmm_setup = tmm_structure([])
+    RAT = tmm_setup.calculate(wavelength=np.array([]))
+
+
+    assert sorted(list(RAT.keys())) == ["A", "A_per_layer", "R", "T", "all_p", "all_s"]
+
+
+def test_tmm_structure_abs():
     import numpy as np
     from solcore import si, material
     from solcore.structure import Layer
