@@ -1,3 +1,7 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![codecov](https://codecov.io/gh/qpv-research-group/rayflare/branch/master/graph/badge.svg)](https://codecov.io/gh/qpv-research-group/rayflare)
+
+
 # rayflare
 Open-source, integrated optical modelling of complex stacks
 
@@ -13,8 +17,6 @@ Open-source, integrated optical modelling of complex stacks
 - S4 (to use RCWA functionality, not required otherwise)
 
 The aim of RayFlare is to provide a flexible, user-friendly Python environment to model complex optical stacks, with a focus on solar cells. 
-
-*Note to new visitors from PVSC:* I am hard at work adding functionality and documentation! In the mean time, I appreciate any comments and feedback. - Phoebe
 
 INSTALLATION INSTRUCTIONS (tested on 64-bit Ubuntu 16)
 -----
