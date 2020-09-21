@@ -1,3 +1,4 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1f6cb2a6cd194b3c93096018ce01eb68)](https://app.codacy.com/gh/qpv-research-group/rayflare?utm_source=github.com&utm_medium=referral&utm_content=qpv-research-group/rayflare&utm_campaign=Badge_Grade_Settings)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![codecov](https://codecov.io/gh/qpv-research-group/rayflare/branch/master/graph/badge.svg)](https://codecov.io/gh/qpv-research-group/rayflare)
 
