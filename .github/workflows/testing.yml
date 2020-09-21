@@ -47,3 +47,12 @@ jobs:
       run: |
         pip install pytest
         pytest tests
+
+
+    - name: Codecov
+      if: matrix.os == 'ubuntu-latest'
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      run: |
+        pip install codecov
+        codecov

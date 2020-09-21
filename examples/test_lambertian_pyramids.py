@@ -4,15 +4,15 @@ import os
 from solcore.structure import Layer
 from solcore import material
 from solcore import si
-from structure import Interface, BulkLayer, Structure
-from matrix_formalism.process_structure import process_structure
-from matrix_formalism.multiply_matrices import calculate_RAT
-from angles import theta_summary
-from textures.standard_rt_textures import regular_pyramids, V_grooves
+from rayflare.structure import Interface, BulkLayer, Structure
+from rayflare.matrix_formalism.process_structure import process_structure
+from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+from rayflare.angles import theta_summary
+from rayflare.textures.standard_rt_textures import regular_pyramids, V_grooves
 from solcore.material_system import create_new_material
 import matplotlib.pyplot as plt
-from angles import make_angle_vector
-from config import results_path
+from rayflare.angles import make_angle_vector
+from rayflare.config import results_path
 from sparse import load_npz
 
 
@@ -49,7 +49,7 @@ options = {'nm_spacing': 0.5,
            #'coherency_list': None,
            'lookuptable_angles': 200,
            #'prof_layers': [1,2],
-           'n_rays': 150000,
+           'n_rays': 1500,
            'random_angles': False,
            'nx': 21, 'ny': 21,
            'parallel': True, 'n_jobs': -1,

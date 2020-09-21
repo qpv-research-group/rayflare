@@ -375,10 +375,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
             thetas = angle_vector[:n_a_in, 1]
             unique_thetas = np.unique(thetas)
 
-            #from profiles need: project name, pol, nm_spacing
-            #print(local_angle_mat.todense())
-            #print('going into making profiles')
-
             profile = make_profiles_wl(unique_thetas, n_a_in, side, widths,
                          local_angle_mat, wl, lookuptable, pol, nm_spacing, calc_profile)
 
@@ -488,19 +484,18 @@ class rt_structure:
         Is = np.zeros((n_reps*nx*ny, len(wavelengths)))
     
         pol = options['pol']
-        randomize = options['randomize']
+        randomize = options['randomize_surface']
 
         if not options['parallel']:
             for j1 in range(n_reps):
 
                 offset = j1*nx*ny
-                #print(offset, n_reps)
                 for c, vals in enumerate(product(xs, ys)):
 
                     for i1, wl in enumerate(wavelengths):
                         print(wl)
                         I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1], nks[:, i1],
-                                                                                          alphas[:, i1], r_a_0, theta, phi,
+                                                                                          alphas[:, i1], r_a_0,
                                                                                           surfaces, widths, z_pos, I_thresh, pol, randomize)
                         absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
                         thetas[c+offset, i1] = th_o
@@ -523,10 +518,6 @@ class rt_structure:
                                                                   surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize) for
                                         i1 in range(len(wavelengths)))
 
-            #allres = [parallel_inner(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
-            #                         surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys) for
-            #          i1 in range(len(wavelengths))]
-
             I = np.stack(item[0] for item in allres)
             absorption_profiles = np.stack([item[1] for item in allres])
             A_layer = np.stack([item[2] for item in allres])
@@ -535,16 +526,6 @@ class rt_structure:
             n_passes = np.stack([item[5] for item in allres])
             n_interactions = np.stack([item[6] for item in allres])
 
-            #                absorption_profiles[c+offset, :] = absorption_profiles_c
-
-            # thetas[c + offset, :] = thetas_c
-
-            # phis[c + offset, :] = phis_c
-
-            # Is[c + offset, :] = I_c
-
-            # A_layer = A_layer + A_layer_c / (nx * ny * n_reps)
-            #print('THETAS', thetas)
             non_abs = ~np.isnan(thetas)
             refl = np.logical_and(non_abs, np.real(thetas) < np.pi / 2)
             trns = np.logical_and(non_abs, np.real(thetas) > np.pi / 2)
@@ -559,48 +540,6 @@ class rt_structure:
 
             return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles/1e3,
                     'thetas': thetas, 'phis': phis, 'R0': R0, 'n_passes': n_passes, 'n_interactions': n_interactions}
-    #
-    #             # TODO: maybe faster to put wavelength loop outside and then parallelize everything inside that - less overhead, more happening in each loop
-    #             for j1 in range(n_reps):
-    #
-    #                 offset = j1 * nx * ny
-    #                 #print(offset, n_reps)
-    #                 for c, vals in enumerate(product(xs, ys)):
-    #
-    #
-    #                     allres = Parallel(n_jobs=-1)(delayed(single_ray_stack)(vals[0], vals[1], nks[:, i1],
-    #                                                                             alphas[:, i1], r_a_0, theta, phi,
-    #                                                                             surfaces, widths, z_pos, I_thresh, pol) for
-    #                               i1 in range(len(wavelengths)))
-    #
-    #                     I_c = np.stack(item[0] for item in allres)
-    #                     absorption_profiles_c = np.stack([item[1] for item in allres])
-    #                     A_layer_c = np.stack([item[2] for item in allres])
-    #                     thetas_c = np.stack([item[3] for item in allres])
-    #                     phis_c = np.stack([item[4] for item in allres])
-    #
-    # #                absorption_profiles[c+offset, :] = absorption_profiles_c
-    #                     thetas[c+offset, :] = thetas_c
-    #                     phis[c+offset, :] = phis_c
-    #                     Is[c+offset, :] = I_c
-    #                     A_layer = A_layer + A_layer_c/(nx*ny*n_reps)
-    #
-    #             non_abs = ~np.isnan(thetas)
-    #
-    #             refl = np.logical_and(non_abs, np.real(thetas) < np.pi/2)
-    #             trns = np.logical_and(non_abs, np.real(thetas) > np.pi / 2)
-    #
-    #             R = np.real(Is*refl)/(nx*ny*n_reps)
-    #             T = np.real(Is*trns)/(nx*ny*n_reps)
-    #
-    #             R = np.sum(R, 0)
-    #             T = np.sum(T, 0)
-    #
-    #
-    #             return {'A_per_layer': A_layer[:, 1:-1], 'absorption_profiles': absorption_profiles,
-    #                     'thetas': thetas, 'phis': phis_c, 'fullres': allres, 'Is': Is,
-    #                     'R': R, 'T': T}
-
 
 
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize):
@@ -620,7 +559,7 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
         offset = j1 * nx * ny
         # print(offset, n_reps)
         for c, vals in enumerate(product(xs, ys)):
-            I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1], nks, alphas, r_a_0, theta, phi,
+            I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1], nks, alphas, r_a_0,
             surfaces, widths, z_pos, I_thresh, pol, randomize)
 
             #print(phi_o)
@@ -811,7 +750,7 @@ def calc_angle(x):
     v1 = np.array([0, 1])
     return np.math.atan2(np.linalg.det([x, v1]), np.dot(x, v1))  # - 180 to 180
 
-def single_ray_stack(x, y,  nks, alphas, r_a_0, theta, phi, surfaces, widths,
+def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
                      z_pos, I_thresh, pol = 'u', randomize = False):
     # final_res = 0: reflection
     # final_res = 1: transmission

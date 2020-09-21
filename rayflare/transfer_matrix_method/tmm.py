@@ -1,7 +1,3 @@
-""" This module serves as interface between solcore structures (junctions, layers, materials...) and the
-transfer matrix package developed by Steven Byrnes and included in the PyPi repository.
-
-"""
 import numpy as np
 from solcore.absorption_calculator import tmm_core_vec as tmm
 from rayflare.angles import make_angle_vector, fold_phi
