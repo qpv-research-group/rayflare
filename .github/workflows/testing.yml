@@ -45,8 +45,8 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pip install pytest
-        pytest tests
+        pip install pytest-cov
+        pytest --cov-report= --cov=rayflare tests/
 
 
     - name: Codecov
