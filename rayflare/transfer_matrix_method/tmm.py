@@ -11,7 +11,7 @@ degree = np.pi / 180
 
 
 def TMM(layers, incidence, transmission, surf_name, options,
-               coherent=True, coherency_list=None, prof_layers=[], front_or_rear='front', save=True):
+               coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
     """
     Function which takes a layer stack and creates an angular redistribution matrix.
 
@@ -60,7 +60,8 @@ def TMM(layers, incidence, transmission, surf_name, options,
             RT_mat[bin_out_r, i1] = R_prob
             #print(R_prob)
             # transmission
-            theta_t = np.abs(-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta_lookup[i1])) + quadrant)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                theta_t = np.abs(-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta_lookup[i1])) + quadrant)
 
             #print('angle in, transmitted', angle_vector_th[i1], theta_t)
             # theta switches half-plane (th < 90 -> th >90
@@ -97,7 +98,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
         fullmat = load_npz(savepath_RT)
         A_mat = load_npz(savepath_A)
 
-        if len(prof_layers) > 0:
+        if prof_layers is not None:
             profile = xr.load_dataarray(prof_mat_path)
             return fullmat, A_mat, profile
 
@@ -124,7 +125,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
             inc = transmission
 
 
-        if len(prof_layers) > 0:
+        if prof_layers is not None:
             profile = True
             z_limit = np.sum(np.array(optlayers.widths))
             full_dist = np.arange(0, z_limit, options['depth_spacing'])
@@ -178,7 +179,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
         R_loop = np.empty((len(wavelengths), n_angles))
         T_loop = np.empty((len(wavelengths), n_angles))
-        Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers), dtype=np.complex_)
+        Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
         th_t_loop = np.empty((len(wavelengths), n_angles))
 
         if profile:

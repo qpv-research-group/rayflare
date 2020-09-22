@@ -25,7 +25,7 @@ def test_planar_structure():
     # set options
     options = default_options()
     options.wavelengths = wavelengths
-    options.project_name = 'method_comparison'
+    options.project_name = 'method_comparison_test'
     options.n_rays = 250
     options.n_theta_bins = 3
     options.lookuptable_angles = 100
