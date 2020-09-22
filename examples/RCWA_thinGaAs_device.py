@@ -229,7 +229,7 @@ plt.show()
 #                         Layer(material=bsf_material, width=si('18nm'))] + grating1 + grating2,
 #                        substrate=Ag)
 #
-# options = {'nm_spacing': 0.5, 'n_theta_bins': 100, 'c_azimuth': 1e-7, 'pol': 's',
+# options = {'depth_spacing': 0.5, 'n_theta_bins': 100, 'c_azimuth': 1e-7, 'pol': 's',
 #            'wavelengths': wavelengths,
 #            'theta_in': 0, 'phi_in': 0,
 #            'parallel': True, 'n_jobs': -1,

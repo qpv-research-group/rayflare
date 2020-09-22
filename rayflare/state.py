@@ -1,6 +1,5 @@
 from collections import OrderedDict
 
-
 class State(OrderedDict):
     """ This class defines a convent way of expanding the attributes of an object, usually fixed during the definition of
     the class. In this case, the class is just a dictionary - a special type of it - and attributes are expanded by

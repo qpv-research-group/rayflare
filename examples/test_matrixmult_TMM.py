@@ -23,7 +23,7 @@ import seaborn as sns
 wavelengths = np.linspace(300, 1300, 50)*1e-9
 
 options = default_options
-options.nm_spacing = 0.5
+options.depth_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'test_matrix'
 options.n_rays = 1e4

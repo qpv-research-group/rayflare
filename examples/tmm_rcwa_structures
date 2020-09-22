@@ -7,7 +7,7 @@ from solcore.solar_cell import SolarCell
 import matplotlib.pyplot as plt
 from solcore.constants import q, h, c
 from solcore.interpolate import interp1d
-from cycler import cycler
+from rayflare.options import default_options
 
 InGaP = material('GaInP')(In=0.5)
 GaAs = material('GaAs')()
@@ -17,35 +17,15 @@ Air = material('Air')()
 
 Al2O3 = material('Al2O3')()
 
-
-# anti-reflection coating
-
 wavelengths = np.linspace(250, 1900, 500) * 1e-9
 
-RCWA_wl = wavelengths
+options = default_options()
 
-options = {'pol': 's',
-           'wavelengths': RCWA_wl,
-           'parallel': True,
-           'n_jobs': -1,
-           'theta_in': 0,
-           'phi_in': 0,
-           'A_per_order': False}
-
-ropt = dict(LatticeTruncation='Circular',
-            DiscretizedEpsilon=True,
-            DiscretizationResolution=4,
-            PolarizationDecomposition=False,
-            PolarizationBasis='Default',
-            LanczosSmoothing=True,
-            SubpixelSmoothing=True,
-            ConserveMemory=False,
-            WeismannFormulation=True)
-
-options['rcwa_options'] = ropt
+options.wavelengths = wavelengths
 
 size = ((100, 0), (0, 100))
 
+# anti-reflection coating
 ARC = [Layer(si('80nm'), Al2O3)]
 
 solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),

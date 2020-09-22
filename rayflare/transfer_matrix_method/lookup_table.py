@@ -96,10 +96,10 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
 
                     tmm_struct =  tmm_structure(optstacks[i1], coherent=coherent, coherency_list=coherency_lists[i1])
                     #print(side, pol, theta)
-                    res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, nm_spacing=1e5)
+                    res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, depth_spacing=1e5)
                     R_loop[:, i3] = np.real(res['R'])
                     T_loop[:, i3] = np.real(res['T'])
-                    Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)
+                    Alayer_loop[i3, :, :] = np.real(res['A_per_layer'])
                     if profile:
                         Aprof_loop[i3, :, :, :] = res['profile_coeff']
 

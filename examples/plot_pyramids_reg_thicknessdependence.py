@@ -306,7 +306,7 @@ plt.show()
 #
 # # matrix multiplication
 # wavelengths = np.array([1100e-9])
-# options = {'nm_spacing': 0.5,
+# options = {'depth_spacing': 0.5,
 #            'project_name': 'optos_for_random',
 #            'calc_profile': False,
 #            'n_theta_bins': 30,

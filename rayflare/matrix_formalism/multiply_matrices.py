@@ -121,7 +121,7 @@ def make_D(alphas, thick, thetas):
     return D_1
 
 def dot_wl(mat, vec):
-    print(mat.shape)
+    #print(mat.shape)
     result = np.empty((vec.shape[0], mat.shape[1]))
 
     if len(mat.shape) == 3:
@@ -148,7 +148,7 @@ def dot_wl_prof(mat, vec):
 
 
 def bulk_profile(x, ths):
-    print('wl2')
+    #print('wl2')
     return np.exp(-x/ths)
 
 
@@ -201,7 +201,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Af.append(absmat)
 
         else:
-            print(fullmat.shape)
+            #print(fullmat.shape)
             Rf.append(fullmat[:n_a_in, :])
             Tf.append(fullmat[n_a_in:, :])
             Af.append(absmat)
@@ -264,11 +264,11 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Ib.append([])
 
     len_calcs = np.array([len(x) for x in calc_prof_list])
-    print(len_calcs)
-    print(np.any(len_calcs > 0))
+    #print(len_calcs)
+    #print(np.any(len_calcs > 0))
 
     if np.any(len_calcs > 0):
-        print('a')
+        #print('a')
         a = [[] for _ in range(n_interfaces)]
         a_prof = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]
@@ -284,7 +284,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
 
         for i1 in range(n_bulks):
 
-            #z = xr.DataArray(np.arange(0, bulk_thick[i1], options['nm_spacing']*1e-9), dims='z')
+            #z = xr.DataArray(np.arange(0, bulk_thick[i1], options['depth_spacing']*1e-9), dims='z')
             # v0 is actually travelling down, but no reason to start in 'outgoing' ray format.
             vf_1[i1] = dot_wl(Tf[i1], v0) # pass through front surface
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
@@ -307,7 +307,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             i2=1
 
             while np.any(power > options['I_thresh']):
-                print(i2)
+                #print(i2)
                 #print(power)
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
@@ -372,7 +372,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         # for i2 in range(3):
         #     for i1 in range(n_interfaces):
         #         plt.figure()
-        #         z = np.arange(0, np.sum(layer_widths[i1]), options['nm_spacing'])
+        #         z = np.arange(0, np.sum(layer_widths[i1]), options['depth_spacing'])
         #         plt.plot(z, a_prof[i1][i2, 0, :].T)
         #         plt.title(str(i2) + 'interface ' + str(i1))
         #         plt.show()
@@ -402,7 +402,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         # for i2 in range(num_wl):
         #     plt.figure()
         #     for i1 in range(n_interfaces):
-        #         z = np.arange(0, np.sum(layer_widths[i1]), options['nm_spacing'])
+        #         z = np.arange(0, np.sum(layer_widths[i1]), options['depth_spacing'])
         #         plt.plot(z, profile[i1][i2].T)
         #
         #     plt.show()
@@ -410,7 +410,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         # plt.figure()
         # for i2 in range(5):
         #     i1= 0
-        #     z = np.arange(0, np.sum(layer_widths[i1]), options['nm_spacing'])
+        #     z = np.arange(0, np.sum(layer_widths[i1]), options['depth_spacing'])
         #     plt.plot(z, a_prof[i1][i2, 0, :])
         #
         # plt.figure()
@@ -426,7 +426,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
         return RAT, results_per_pass, profile, bulk_profile
 
     else:
-        print('b')
+        #print('b')
         a = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]
         vt = [[] for _ in range(n_bulks)]
@@ -448,38 +448,38 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             i2 = 1
 
             while np.any(power > options['I_thresh']):
-                print(i2)
+                #print(i2)
 
-                print('before d2u', np.sum(vf_1[i1]))
+                #print('before d2u', np.sum(vf_1[i1]))
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
-                print('after 2du', np.sum(vf_1[i1]))
+                #print('after 2du', np.sum(vf_1[i1]))
                 #print('vf_1 after', vf_1[i1])
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
-                print('before back ref', np.sum(vb_1[i1]))
+                #print('before back ref', np.sum(vb_1[i1]))
                 # remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
                 vb_2[i1] = dot_wl(Rf[i1 + 1], vb_1[i1])  # reflect from back surface
-                print('after back ref', np.sum(vb_2[i1]))
+                #print('after back ref', np.sum(vb_2[i1]))
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
                 #print('vb_2', vb_2[i1])
-                print('after u2d', np.sum(vf_2[i1]))
+                #print('after u2d', np.sum(vf_2[i1]))
                 vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1]) # prepare for rear incidence
-                print('after u2d/before front ref', np.sum(vf_2[i1]))
+                #print('after u2d/before front ref', np.sum(vf_2[i1]))
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
-                print('after front ref', np.sum(vf_1[i1]))
+                #print('after front ref', np.sum(vf_1[i1]))
                 #print('Rf, Rb, and vf2', Rf[i1][20].todense(), Rb[i1][20].todense(), vf_2[i1][20])
                 #print('powersrem', np.sum(vb_2[i1], 1), np.sum(vf_2[i1], 1), np.sum(vf_1[i1], 1))
                 # remaining_power.append(np.sum(vf_2, axis=1))
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
                 power = np.sum(vf_1[i1], axis=1)
-                #print('power', power)
+                print('After iteration ', i2, 'maximum power fraction remaining = ', np.max(power))
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
-                print('lost in front ref', np.sum(vr[i1]))
+                #print('lost in front ref', np.sum(vr[i1]))
                 #print('Tf, vb1', Tf[i1 + 1][20].todense(), vb_1[i1][20])
                 vt[i1].append(dot_wl(Tf[i1 + 1], vb_1[i1]))  # transmitted into medium below through back surface
-                print('lost in back ref', np.sum(vt[i1]))
+                #print('lost in back ref', np.sum(vt[i1]))
                 a[i1 + 1].append(dot_wl(Af[i1 + 1], vb_1[i1]))  # absorbed in 2nd surface
                 a[i1].append(dot_wl(Ab[i1], vf_2[i1]))  # absorbed in 1st surface (from the back)
 

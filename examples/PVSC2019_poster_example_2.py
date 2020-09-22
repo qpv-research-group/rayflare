@@ -52,7 +52,7 @@ plt.rcParams.update(params)
 wavelengths = np.linspace(300, 1200, 200)*1e-9
 
 options = default_options
-options.nm_spacing = 0.5
+options.depth_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'Perovskite_Si_1e6_150wl'
 options.n_rays = 100000

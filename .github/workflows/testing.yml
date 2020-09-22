@@ -33,11 +33,11 @@ jobs:
         python -m pip install --upgrade setuptools wheel pip twine numpy
         pip install -e .[dev]
 
-    - name: Install Solcore Linux and MacOS
+    - name: Install on Linux and MacOS
       if: matrix.os != 'windows-latest'
       run: pip install -e .
 
-    - name: Install Solcore Windows
+    - name: Install on Windows
       if: matrix.os == 'windows-latest'
       run: |
         pip install -e .

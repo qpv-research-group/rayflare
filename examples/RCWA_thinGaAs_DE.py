@@ -53,7 +53,7 @@ class Jsc_optim:
 
         RCWA_wl = wavelengths
 
-        options = {'nm_spacing': 0.5,
+        options = {'depth_spacing': 0.5,
                    'n_theta_bins': 100,
                    'c_azimuth': 1e-7,
                    'pol': 's',

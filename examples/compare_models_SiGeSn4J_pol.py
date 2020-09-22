@@ -40,7 +40,7 @@ bulkthick = 300e-6
 wavelengths = np.linspace(300, 1850, 200)*1e-9
 
 options = default_options
-options.nm_spacing = 0.5
+options.depth_spacing = 0.5
 options.wavelengths = wavelengths
 options.project_name = 'test_matrix2'
 options.n_rays = 20000

@@ -22,7 +22,7 @@ for random_pos in [True, False]:
         print('NEW SIM', random_pos, nx)
         # matrix multiplication
         wavelengths = np.linspace(1030, 1200, 16)*1e-9
-        options = {'nm_spacing': 0.5,
+        options = {'depth_spacing': 0.5,
                    'project_name': 'ray_distribution',
                    'calc_profile': False,
                    'n_theta_bins': 30,

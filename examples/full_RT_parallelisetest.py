@@ -94,7 +94,7 @@ strt = tmm_structure(stack, coherent=False, coherency_list=['i', 'i', 'i'],
                      no_back_reflection=False)
 
 output = strt.calculate(options['wavelengths']*1e9, angle=options['theta'], pol=options['pol'],
-                        profile=True, nm_spacing=1000, layers=[1,2,3])
+                        profile=True, depth_spacing=1000, layers=[1,2,3])
 
 plt.figure()
 plt.plot(options['wavelengths']*1e9, output['R'])

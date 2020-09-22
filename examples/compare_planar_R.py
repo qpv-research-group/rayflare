@@ -23,7 +23,7 @@ from sparse import load_npz
 angle_degrees_in = 0
 # matrix multiplication
 wavelengths = np.linspace(900, 1200, 30)*1e-9
-options = {'nm_spacing': 0.5,
+options = {'depth_spacing': 0.5,
            'project_name': 'optos_checks_2',
            'calc_profile': False,
            'n_theta_bins': 100,

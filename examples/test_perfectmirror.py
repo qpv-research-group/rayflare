@@ -36,7 +36,7 @@ angle_degrees_in = 8
 
 # matrix multiplication
 wavelengths = np.arange(800, 1200, 5)*1e-9
-options = {'nm_spacing': 0.5,
+options = {'depth_spacing': 0.5,
            'project_name': 'pyramids_lambertian',
            'calc_profile': False,
            'n_theta_bins': 50,

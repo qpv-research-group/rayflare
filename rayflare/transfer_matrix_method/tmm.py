@@ -127,7 +127,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
         if len(prof_layers) > 0:
             profile = True
             z_limit = np.sum(np.array(optlayers.widths))
-            full_dist = np.arange(0, z_limit, options['nm_spacing'])
+            full_dist = np.arange(0, z_limit, options['depth_spacing'])
             layer_start = np.insert(np.cumsum(np.insert(optlayers.widths, 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(optlayers.widths, 0, 0))
 
@@ -190,11 +190,11 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
             for i3, theta in enumerate(thetas):
 
-                res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, nm_spacing = options['nm_spacing'])
+                res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, depth_spacing = options['depth_spacing'])
 
                 R_loop[:, i3] = np.real(res['R'])
                 T_loop[:, i3] = np.real(res['T'])
-                Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)
+                Alayer_loop[i3, :, :] = np.real(res['A_per_layer'])
 
                 if profile:
                     Aprof_loop[i3, :, :] = res['profile']
@@ -206,7 +206,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
             if front_or_rear == 'rear':
                 Alayer_loop = np.flip(Alayer_loop, axis=2)
-                print('flipping')
+                #print('flipping')
 
             R.loc[dict(pol=pol)] = R_loop
             T.loc[dict(pol=pol)] = T_loop
@@ -253,7 +253,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
         theta_bins_in = np.digitize(angle_vector_th, theta_intv, right=True) -1
 
-        print(theta_bins_in)
+        #print(theta_bins_in)
         mats = [make_matrix_wl(wl) for wl in wavelengths]
 
         fullmat = stack([item[0] for item in mats])
@@ -316,7 +316,7 @@ class tmm_structure:
 
 
 
-    def calculate(self, wavelength, angle=0, pol='u', profile=False, layers=None, nm_spacing = 1):
+    def calculate(self, wavelength, angle=0, pol='u', profile=False, layers=None, depth_spacing = 1):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
 
@@ -387,7 +387,7 @@ class tmm_structure:
         if profile:
 
             z_limit = np.sum(np.array(stack.widths))
-            full_dist = np.arange(0, z_limit, nm_spacing)
+            full_dist = np.arange(0, z_limit, depth_spacing)
             layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(stack.widths, 0, 0))
 
