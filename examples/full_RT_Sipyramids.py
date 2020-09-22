@@ -7,10 +7,9 @@ from rayflare.options import default_options
 from solcore import material
 from solcore import si
 
-# plotting imports
+# imports for plotting
 import matplotlib.pyplot as plt
 import seaborn as sns
-from cycler import cycler
 
 # setting up some colours for plotting
 pal = sns.color_palette("husl", 4)
@@ -50,10 +49,10 @@ if calc:
 
 
     result = np.vstack((options['wavelengths']*1e9, result['R'], result['R0'], result['T'], result['A_per_layer'][:,0])).T
-    np.savetxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_3', result)
+    np.savetxt('data/rayflare_fullrt_300um_2umpyramids_300_1200nm_3', result)
 
 else:
-    result = np.loadtxt('rayflare_fullrt_300um_2umpyramids_300_1200nm_3')
+    result = np.loadtxt('data/rayflare_fullrt_300um_2umpyramids_300_1200nm_3')
     PVlighthouse = np.loadtxt('data/RAT_data_300um_2um_55.csv', delimiter=',', skiprows=1)
 
 

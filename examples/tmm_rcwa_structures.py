@@ -1,13 +1,15 @@
 import numpy as np
 from solcore import si, material
 from solcore.structure import Layer
-from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
-from rayflare.transfer_matrix_method import tmm_structure
-from solcore.solar_cell import SolarCell
-import matplotlib.pyplot as plt
 from solcore.constants import q, h, c
 from solcore.interpolate import interp1d
+from solcore.solar_cell import SolarCell
+
+from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+from rayflare.transfer_matrix_method import tmm_structure
 from rayflare.options import default_options
+
+import matplotlib.pyplot as plt
 
 InGaP = material('GaInP')(In=0.5)
 GaAs = material('GaAs')()
@@ -35,7 +37,7 @@ solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
 rcwa_setup = rcwa_structure(solar_cell, size, 2, options, Air, Ag)
 tmm_setup = tmm_structure(solar_cell, coherent=True)
 
-spect = np.loadtxt('AM0.csv', delimiter=',')
+spect = np.loadtxt('data/AM0.csv', delimiter=',')
 
 AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths * 1e9)
 
@@ -55,8 +57,8 @@ for pol in ['s', 'p', 'u']:
                                                     wavelengths*1e9, axis=0)/1e9
 
         print('Pol: ' + options['pol'] + ', Angle: ' + str(options['theta_in']) + ' deg \n' +
-        'TMM currents: ' + str(Jsc_TMM[1:]) + '\n' +
-        'RCWA currents: ' + str(Jsc_RCWA[1:]) + '\n')
+        'TMM currents: ' + str(np.round(Jsc_TMM[1:], 3)) + '\n' +
+        'RCWA currents: ' + str(np.round(Jsc_RCWA[1:], 3)) + '\n')
 
 
         plt.figure()

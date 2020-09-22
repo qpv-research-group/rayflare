@@ -1,4 +1,5 @@
 import numpy as np
+
 # solcore imports
 from solcore.structure import Layer
 from solcore import material
