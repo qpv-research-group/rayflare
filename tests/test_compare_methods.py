@@ -1,6 +1,8 @@
-from pytest import approx
+from pytest import approx, mark
 import numpy as np
+import sys
 
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_planar_structure():
 
     # solcore imports
@@ -84,24 +86,23 @@ def test_planar_structure():
     results_per_layer_front_RT = np.sum(results_per_pass_RT['a'][0], 0)
 
     ## RCWA
-    #
-    # front_surf = Interface('RCWA', layers=front_materials, name = 'GaInP_GaAs_RCWA',
-    #                        coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=2)
-    # back_surf = Interface('RCWA', layers=back_materials, name = 'SiN_Ag_RCWA',
-    #                       coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=2)
-    #
-    #
-    # SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
-    #
-    # process_structure(SC, options)
-    #
-    # results_RCWA_Matrix = calculate_RAT(SC, options)
-    #
-    # results_per_pass_RCWA = results_RCWA_Matrix[1]
-    #
-    # # only select absorbing layers, sum over passes
-    # results_per_layer_front_RCWA = np.sum(results_per_pass_RCWA['a'][0], 0)
 
+    front_surf = Interface('RCWA', layers=front_materials, name = 'GaInP_GaAs_RCWA',
+                           coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=2)
+    back_surf = Interface('RCWA', layers=back_materials, name = 'SiN_Ag_RCWA',
+                          coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=2)
+
+
+    SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
+
+    process_structure(SC, options)
+
+    results_RCWA_Matrix = calculate_RAT(SC, options)
+
+    results_per_pass_RCWA = results_RCWA_Matrix[1]
+
+    # only select absorbing layers, sum over passes
+    results_per_layer_front_RCWA = np.sum(results_per_pass_RCWA['a'][0], 0)
 
 
     ## pure TMM (from Solcore)
@@ -118,11 +119,11 @@ def test_planar_structure():
     # stack results for comparison
     TMM_reference = TMM_res['A_per_layer'][1:-2].T
     TMM_matrix = np.hstack((results_per_layer_front_TMM_matrix, results_TMM_Matrix[0].A_bulk[0].data[:,None]))
-    # RCWA_matrix = np.hstack((results_per_layer_front_RCWA, results_RCWA_Matrix[0].A_bulk[0].data[:, None]))
+    RCWA_matrix = np.hstack((results_per_layer_front_RCWA, results_RCWA_Matrix[0].A_bulk[0].data[:, None]))
     RT_matrix = np.hstack((results_per_layer_front_RT, results_RT[0].A_bulk[0].data[:, None]))
 
     assert TMM_reference == approx(TMM_matrix, abs=0.01)
-    # assert TMM_reference == approx(RCWA_matrix, abs=0.01)
+    assert TMM_reference == approx(RCWA_matrix, abs=0.01)
     assert TMM_reference == approx(RT_matrix, abs=0.15)
 
 
