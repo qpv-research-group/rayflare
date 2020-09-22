@@ -17,7 +17,7 @@ from warnings import warn
 
 
 def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
-       n_absorbing_layers=0, calc_profile=[], only_incidence_angle=False, widths=[], save=True):
+       n_absorbing_layers=0, calc_profile=None, only_incidence_angle=False, widths=[], save=True):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
 
@@ -215,7 +215,7 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
             #make_profile_data(options, np.unique(angle_vector[:,1]), int(len(angle_vector) / 2),
             #                  front_or_rear, surf_name, n_absorbing_layers, widths)
 
-            if len(calc_profile) > 0:
+            if calc_profile is not None:
                 profile = xr.concat([item[3] for item in allres], 'wl')
                 intgr = xr.concat([item[4] for item in allres], 'wl')
                 intgr.name = 'intgr'
@@ -351,11 +351,11 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
                 local_angle_mat[binned_local_angles[l1, l2], bin_in[l1]-offset] += 1
 
     # normalize
-    out_mat = out_mat/n_rays_in_bin
-    overall_abs_frac = n_rays_in_bin_abs/n_rays_in_bin
-    abs_scale = overall_abs_frac/np.sum(A_mat, 0)
+    out_mat = np.divide(out_mat, n_rays_in_bin, where=n_rays_in_bin!=0)
+    overall_abs_frac = np.divide(n_rays_in_bin_abs, n_rays_in_bin, where=n_rays_in_bin!=0)
+    abs_scale = np.divide(overall_abs_frac, np.sum(A_mat, 0), where=np.sum(A_mat, 0)!=0)
     #print('A_mat', np.sum(A_mat, 0)/n_rays_in_bin_abs)
-    intgr = np.sum(A_mat, 0)/n_rays_in_bin_abs
+    intgr = np.divide(np.sum(A_mat, 0), n_rays_in_bin_abs, where=n_rays_in_bin_abs!=0)
     A_mat = abs_scale*A_mat
     out_mat[np.isnan(out_mat)] = 0
     A_mat[np.isnan(A_mat)] = 0
@@ -364,13 +364,13 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     A_mat = COO(A_mat)
 
     if Fr_or_TMM > 0:
-        local_angle_mat = local_angle_mat/np.sum(local_angle_mat, 0)
+        local_angle_mat = np.divide(local_angle_mat, np.sum(local_angle_mat, 0), where=np.sum(local_angle_mat, 0)!=0)
         local_angle_mat[np.isnan(local_angle_mat)] = 0
         local_angle_mat = COO(local_angle_mat)
 
         #print(calc_profile)
 
-        if len(calc_profile) > 0:
+        if calc_profile is not None:
             n_a_in = int(len(angle_vector)/2)
             thetas = angle_vector[:n_a_in, 1]
             unique_thetas = np.unique(thetas)
@@ -1031,8 +1031,8 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
     i1 = 0
     while intersect:
         i1 = i1+1
-
-        result = check_intersect(r_a, d, tri)
+        with np.errstate(divide='ignore', invalid='ignore'): # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
+            result = check_intersect(r_a, d, tri)
         #print('results', result)
         if result == False and not checked_translation:
             if i1 > 1:
@@ -1187,7 +1187,6 @@ def check_intersect(r_a, d, tri):
     t = pref * np.sum(tri.crossP * corner, axis=1)
     u = pref * np.sum(np.cross(tri.P_2s - tri.P_0s, D) * corner, axis=1)
     v = pref * np.sum(np.cross(D, tri.P_1s - tri.P_0s) * corner, axis=1)
-    As = np.vstack((t, u, v))
 
     which_intersect = (u + v <= 1) & (np.all(np.vstack((u, v)) >= -1e-10, axis=0)) & (t > 0)
     # get errors if set exactly to zero.

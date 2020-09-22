@@ -207,7 +207,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Af.append(absmat)
 
 
-        if len(calc_prof_list[i1]) > 0:
+        if calc_prof_list[i1] is not None:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontprofmat.nc')
@@ -249,7 +249,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Ab.append(absmat)
 
 
-        if len(calc_prof_list[i1]) > 0:
+        if calc_prof_list[i1] is not None:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearprofmat.nc')
@@ -263,7 +263,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
             Pb.append([])
             Ib.append([])
 
-    len_calcs = np.array([len(x) for x in calc_prof_list])
+    len_calcs = np.array([len(x) if x is not None else 0 for x in calc_prof_list])
     #print(len_calcs)
     #print(np.any(len_calcs > 0))
 
@@ -473,7 +473,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options,
                 # remaining_power.append(np.sum(vf_2, axis=1))
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
                 power = np.sum(vf_1[i1], axis=1)
-                print('After iteration ', i2, 'maximum power fraction remaining = ', np.max(power))
+                print('After iteration', i2, ': maximum power fraction remaining =', np.max(power))
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
                 #print('lost in front ref', np.sum(vr[i1]))

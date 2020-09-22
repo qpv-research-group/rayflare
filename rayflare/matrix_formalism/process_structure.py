@@ -17,7 +17,6 @@ def process_structure(SC, options):
     """
 
     layer_widths = []
-    calc_profile = []
 
     for i1, struct in enumerate(SC):
         if type(struct) == BulkLayer:
@@ -110,10 +109,6 @@ def process_structure(SC, options):
                     substrate = SC[i1+1].material # bulk material below
                     which_sides = ['front', 'rear']
 
-                if len(struct.prof_layers) > 0:
-                    prof = True
-                else:
-                    prof = False
 
                 prof = struct.prof_layers
                 n_abs_layers = len(struct.layers)
