@@ -1,5 +1,5 @@
 .. image:: https://img.shields.io/badge/License-GPLv3-blue.svg
-  :target:: https://www.gnu.org/licenses/gpl-3.0
+  :target: https://www.gnu.org/licenses/gpl-3.0
 .. image:: https://codecov.io/gh/qpv-research-group/rayflare/branch/devel/graph/badge.svg
   :target: https://codecov.io/gh/qpv-research-group/rayflare
 .. image:: https://app.codacy.com/project/badge/Grade/7ff9180e5f7a460192440895d823ff15
