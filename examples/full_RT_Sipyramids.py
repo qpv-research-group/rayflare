@@ -21,13 +21,13 @@ Air = material('Air')()
 Si = material('566', nk_db=True)()
 
 # number of x and y points to scan across
-nxy = 30
+nxy = 5
 
 calc = True
 
 # setting options
 options = default_options()
-options.wavelengths = np.arange(300, 1201, 20) * 1e-9
+options.wavelengths = np.linspace(300, 1201, 50) * 1e-9
 options.nx = nxy
 options.ny = nxy
 options.n_rays =  10 * nxy ** 2

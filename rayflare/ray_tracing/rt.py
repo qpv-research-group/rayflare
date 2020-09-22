@@ -526,15 +526,19 @@ class rt_structure:
             n_passes = np.stack([item[5] for item in allres])
             n_interactions = np.stack([item[6] for item in allres])
 
+
+
             non_abs = ~np.isnan(thetas)
-            refl = np.logical_and(non_abs, np.real(thetas) < np.pi / 2)
-            trns = np.logical_and(non_abs, np.real(thetas) > np.pi / 2)
+
+            refl = np.logical_and(non_abs, np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
+            trns = np.logical_and(non_abs, np.greater(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
+
             R = np.real(I * refl).T / (n_reps*nx * ny)
             T = np.real(I * trns).T / (n_reps*nx * ny)
             R = np.sum(R, 0)
             T = np.sum(T, 0)
 
-            refl_0 = non_abs * (np.real(thetas) < np.pi / 2) * (n_passes == 1)
+            refl_0 = non_abs * np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
             R0 = np.real(I * refl_0).T / (n_reps * nx * ny)
             R0 = np.sum(R0, 0)
 
