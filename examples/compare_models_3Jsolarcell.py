@@ -20,27 +20,22 @@ pal = sns.cubehelix_palette(10, start=.5, rot=-.9)
 
 cols = cycler('color', pal)
 
-params  = {'legend.fontsize': 'small',
-         'axes.labelsize': 'small',
-         'axes.titlesize':'small',
-         'xtick.labelsize':'small',
-         'ytick.labelsize':'small',
-           'axes.prop_cycle': cols}
+params  = {'axes.prop_cycle': cols}
 
 plt.rcParams.update(params)
 
 # Thickness of bottom Ge layer
 bulkthick = 300e-6
 
-wavelengths = np.linspace(300, 1850, 100)*1e-9
+wavelengths = np.linspace(300, 1850, 200)*1e-9
 
 # set options
 options = default_options()
 options.wavelengths = wavelengths
 options.project_name = 'method_comparison'
-options.n_rays = 1000
-options.n_theta_bins = 10
-options.lookuptable_angles = 200
+options.n_rays = 250
+options.n_theta_bins = 3
+options.lookuptable_angles = 100
 options.parallel = True
 options.c_azimuth = 0.001
 
@@ -74,25 +69,19 @@ back_surf = Interface('TMM', layers=back_materials, name = 'SiN_Ag_TMM',
                       coherent=True)
 
 
-bulk_Si = BulkLayer(bulkthick, Ge, name = 'Ge_bulk') # bulk thickness in m
+bulk_Ge = BulkLayer(bulkthick, Ge, name = 'Ge_bulk') # bulk thickness in m
 
-SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
+SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
 
 process_structure(SC, options)
 
 results_TMM_Matrix = calculate_RAT(SC, options)
 
 results_per_pass = results_TMM_Matrix[1]
-R_per_pass = np.sum(results_per_pass['r'][0], 2)
 
 # only select absorbing layers, sum over passes
 results_per_layer_front = np.sum(results_per_pass['a'][0], 0)
-results_per_layer_back = np.sum(results_per_pass['a'][1], 0)
-total = results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + results_TMM_Matrix[0].A_bulk[0] +  np.sum(results_per_layer_front, 1)
-
-
 ax1.plot(options['wavelengths']*1e9, results_TMM_Matrix[0].R[0], label='R')
-
 ax1.plot(options['wavelengths']*1e9, results_per_layer_front[:,0] + results_per_layer_front[:,1], label='ARC')
 ax1.plot(options['wavelengths']*1e9, results_per_layer_front[:,2], label='InGaP')
 ax1.plot(options['wavelengths']*1e9, results_per_layer_front[:,3], label='GaAs')
@@ -112,15 +101,13 @@ front_surf = Interface('RT_TMM', layers=front_materials, texture=surf, name = 'G
 back_surf = Interface('RT_TMM', layers=back_materials, texture = surf, name = 'SiN_Ag_RT_50k',
                       coherent=True)
 
-SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
+SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
 
 process_structure(SC, options)
 
 results_RT = calculate_RAT(SC, options)
 
 results_per_pass = results_RT[1]
-R_0 = R_per_pass[0]
-R_escape = np.sum(R_per_pass[1:, :], 0)
 
 # only select absorbing layers, sum over passes
 results_per_layer_front = np.sum(results_per_pass['a'][0], 0)
@@ -145,7 +132,7 @@ back_surf = Interface('RCWA', layers=back_materials, name = 'SiN_Ag_RCWA',
                       coherent=True, d_vectors = ((500,0), (0,500)), rcwa_orders=2)
 
 
-SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
+SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
 
 process_structure(SC, options)
 
