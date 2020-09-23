@@ -36,7 +36,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
         RT_mat = np.zeros((len(theta_bins_in)*2, len(theta_bins_in)))
         A_mat = np.zeros((n_layers, len(theta_bins_in)))
 
-        for i1 in range(len(theta_bins_in)):
+        for i1, cur_theta in enumerate(theta_bins_in):
 
             theta = theta_lookup[i1]#angle_vector[i1, 1]
 
@@ -51,9 +51,9 @@ def TMM(layers, incidence, transmission, surf_name, options,
             #print(R_prob, T_prob)
 
             # reflection
-            phi_int = phi_intv[theta_bins_in[i1]]
+            phi_int = phi_intv[cur_theta]
             phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
-            bin_out_r = np.argmin(abs(angle_vector[:, 0] - theta_bins_in[i1])) + phi_ind
+            bin_out_r = np.argmin(abs(angle_vector[:, 0] - cur_theta)) + phi_ind
 
             #print(bin_out_r, i1+offset)
 
@@ -417,7 +417,7 @@ class tmm_structure:
                     output['profile'] = data
 
 
-                    for i1, l in enumerate(layers):
+                    for l in layers:
 
                         if coherency_list[l] == 'c':
                             fn_l = tmm.inc_find_absorp_analytic_fn(l, out)

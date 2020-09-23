@@ -60,7 +60,7 @@ class BulkLayer:
 
 class Interface:
 
-    def __init__(self, method, layers=[], texture=None, prof_layers=None, coherent=True,  **kwargs):
+    def __init__(self, method, layers=None, texture=None, prof_layers=None, coherent=True,  **kwargs):
         """ Layer class constructor.
 
         """
@@ -78,7 +78,7 @@ class Interface:
 
         if layers is not None:
             for i, element in enumerate(layers):
-                if type(element) == Layer:
+                if isinstance(element, Layer):
                     cum_width = cum_width + element.width*1e6
                     self.materials.append(element.material)
                 #self.n_depths.append(element.n_depths)
@@ -101,7 +101,7 @@ class Texture:
 
 class RTgroup:
 
-    def __init__(self, textures, materials=[], widths=[], depth_spacing=1):
+    def __init__(self, textures, materials=None, widths=None, depth_spacing=1):
         self.materials = materials
         self.textures = textures
         self.widths = widths

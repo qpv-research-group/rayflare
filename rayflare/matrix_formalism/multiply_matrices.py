@@ -24,10 +24,10 @@ def calculate_RAT(SC, options):
     calc_prof_list = []
 
     for i1, struct in enumerate(SC):
-        if type(struct) == BulkLayer:
+        if isinstance(struct, BulkLayer):
             bulk_mats.append(struct.material)
             bulk_widths.append(struct.width)
-        if type(struct) == Interface:
+        if isinstance(struct, Interface):
             layer_names.append(struct.name)
 
             n_layers.append(len(struct.layers))
@@ -152,8 +152,7 @@ def bulk_profile(x, ths):
     return np.exp(-x/ths)
 
 
-def matrix_multiplication(bulk_mats, bulk_thick, options,
-                          layer_widths=[], n_layers=[], layer_names=[], calc_prof_list=[]):
+def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list):
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 

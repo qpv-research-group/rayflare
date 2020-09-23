@@ -17,7 +17,7 @@ from warnings import warn
 
 
 def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
-       n_absorbing_layers=0, calc_profile=None, only_incidence_angle=False, widths=[], save=True):
+       n_absorbing_layers=0, calc_profile=None, only_incidence_angle=False, widths=None, save=True):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
 
@@ -251,7 +251,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         r = abs((h + 1) / cos(theta))
         r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
         for c, vals in enumerate(product(xs, ys)):
-            I, th_o, phi_o, surface_A = \
+            _, th_o, phi_o, surface_A = \
                 single_ray_interface(vals[0], vals[1], nks[:, i1],
                            r_a_0, theta, phi, surfaces, pol, wl, Fr_or_TMM, lookuptable)
 
