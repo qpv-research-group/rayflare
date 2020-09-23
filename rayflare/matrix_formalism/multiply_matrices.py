@@ -184,7 +184,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     Af = []
     Pf = []
     If = []
-    side = 1
 
     for i1 in range(n_interfaces):
         mat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontRT.npz')
@@ -226,8 +225,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     Ab = []
     Pb = []
     Ib = []
-    paramsb = []
-    side = -1
 
     for i1 in range(n_interfaces-1):
         mat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearRT.npz')

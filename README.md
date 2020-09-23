@@ -7,15 +7,16 @@
 Open-source, integrated optical modelling of complex stacks
 
 *Package requirements:*
-  - setuptools
-  - numpy
-  - matplotlib
-  - solcore
-  - xarray
-  - sparse
-  - joblib
-  - seaborn (for plotting in examples, not required otherwise)
-  - S4 (to use RCWA functionality, not required otherwise)
+
+- setuptools
+- numpy
+- matplotlib
+- solcore
+- xarray
+- sparse
+- joblib
+- seaborn (for plotting in examples, not required otherwise)
+- S4 (to use RCWA functionality, not required otherwise)
 
 The aim of RayFlare is to provide a flexible, user-friendly Python environment to model complex optical stacks, with a focus on solar cells. 
 

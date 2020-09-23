@@ -1,5 +1,4 @@
 import numpy as np
-import numpy.matlib
 import os
 from scipy.spatial import Delaunay
 from cmath import sin, cos, sqrt, acos, atan
@@ -11,7 +10,6 @@ from rayflare.angles import fold_phi, make_angle_vector
 from sparse import COO, save_npz, load_npz, stack
 from rayflare.config import results_path
 from joblib import Parallel, delayed
-from time import time
 from copy import deepcopy
 from warnings import warn
 
@@ -422,7 +420,7 @@ class rt_structure:
         theta = options['theta_in']
         phi = options['phi_in']
         I_thresh = options['I_thresh']
-    
+
         widths = self.widths
         widths.insert(0, 0)
         widths.append(0)
@@ -593,8 +591,8 @@ def normalize(x):
 
 def overall_bin(x, phi_intv, angle_vector_0):
     phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
-    bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
-    return bin
+    ov_bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
+    return ov_bin
 
 def make_profiles_wl(unique_thetas, n_a_in, side, widths,
                      angle_distmat, wl, lookuptable, pol, depth_spacing, prof_layers):
@@ -1023,7 +1021,6 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
     d0 = d
     intersect = True
     checked_translation = False
-    side_0 = side
     #print('d0', d)
     # [top, right, bottom, left]
     translation = np.array([[0, -Ly, 0], [-Lx, 0, 0], [0, Ly, 0], [Lx, 0, 0]])
