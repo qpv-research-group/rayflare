@@ -37,7 +37,7 @@ def calculate_RAT(SC, options):
 
 
     results = matrix_multiplication(bulk_mats, bulk_widths, options,
-                                                               layer_widths, n_layers, layer_names, calc_prof_list)
+                                                               layer_widths, n_layers)
 
     return results
 
