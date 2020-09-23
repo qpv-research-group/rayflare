@@ -55,8 +55,6 @@ cur_path = os.path.dirname(os.path.abspath(__file__))
 # create_new_material('Si_UVtoMIR', os.path.join(cur_path, 'data/Si_IR_recon_n.txt'), os.path.join(cur_path, 'data/Si_IR_recon_k.txt'))
 # create_new_material('Ag_Jiang', os.path.join(cur_path, 'data/Ag_UNSW_n.txt'), os.path.join(cur_path, 'data/Ag_UNSW_k.txt'))
 
-
-
 # matrix multiplication
 wavelengths = np.linspace(np.log(300), np.log(16*1000), 104)
 wavelengths = np.round(np.floor(np.exp(wavelengths))*1e-9, 12)
@@ -153,12 +151,16 @@ from scipy.ndimage.filters import gaussian_filter1d
 #
 # bulk_A_text= ysmoothed[:,4]
 
+emissivity = np.loadtxt('data/emissivity.csv', delimiter=',')
+noITO_emissivity = np.loadtxt('data/emissivity_noITO.csv', delimiter=',')
+
 # plot total R, A, T
 fig = plt.figure(figsize=(5,4))
 ax = plt.subplot(111)
-ax.semilogx(options['wavelengths']*1e6, R_escape + R_0, '-k', label=r'$R_{total}$')
-ax.semilogx(options['wavelengths']*1e6, R_0, '--k', label=r'$R_0$')
+ax.semilogx(options['wavelengths']*1e6, R_escape + R_0, '--k', label=r'$R_{total}$')
+ax.semilogx(options['wavelengths']*1e6, R_0, '-.k', label=r'$R_0$')
 ax.stackplot(options['wavelengths']*1e6, allres, labels=['Ag', 'Back ITO', 'a-Si (back)', 'Bulk Si', 'a-Si (front)', 'Front ITO'])
+ax.semilogx(emissivity[:,0], emissivity[:,1], '-k')
 ax.set_xlabel(r'Wavelength ($\mu$m)')
 ax.set_ylabel('Absorption/Emissivity')
 ax.set_xlim(min(options['wavelengths']*1e6), max(options['wavelengths']*1e6))
