@@ -3,20 +3,19 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7ff9180e5f7a460192440895d823ff15)](https://www.codacy.com/gh/qpv-research-group/rayflare?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=qpv-research-group/rayflare&amp;utm_campaign=Badge_Grade)
 [![Documentation Status](https://readthedocs.org/projects/rayflare/badge/?version=latest)](https://rayflare.readthedocs.io/en/latest/?badge=latest)
 
-
 # rayflare
 Open-source, integrated optical modelling of complex stacks
 
 *Package requirements:*
-- setuptools
-- numpy
-- matplotlib
-- solcore
-- xarray
-- sparse
-- joblib
-- seaborn (for plotting in examples, not required otherwise)
-- S4 (to use RCWA functionality, not required otherwise)
+  - setuptools
+  - numpy
+  - matplotlib
+  - solcore
+  - xarray
+  - sparse
+  - joblib
+  - seaborn (for plotting in examples, not required otherwise)
+  - S4 (to use RCWA functionality, not required otherwise)
 
 The aim of RayFlare is to provide a flexible, user-friendly Python environment to model complex optical stacks, with a focus on solar cells. 
 
@@ -50,6 +49,5 @@ make boost
 
 make S4_pyext
 ```
-
 
 ![poster](poster.png "RayFlare poster")

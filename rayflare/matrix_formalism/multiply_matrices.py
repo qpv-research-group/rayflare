@@ -23,7 +23,7 @@ def calculate_RAT(SC, options):
     layer_names = []
     calc_prof_list = []
 
-    for i1, struct in enumerate(SC):
+    for struct in SC:
         if isinstance(struct, BulkLayer):
             bulk_mats.append(struct.material)
             bulk_widths.append(struct.width)
@@ -36,8 +36,7 @@ def calculate_RAT(SC, options):
 
 
 
-    results = matrix_multiplication(bulk_mats, bulk_widths, options,
-                                                               layer_widths, n_layers)
+    results = matrix_multiplication(bulk_mats, bulk_widths, options, layer_names, calc_prof_list)
 
     return results
 
@@ -62,14 +61,14 @@ def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym):
     v0 = np.zeros((num_wl, n_a_in))
     th_bin = np.digitize(th_in, theta_intv) - 1
     phi_intv = phi_intv[th_bin]
-    bin = np.argmin(abs(angle_vector[:,0] - th_bin))
+    ov_bin = np.argmin(abs(angle_vector[:,0] - th_bin))
     if phi_in == 'all':
         n_phis = len(phi_intv) - 1
-        v0[:, bin:(bin+n_phis)] = 1/n_phis
+        v0[:, ov_bin:(ov_bin+n_phis)] = 1/n_phis
     else:
         phi_ind = np.digitize(phi_in, phi_intv) -1
-        bin = bin + phi_ind
-        v0[:, bin] = 1
+        ov_bin = ov_bin + phi_ind
+        v0[:, ov_bin] = 1
     return v0
 
 
@@ -99,8 +98,8 @@ def out_to_in_matrix(phi_sym, angle_vector, theta_intv, phi_intv):
 
 def overall_bin(x, phi_intv, angle_vector_0):
     phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
-    bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
-    return bin
+    ov_bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
+    return ov_bin
 
 
 
