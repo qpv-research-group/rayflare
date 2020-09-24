@@ -48,7 +48,6 @@ if "update_manifest" in sys.argv:
 with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
-
 install_requires = [
     "matplotlib",
     "scipy",

@@ -1,19 +1,23 @@
 import numpy as np
 import os
-# solcore imports
+
 from solcore.structure import Layer
 from solcore import material
 from solcore.light_source import LightSource
 from solcore.constants import q
 
-from textures.standard_rt_textures import regular_pyramids
-from structure import Interface, BulkLayer, Structure
-from matrix_formalism.multiply_matrices import calculate_RAT
-from matrix_formalism import process_structure
-from solcore.material_system import create_new_material
-from options import default_options
+from rayflare.textures import regular_pyramids
+from rayflare.structure import Interface, BulkLayer, Structure
+from rayflare.matrix_formalism import calculate_RAT
+from rayflare.matrix_formalism import process_structure
+from rayflare.options import default_options
+from rayflare.angles import theta_summary, make_angle_vector
+from rayflare.config import results_path
+
+from sparse import load_npz
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
 
 from cycler import cycler
@@ -49,24 +53,15 @@ plt.rcParams.update(params)
 #matplotlib.rc('font', **font)
 
 # matrix multiplication
-wavelengths = np.linspace(300, 1200, 150)*1e-9
+wavelengths = np.linspace(300, 1200, 50)*1e-9
 
-options = default_options
-options.nm_spacing = 0.5
+options = default_options()
 options.wavelengths = wavelengths
-options.project_name = 'Perovskite_Si_1e6_shifted'
-options.n_rays = 500000
-options.n_theta_bins = 50
-options.phi_symmetry = np.pi/4
-options.I_thresh = 1e-4
-options.lookuptable_angles = 200
-options.parallel = True
-options.only_incidence_angle = True
-options.random_ray_position = False
-options.random_angles = False
-options.nx = 21
-options.ny = 21
-options.c_azimuth = 0.25
+options.project_name = 'perovskite_Si_example'
+options.n_rays = 24000
+options.n_theta_bins = 30
+options.nx = 10
+options.ny = 10
 
 Si = material('Si')()
 Air = material('Air')()
@@ -109,7 +104,6 @@ back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name
                       coherent=True)
 
 
-
 bulk_Si = BulkLayer(260e-6, Si, name = 'Si_bulk') # bulk thickness in m
 
 SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
@@ -120,7 +114,6 @@ results = calculate_RAT(SC, options)
 
 RAT = results[0]
 results_per_pass = results[1]
-
 
 
 R_per_pass = np.sum(results_per_pass['r'][0], 2)
@@ -205,7 +198,7 @@ fig.savefig('perovskite_Si_A_R_per_pass.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 
 
-if len(front_surf.prof_layers) > 0:
+if front_surf.prof_layers is not None:
     profile = results[2]
     bpf = results[3]  # bulk profule
     layer_widths = []
@@ -238,12 +231,7 @@ if len(front_surf.prof_layers) > 0:
 
     plt.show()
 
-from angles import theta_summary, make_angle_vector
-from config import results_path
-from sparse import load_npz
-import xarray as xr
 
-import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
@@ -279,15 +267,7 @@ whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coor
 
 whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
 
-#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
 
-#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
-
-
-
-
-
-import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
@@ -295,17 +275,7 @@ fig = plt.figure(figsize=(10,3.5))
 ax = fig.add_subplot(1,2,1, aspect='equal')
 ax.text(-0.15, 1, 'a)')
 ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
-#ax = plt.subplot(212)
-#fig.savefig('perovskite_Si_frontsurf_rearR.pdf', bbox_inches='tight', format='pdf')
-#ax = Tth.plot.imshow(ax=ax)
 
-#plt.show()
-
-
-## transmission
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[:options['n_theta_bins']]
 
 whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
 
@@ -315,15 +285,8 @@ whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coor
 
 whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
 
-#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
-
-#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
 
 
-
-
-
-import matplotlib as mpl
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)

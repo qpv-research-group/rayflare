@@ -60,7 +60,7 @@ class BulkLayer:
 
 class Interface:
 
-    def __init__(self, method, layers=[], texture=None, prof_layers=[], coherent=True,  **kwargs):
+    def __init__(self, method, layers=[], texture=None, prof_layers=None, coherent=True,  **kwargs):
         """ Layer class constructor.
 
         """

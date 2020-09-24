@@ -91,7 +91,7 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
 
         shapes_names = [str(x) for x in shape_mats]
 
-        #nm_spacing = options['nm_spacing']
+        #depth_spacing = options['depth_spacing']
         phi_sym = options['phi_symmetry']
         n_theta_bins = options['n_theta_bins']
         c_az = options['c_azimuth']
@@ -607,7 +607,7 @@ class rcwa_structure:
 
         shapes_names = [str(x) for x in shape_mats]
 
-        # nm_spacing = options['nm_spacing']
+        # depth_spacing = options['depth_spacing']
 
 
         # RCWA options

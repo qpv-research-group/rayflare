@@ -86,7 +86,7 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
         for i1, side in enumerate(sides):
             R_loop = np.empty((len(wavelengths), n_angles))
             T_loop = np.empty((len(wavelengths), n_angles))
-            Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers),dtype=np.complex_)
+            Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
             if profile:
                 Aprof_loop = np.empty((n_angles, 6, len(prof_layers), len(wavelengths)))
 
@@ -96,12 +96,12 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
 
                     tmm_struct =  tmm_structure(optstacks[i1], coherent=coherent, coherency_list=coherency_lists[i1])
                     #print(side, pol, theta)
-                    res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, nm_spacing=1e5)
+                    res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, depth_spacing=1e5)
                     R_loop[:, i3] = np.real(res['R'])
                     T_loop[:, i3] = np.real(res['T'])
-                    Alayer_loop[i3, :, :] = np.real(res['A_per_layer'].T)
+                    Alayer_loop[i3, :, :] = np.real(res['A_per_layer'])
                     if profile:
-                        Aprof_loop[i3, :, :, :] = res['profile_coeff']
+                        Aprof_loop[i3, :, :, :] = np.real(res['profile_coeff'])
 
                 # sometimes get very small negative values (like -1e-20)
                 R_loop[R_loop<0] = 0

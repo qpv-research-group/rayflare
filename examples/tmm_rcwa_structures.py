@@ -1,13 +1,15 @@
 import numpy as np
 from solcore import si, material
 from solcore.structure import Layer
-from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
-from rayflare.transfer_matrix_method import tmm_structure
-from solcore.solar_cell import SolarCell
-import matplotlib.pyplot as plt
 from solcore.constants import q, h, c
 from solcore.interpolate import interp1d
-from cycler import cycler
+from solcore.solar_cell import SolarCell
+
+from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+from rayflare.transfer_matrix_method import tmm_structure
+from rayflare.options import default_options
+
+import matplotlib.pyplot as plt
 
 InGaP = material('GaInP')(In=0.5)
 GaAs = material('GaAs')()
@@ -17,35 +19,15 @@ Air = material('Air')()
 
 Al2O3 = material('Al2O3')()
 
-
-# anti-reflection coating
-
 wavelengths = np.linspace(250, 1900, 500) * 1e-9
 
-RCWA_wl = wavelengths
+options = default_options()
 
-options = {'pol': 's',
-           'wavelengths': RCWA_wl,
-           'parallel': True,
-           'n_jobs': -1,
-           'theta_in': 0,
-           'phi_in': 0,
-           'A_per_order': False}
-
-ropt = dict(LatticeTruncation='Circular',
-            DiscretizedEpsilon=True,
-            DiscretizationResolution=4,
-            PolarizationDecomposition=False,
-            PolarizationBasis='Default',
-            LanczosSmoothing=True,
-            SubpixelSmoothing=True,
-            ConserveMemory=False,
-            WeismannFormulation=True)
-
-options['rcwa_options'] = ropt
+options.wavelengths = wavelengths
 
 size = ((100, 0), (0, 100))
 
+# anti-reflection coating
 ARC = [Layer(si('80nm'), Al2O3)]
 
 solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
@@ -55,7 +37,7 @@ solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
 rcwa_setup = rcwa_structure(solar_cell, size, 2, options, Air, Ag)
 tmm_setup = tmm_structure(solar_cell, coherent=True)
 
-spect = np.loadtxt('AM0.csv', delimiter=',')
+spect = np.loadtxt('data/AM0.csv', delimiter=',')
 
 AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths * 1e9)
 
@@ -75,8 +57,8 @@ for pol in ['s', 'p', 'u']:
                                                     wavelengths*1e9, axis=0)/1e9
 
         print('Pol: ' + options['pol'] + ', Angle: ' + str(options['theta_in']) + ' deg \n' +
-        'TMM currents: ' + str(Jsc_TMM[1:]) + '\n' +
-        'RCWA currents: ' + str(Jsc_RCWA[1:]) + '\n')
+        'TMM currents: ' + str(np.round(Jsc_TMM[1:], 3)) + '\n' +
+        'RCWA currents: ' + str(np.round(Jsc_RCWA[1:], 3)) + '\n')
 
 
         plt.figure()
