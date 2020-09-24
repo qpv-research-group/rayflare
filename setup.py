@@ -30,7 +30,7 @@ if "update_manifest" in sys.argv:
     include = "rayflare"
     exclude = ["__pycache__", "egg", "darwin", "cpython"]
     with open("MANIFEST.in", "w", encoding="utf-8") as f:
-        for root, dir, files in os.walk("."):
+        for root, dirs, files in os.walk("."):
             if not any(sub in root for sub in exclude) and root[2:9] == include:
                 try:
                     files.remove(".DS_Store")

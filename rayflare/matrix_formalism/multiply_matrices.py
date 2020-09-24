@@ -324,7 +324,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                 #remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
-                nz_thetas = vf_1[i1] != 0
+                # nz_thetas = vf_1[i1] != 0
 
                 vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface. incoming -> up
 

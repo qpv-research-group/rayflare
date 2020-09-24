@@ -1,4 +1,4 @@
-from pytest import mark, approx
+from pytest import approx
 import numpy as np
 
 def test_tmm_structure():
@@ -13,18 +13,15 @@ def test_tmm_structure():
 
 
 def test_tmm_structure_abs():
-    import numpy as np
     from solcore import si, material
     from solcore.structure import Layer
     from rayflare.transfer_matrix_method import tmm_structure
     from solcore.solar_cell import SolarCell
-    from solcore.constants import q, h, c
 
     InGaP = material('GaInP')(In=0.5)
     GaAs = material('GaAs')()
     Ge = material('Ge')()
     Ag = material('Ag')()
-    Air = material('Air')()
 
     Al2O3 = material('Al2O3')()
 

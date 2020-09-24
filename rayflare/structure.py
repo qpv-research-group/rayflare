@@ -77,7 +77,7 @@ class Interface:
         cum_width = 0
 
         if layers is not None:
-            for i, element in enumerate(layers):
+            for element in layers:
                 if isinstance(element, Layer):
                     cum_width = cum_width + element.width*1e6
                     self.materials.append(element.material)

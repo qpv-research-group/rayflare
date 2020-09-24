@@ -396,8 +396,8 @@ class rt_structure:
         self.widths = widths
 
         mats = [incidence]
-        for i1 in range(len(materials)):
-            mats.append(materials[i1])
+        for mati in materials:
+            mats.append(mati)
         mats.append(transmission)
 
         self.mats = mats
@@ -553,7 +553,7 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
     phis = np.zeros(n_reps * nx * ny)
     n_passes = np.zeros(n_reps * nx * ny)
     n_interactions = np.zeros(n_reps * nx * ny)
-    absorption_profiles = np.zeros(len(z_pos))
+    # absorption_profiles = np.zeros(len(z_pos))
     A_layer = np.zeros(len(widths))
     Is = np.zeros(n_reps*nx*ny)
 

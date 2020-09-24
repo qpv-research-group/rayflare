@@ -7,7 +7,7 @@ from solcore.absorption_calculator import OptiStack
 
 
 def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
-                         coherent=True, coherency_list=None, prof_layers=None, sides=[1,-1]):
+                         coherent=True, coherency_list=None, prof_layers=None, sides=None):
     """
     Takes a layer stack and calculates and stores lookup tables for use with the ray-tracer.
 
@@ -28,6 +28,9 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
     :return: xarray Dataset with the R, A, T and (if relevant) absorption profile coefficients for each \
     wavelength, angle, polarization, side of incidence.
     """
+
+    if sides is None:
+        sides = [1, -1]
 
     structpath = os.path.join(results_path, options['project_name'])
     if not os.path.isdir(structpath):
