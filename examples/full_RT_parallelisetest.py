@@ -1,6 +1,6 @@
 from rayflare.ray_tracing.rt import rt_structure
-from time import time
 from rayflare.textures import regular_pyramids, planar_surface
+from rayflare.options import default_options
 from solcore import material
 from solcore import si
 import numpy as np
@@ -21,32 +21,32 @@ Ge = material('Ge')()
 
 
 flat_surf = planar_surface()
-triangle_surf = regular_pyramids(10)
+triangle_surf = regular_pyramids(30)
 
-#options = {'wavelengths': np.linspace(700, 1700, 100)*1e-9, 'theta': 45*np.pi/180, 'phi': 0,
-#           'I_thresh': 1e-4, 'nx': 5, 'ny': 5,
-#           'parallel': True, 'pol': 'p', 'n_rays': 2000, 'depth_spacing': 1, 'n_jobs': -1}
-options = {'wavelengths': np.linspace(700, 1700, 7)*1e-9, 'theta': 45*np.pi/180, 'phi': 0,
-           'I_thresh': 1e-4, 'nx': 5, 'ny': 5,
-           'parallel': True, 'pol': 'p', 'n_rays': 2000, 'depth_spacing': si('1um'), 'n_jobs': -1}
-#structure = RTgroup(textures=[flat_surf, flat_surf, flat_surf, flat_surf], materials = [GaAs, Si, Ge],
-#                    widths=[si('100um'), si('70um'), si('50um')], depth_spacing=1)
+options = default_options()
 
-rtstr = rt_structure(textures=[flat_surf, flat_surf, flat_surf, flat_surf],
+options.wavelengths = np.linspace(700, 1800, 7)*1e-9
+options.theta_in = 45*np.pi/180
+options.nx = 5
+options.ny = 5
+options.pol = 'p'
+options.n_rays = 2000
+options.depth_spacing = 1e-6
+
+
+rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                     materials = [GaAs, Si, Ge],
                     widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)
-start = time()
 result_new = rtstr.calculate(options)
-print(time()-start)
 result = result_new
 
 plt.figure()
 plt.plot(options['wavelengths']*1e9, result['R'])
 plt.plot(options['wavelengths']*1e9, result['T'])
 plt.plot(options['wavelengths']*1e9, result['A_per_layer'])
-#plt.ylim(0,1)
 plt.plot(options['wavelengths']*1e9, result['R']+result['T']+np.sum(result['A_per_layer'],1), 'g')
-plt.legend(['R', 'T', 'L1', 'L2', 'L3'])
+plt.plot(options['wavelengths']*1e9, result['R0'], '--')
+plt.legend(['R', 'T', 'L1', 'L2', 'L3', 'tot', 'R0'])
 plt.show()
 
 plt.figure()
@@ -54,30 +54,23 @@ plt.plot(result['profile'].T)
 plt.show()
 
 
+options.parallel = False
 
-
-options = {'wavelengths': np.linspace(700, 1700, 7)*1e-9, 'theta': 45*np.pi/180, 'phi': 0,
-           'I_thresh': 1e-4, 'nx': 5, 'ny': 5,
-           'parallel': False, 'pol': 'p', 'n_rays': 2000, 'depth_spacing': si('1um'), 'n_jobs': -1}
-#structure = RTgroup(textures=[flat_surf, flat_surf, flat_surf, flat_surf], materials = [GaAs, Si, Ge],
-#                    widths=[si('100um'), si('70um'), si('50um')], depth_spacing=1)
 
 rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                     materials = [GaAs, Si, Ge],
                     widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)
 
-start = time()
 result_old = rtstr.calculate(options)
-print(time()-start)
 result = result_old
 
 plt.figure()
 plt.plot(options['wavelengths']*1e9, result['R'])
 plt.plot(options['wavelengths']*1e9, result['T'])
 plt.plot(options['wavelengths']*1e9, result['A_per_layer'])
-#plt.ylim(0,1)
 plt.plot(options['wavelengths']*1e9, result['R']+result['T']+np.sum(result['A_per_layer'],1), 'g')
-plt.legend(['R', 'T', 'L1', 'L2', 'L3'])
+plt.plot(options['wavelengths']*1e9, result['R0'])
+plt.legend(['R', 'T', 'L1', 'L2', 'L3', 'tot', 'R0'])
 plt.show()
 
 plt.figure()
@@ -93,13 +86,13 @@ stack = [Layer(si('100um'), GaAs), Layer(si('70um'), Si), Layer(si('50um'), Ge)]
 strt = tmm_structure(stack, coherent=False, coherency_list=['i', 'i', 'i'],
                      no_back_reflection=False)
 
-output = strt.calculate(options['wavelengths']*1e9, angle=options['theta'], pol=options['pol'],
-                        profile=True, nm_spacing=1000, layers=[1,2,3])
+output = strt.calculate(options['wavelengths']*1e9, angle=options['theta_in'], pol=options['pol'],
+                        profile=True, depth_spacing=1000, layers=[1,2,3])
 
 plt.figure()
 plt.plot(options['wavelengths']*1e9, output['R'])
 plt.plot(options['wavelengths']*1e9, output['T'])
-plt.plot(options['wavelengths']*1e9, output['A_per_layer'].T)
+plt.plot(options['wavelengths']*1e9, output['A_per_layer'])
 plt.legend(['R', 'T', 'L1', 'L2', 'L3'])
 plt.ylim(0,1)
 plt.show()
