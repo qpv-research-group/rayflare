@@ -480,7 +480,7 @@ class rt_structure:
         thetas = np.zeros((n_reps*nx*ny, len(wavelengths)))
         phis = np.zeros((n_reps*nx*ny, len(wavelengths)))
         n_passes = np.zeros((n_reps*nx*ny, len(wavelengths)))
-
+        n_interactions = np.zeros((n_reps * nx * ny, len(wavelengths)))
         Is = np.zeros((n_reps*nx*ny, len(wavelengths)))
     
         pol = options['pol']
@@ -499,17 +499,32 @@ class rt_structure:
                                                                                           surfaces, widths, z_pos, I_thresh, pol, randomize)
                         absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
                         thetas[c+offset, i1] = th_o
+                        Is[c + offset, i1] = I
                         phis[c+offset, i1] = phi_o
                         A_layer[i1] = A_layer[i1] + A_per_layer/(n_reps*nx*ny)
                         n_passes[c+offset, i1] = n_pass
+                        n_interactions[c + offset, i1] = n_interact
                         if th_o is not None:
                             if np.real(th_o) < np.pi/2:
                                 R[i1] = np.real(R[i1] + I/(n_reps*nx*ny))
                             else:
                                 T[i1] = np.real(T[i1] + I/(n_reps*nx*ny))
 
-            return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles/1e3,
-                    'thetas': thetas, 'phis': phis, 'n_passes': n_passes}
+
+            thetas = thetas.T
+            phis = phis.T
+            n_passes = n_passes.T
+            n_interactions = n_interactions.T
+            Is = Is.T
+
+            non_abs = ~np.isnan(thetas)
+            refl_0 = non_abs * np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
+            R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
+            R0 = np.sum(R0, 0)
+            # return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles/1e3,
+            #         'thetas': thetas, 'phis': phis, 'n_passes': n_passes}
+            return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles / 1e3,
+                    'thetas': thetas, 'phis': phis, 'R0': R0, 'n_passes': n_passes, 'n_interactions': n_interactions}
 
 
         else:
@@ -518,7 +533,7 @@ class rt_structure:
                                                                   surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize) for
                                         i1 in range(len(wavelengths)))
 
-            I = np.stack(item[0] for item in allres)
+            Is = np.stack(item[0] for item in allres)
             absorption_profiles = np.stack([item[1] for item in allres])
             A_layer = np.stack([item[2] for item in allres])
             thetas = np.stack([item[3] for item in allres])
@@ -526,20 +541,18 @@ class rt_structure:
             n_passes = np.stack([item[5] for item in allres])
             n_interactions = np.stack([item[6] for item in allres])
 
-
-
             non_abs = ~np.isnan(thetas)
 
             refl = np.logical_and(non_abs, np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
             trns = np.logical_and(non_abs, np.greater(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
 
-            R = np.real(I * refl).T / (n_reps*nx * ny)
-            T = np.real(I * trns).T / (n_reps*nx * ny)
+            R = np.real(Is * refl).T / (n_reps*nx * ny)
+            T = np.real(Is * trns).T / (n_reps*nx * ny)
             R = np.sum(R, 0)
             T = np.sum(T, 0)
 
             refl_0 = non_abs * np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
-            R0 = np.real(I * refl_0).T / (n_reps * nx * ny)
+            R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
             R0 = np.sum(R0, 0)
 
             return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles/1e3,
