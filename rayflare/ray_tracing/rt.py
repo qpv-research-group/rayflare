@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.matlib
 import os
 from scipy.spatial import Delaunay
 from cmath import sin, cos, sqrt, acos, atan
@@ -144,8 +145,9 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         else:
             mats = [transmission]
 
-        for i1 in range(len(group.materials)):
-            mats.append(group.materials[i1])
+        if group.materials is not None:
+            for mat_i in group.materials:
+                mats.append(mat_i)
 
         if front_or_rear == 'front':
             mats.append(transmission)
