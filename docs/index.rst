@@ -16,6 +16,7 @@
    TMM/tmm
    RCWA/rcwa
    Examples/examples.rst
+   Options/user_options.rst
 
 
 

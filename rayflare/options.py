@@ -2,6 +2,9 @@ from rayflare.state import State
 import numpy as np
 
 class default_options(State):
+    """
+    When initialized, this class creates an instance of a State() object with the default values of the user options.
+    """
     def __init__(self):
         self.wavelengths = np.linspace(300, 1800, 300)*1e-9
         self.phi_in = 0
@@ -36,6 +39,7 @@ class default_options(State):
         self.avoid_edges = False
         self.randomize_surface = False
         self.random_ray_angles = False
+        self.n_rays = 10000
         
         # TMM options
         self.lookuptable_angles = 300
