@@ -2,7 +2,7 @@ from pytest import approx, mark
 import numpy as np
 import sys
 
-# @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_planar_structure():
 
     # solcore imports
