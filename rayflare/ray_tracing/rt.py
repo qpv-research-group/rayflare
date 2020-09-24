@@ -13,6 +13,7 @@ from rayflare.config import results_path
 from joblib import Parallel, delayed
 from copy import deepcopy
 from warnings import warn
+from numba import jit
 
 
 def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
@@ -1044,9 +1045,11 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
     while intersect:
         i1 = i1+1
         with np.errstate(divide='ignore', invalid='ignore'): # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
+
             result = check_intersect(r_a, d, tri)
+
         #print('results', result)
-        if result == False and not checked_translation:
+        if result[0] is None and not checked_translation:
             if i1 > 1:
 
                 which_side, tt = exit_side(r_a, d, Lx, Ly)
@@ -1075,7 +1078,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
                     o_p = np.real(atan2(d[1], d[0]))
                     return 0, o_t, o_p, r_a, d, 0, n_interactions
 
-        elif result == False and checked_translation:
+        elif result[0] is None and checked_translation:
 
             #print(tri.z_min)
             #print(tri.z_max)
@@ -1190,32 +1193,42 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
 
 
 def check_intersect(r_a, d, tri):
-
+    D = np.matlib.repmat(np.transpose([-d]), 1, tri.size).T
     # all the stuff which is only surface-dependent (and not dependent on incoming direction) is
     # in the surface object tri.
-    D = np.matlib.repmat(np.transpose([-d]), 1, tri.size).T
-    pref = 1 / np.sum(D * tri.crossP, axis=1)
-    corner = r_a - tri.P_0s
-    t = pref * np.sum(tri.crossP * corner, axis=1)
-    u = pref * np.sum(np.cross(tri.P_2s - tri.P_0s, D) * corner, axis=1)
-    v = pref * np.sum(np.cross(D, tri.P_1s - tri.P_0s) * corner, axis=1)
+
+    t, u, v = tuv(D, tri.crossP, r_a, tri.P_0s, tri.P_1s, tri.P_2s)
 
     which_intersect = (u + v <= 1) & (np.all(np.vstack((u, v)) >= -1e-10, axis=0)) & (t > 0)
     # get errors if set exactly to zero.
-    if sum(which_intersect) > 0:
+    return pick_intersect(which_intersect, t, tri.P_0s, tri.P_1s, tri.P_2s, r_a, d)
+
+
+@jit(nopython=True)
+def tuv(D, tri_crossP, r_a, tri_P_0s, tri_P_1s, tri_P_2s):
+    pref = 1 / np.sum(D * tri_crossP, axis=1)
+    corner = r_a - tri_P_0s
+    t = pref * np.sum(tri_crossP * corner, axis=1)
+    u = pref * np.sum(np.cross(tri_P_2s - tri_P_0s, D) * corner, axis=1)
+    v = pref * np.sum(np.cross(D, tri_P_1s - tri_P_0s) * corner, axis=1)
+    return t, u, v
+
+@jit(nopython=True)
+def pick_intersect(which_intersect, t, tri_P_0s, tri_P_1s, tri_P_2s, r_a, d):
+    if np.sum(which_intersect) > 0:
 
         t = t[which_intersect]
-        P0 = tri.P_0s[which_intersect]
-        P1 = tri.P_1s[which_intersect]
-        P2 = tri.P_2s[which_intersect]
+        P0 = tri_P_0s[which_intersect]
+        P1 = tri_P_1s[which_intersect]
+        P2 = tri_P_2s[which_intersect]
         ind = np.argmin(t)
-        t = min(t)
+        t = np.min(t)
 
         intersn = r_a + t * d
         N = np.cross(P1[ind] - P0[ind], P2[ind] - P0[ind])
-        N = N / np.linalg.norm(N)
-
-        theta = atan(np.linalg.norm(np.cross(N, -d))/np.dot(N, -d))  # in radians, angle relative to plane
-        return [intersn, theta, N]
+        N = N / np.sqrt(np.sum(N**2))
+        cr = np.cross(N, -d)
+        theta = atan(np.sqrt(np.sum(cr**2))/np.dot(N, -d))  # in radians, angle relative to plane
+        return intersn, theta, N
     else:
-        return False
+        return None, None, None

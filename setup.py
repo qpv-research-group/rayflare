@@ -56,7 +56,8 @@ install_requires = [
     "xarray",
     "sparse",
     "joblib",
-    "seaborn"
+    "seaborn",
+    "numba"
 ]
 
 
