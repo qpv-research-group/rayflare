@@ -1,4 +1,4 @@
-from pytest import mark, approx
+from pytest import approx
 import numpy as np
 
 def test_tmm_structure():
@@ -24,7 +24,6 @@ def test_tmm_structure_abs():
     GaAs = material('GaAs')()
     Ge = material('Ge')()
     Ag = material('Ag')()
-    Air = material('Air')()
 
     Al2O3 = material('Al2O3')()
 
