@@ -49,7 +49,7 @@ def test_RAT():
                 ConserveMemory=False,
                 WeismannFormulation=True)
 
-    options['rcwa_options'] = ropt
+    options['S4_options'] = ropt
 
 
     SiN = material('Si3N4')()
