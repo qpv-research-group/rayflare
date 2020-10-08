@@ -7,6 +7,8 @@
 # rayflare
 Open-source, integrated optical modelling of complex stacks
 
+You can view RayFlare's documentation [here](https://rayflare.readthedocs.io/en/latest/).
+
 *Package requirements:*
 - setuptools
 - numpy
