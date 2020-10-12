@@ -718,7 +718,7 @@ class rcwa_structure:
                 vs_pol(int(self.options['pol'] == "s"), int(self.options['pol'] == "p"))
 
         if layer_index > 0:
-            depth = np.cumsum([0] + plot_obj.widths[1:-1] + [0])[layer_index - 1] + depth
+            depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
 
         if extent is None:
             xdim = np.max(abs(np.array(self.size)[:, 0]))
@@ -736,8 +736,8 @@ class rcwa_structure:
         Ny = len(ys)
 
         inds = np.meshgrid(np.arange(0, Nx), np.arange(0, Ny), indexing='ij')
-        ind_0 = inds[0].flatten()
-        ind_1 = inds[1].flatten()
+        ind_0 = inds[0].flatten().astype(int)
+        ind_1 = inds[1].flatten().astype(int)
 
         E = np.zeros((Nx, Ny, 3), dtype='complex')
         H = np.zeros((Nx, Ny, 3), dtype='complex')
@@ -806,8 +806,8 @@ class rcwa_structure:
         Ny = len(ys)
 
         inds = np.meshgrid(np.arange(0, Nx), np.arange(0, Ny), indexing='ij')
-        ind_0 = inds[0].flatten()
-        ind_1 = inds[1].flatten()
+        ind_0 = inds[0].flatten().astype(int)
+        ind_1 = inds[1].flatten().astype(int)
 
         E = np.zeros((Nx, Ny, 3), dtype='complex')
         H = np.zeros((Nx, Ny, 3), dtype='complex')
