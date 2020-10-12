@@ -663,20 +663,31 @@ class rcwa_structure:
         Get the Fourier-decomposed epsilon scanning across x-y points for some layer in the structure for the number
         of order specified in the options for the structure. Can also plot this automatically.
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                        on the unit cell size by default
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
-        :return:
+        :return: xs, ys, a_r, a_i. The x points, y points, and the real and imaginary parts of the dielectric function.
         """
 
-        xdim = np.max(abs(np.array(self.size)[:, 0]))
-        ydim = np.max(abs(np.array(self.size)[:, 1]))
-        xs = np.linspace(-1.5*xdim, 1.5*xdim, n_points)
-        ys = np.linspace(-1.5*ydim, 1.5*ydim, n_points)
+        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+
+        if extent is None:
+            xdim = np.max(abs(np.array(self.size)[:, 0]))
+            ydim = np.max(abs(np.array(self.size)[:, 1]))
+            xs = np.linspace(-1.5 * xdim, 1.5 * xdim, n_points)
+            ys = np.linspace(-1.5 * ydim, 1.5 * ydim, n_points)
+
+        else:
+            xs = np.linspace(extent[0][0], extent[0][1], n_points)
+            ys = np.linspace(extent[1][0], extent[1][1], n_points)
+
         xys = np.meshgrid(xs, ys, indexing='ij')
 
         a_r = np.zeros(len(xs) * len(ys))
         a_i = np.zeros(len(xs) * len(ys))
-        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names,
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind], self.shapes_oc[wl_ind], self.shapes_names,
                          self.widths, self.S4_options)
 
         if layer_index > 0:
@@ -696,29 +707,35 @@ class rcwa_structure:
         a_i = a_i.reshape((len(xs), len(ys)))
 
         if plot:
-            plt.figure()
-            ax1 = plt.subplot(121)
-            ax1.pcolor(xs, ys, a_r.T)
-            ax1.set_aspect(aspect=1)
+            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
+            im1 = axs[0].pcolormesh(xs, ys, a_r.T, cmap='magma')
+            fig.colorbar(im1, ax=axs[0])
+            axs[0].set_xlabel('x (nm)')
+            axs[0].set_ylabel('y (nm)')
+            axs[0].set_aspect(aspect=1)
 
-            ax2 = plt.subplot(122)
-            ax2.pcolor(xs, ys, a_i.T)
-            ax2.set_aspect(aspect=1)
+            im2 = axs[1].pcolormesh(xs, ys, a_i.T, cmap='magma')
+            fig.colorbar(im2, ax=axs[1])
+            axs[1].set_xlabel('x (nm)')
+            axs[1].set_ylabel('y (nm)')
+            axs[1].set_aspect(aspect=1)
             plt.show()
-
         return xs, ys, a_r, a_i
 
     def get_fields(self, layer_index, wavelength, pol='s', extent=None, depth=1e-10, n_points=200, plot=True):
         """
-
-        :param layer_index:
-        :param wavelength:
-        :param pol:
-        :param extent:
-        :param depth:
-        :param n_points:
-        :param plot:
-        :return:
+        Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
+        automatically. Uses the S4 function GetFields().
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param pol: polarization of the incident light, 's', 'p' or a tuple
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                        on the unit cell size by default
+        :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
+        :param n_points: number of points to scan across in the x and y directions
+        :param plot: plot the results (True or False, default True)
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the complex (x, y, z) components of the E field, the complex (x, y, z) components of the H field,
+                    the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
 
         def vs_pol(s, p):
@@ -772,8 +789,8 @@ class rcwa_structure:
             E[ind_0[x_i], ind_1[y_i]] = calc[0]
             H[ind_0[x_i], ind_1[y_i]]  = calc[1]
 
-        E_mag = np.abs(np.sqrt(np.sum(E ** 2, 2)))
-        H_mag = np.abs(np.sqrt(np.sum(H ** 2, 2)))
+        E_mag = np.sqrt(np.abs(np.sum(E ** 2, 2)))
+        H_mag = np.sqrt(np.abs(np.sum(H ** 2, 2)))
 
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
@@ -790,18 +807,23 @@ class rcwa_structure:
             axs[1].set_aspect(aspect=1)
             plt.show()
 
-        return E, H, E_mag, H_mag
+        return xs, ys, E, H, E_mag, H_mag
 
     def get_fields_z_integral(self, layer_index, wavelength, pol='s', extent=None, n_points=200, plot=True):
         """
-
-        :param layer_index:
-        :param wavelength:
-        :param pol:
-        :param extent:
-        :param n_points:
-        :param plot:
-        :return:
+        Get the magnitude of the E and H fields integrated over z in a layer, over a range of x/y points. Can also plot results
+        automatically.
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param pol: polarization of the incident light, 's', 'p' or a tuple
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                        on the unit cell size by default
+        :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
+        :param n_points: number of points to scan across in the x and y directions
+        :param plot: plot the results (True or False, default True)
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the (x, y, z) amplitudes squared of the E-field (|Ex|^2 etc.),
+                    the (x, y, z) amplitudes squared of the H-field (|Ex|^2 etc.)
+                    the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
 
         def vs_pol(s, p):
@@ -889,7 +911,7 @@ class rcwa_structure:
 
         #print(self.options['theta_in'], self.options['pol'])
         if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_structure_wl)
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_structure_wl)
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
@@ -898,7 +920,7 @@ class rcwa_structure:
 
         else:
             allres = [
-                self.RCWA_structure_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                RCWA_structure_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
                                                          self.orders, self.options['A_per_order'], self.S4_options)
@@ -970,7 +992,7 @@ class rcwa_structure:
 
 
         if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl_prof)
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_wl_prof)
                                                              (self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
                                                               dist,
                                                               self.geom_list,
@@ -983,7 +1005,7 @@ class rcwa_structure:
 
         else:
             allres = [
-                self.RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
+                RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
                                                               dist,
                                                               self.geom_list,
                                                               self.layers_oc[i1], self.shapes_oc[i1],
@@ -998,7 +1020,7 @@ class rcwa_structure:
         return output
 
 
-def RCWA_structure_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
+def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
 
     def vs_pol(s, p):
@@ -1044,7 +1066,7 @@ def RCWA_structure_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, t
     return results
 
 
-def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
+def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
 
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
     profile_data = np.zeros(len(dist))
