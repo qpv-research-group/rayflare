@@ -77,8 +77,8 @@ IZO = material('IZO')()
 C60 = material('C60')()
 
 # materials with constant n, zero k
-Spiro = [12e-9, np.array([0,1]), np.array([1.65, 1.65]), np.array([0,0])]
-SnO2 = [10e-9, np.array([0,1]), np.array([2, 2]), np.array([0,0])]
+Spiro = [12, np.array([0,1]), np.array([1.65, 1.65]), np.array([0,0])]
+SnO2 = [10, np.array([0,1]), np.array([2, 2]), np.array([0,0])]
 
 # stack based on doi:10.1038/s41563-018-0115-4
 front_materials = [Layer(100e-9, MgF2), Layer(110e-9, IZO),
@@ -98,7 +98,7 @@ back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_
 surf = regular_pyramids(elevation_angle=55, upright=True)
 surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
-front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi',
+front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_widthcorr',
                        coherent=True)
 back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_2',
                       coherent=True)

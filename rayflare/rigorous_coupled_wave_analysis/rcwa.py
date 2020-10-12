@@ -1,8 +1,8 @@
 import numpy as np
 import tmm
 import xarray as xr
+import matplotlib.pyplot as plt
 from solcore.absorption_calculator import OptiStack
-from solcore import material
 from joblib import Parallel, delayed
 from rayflare.angles import make_angle_vector
 import os
@@ -425,7 +425,7 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
     #print(widths)
     S = S4.New(size, orders)
 
-    S.SetOptions(  # these are the default
+    S.SetOptions(
         LatticeTruncation = options['LatticeTruncation'],
         DiscretizedEpsilon = options['DiscretizedEpsilon'],
         DiscretizationResolution = options['DiscretizationResolution'],
@@ -464,9 +464,9 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
         geometry = geom_list[i1]
 
         if bool(geometry):
+
             for shape in geometry:
                 mat_name = 'shape_mat_' + str(shape_mats.index(str(shape['mat'])) + 1)
-                #print(str(shape['mat']), mat_name)
                 if shape['type'] == 'circle':
                     S.SetRegionCircle(layer_name, mat_name, shape['center'], shape['radius'])
                 elif shape['type'] == 'ellipse':
@@ -477,7 +477,7 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
                 elif shape['type'] == 'polygon':
                     S.SetRegionPolygon(layer_name, mat_name, shape['center'], shape['angle'], shape['vertices'])
 
-    # print(orders, len(S.GetBasisSet()))
+
 
     return S
 
@@ -488,7 +488,7 @@ def necessary_materials(geom_list):
     for i1, geom in enumerate(geom_list):
         if bool(geom):
             shape_mats.append([x['mat'] for x in geom])
-            geom_list_str[i1] = [{}] * len(geom)
+            geom_list_str[i1] =[{} for _ in range(len(geom))]
             for i2, g in enumerate(geom):
                 for item in g.keys():
                     if item != 'mat':
@@ -652,6 +652,194 @@ class rcwa_structure:
         self.size = size
         self.layers_oc = layers_oc
 
+    def save_layer_postscript(self, layer_index, filename):
+        # layer_index: layer 0 is the incidence medium
+        S = initialise_S(self.size, 1, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
+        S.OutputLayerPatternPostscript(Layer='layer_' + str(layer_index + 1), Filename=filename + '.ps')
+
+
+    def get_fourier_epsilon(self, layer_index, n_points=200, plot=True):
+
+        xdim = np.max(abs(np.array(self.size)[:, 0]))
+        ydim = np.max(abs(np.array(self.size)[:, 1]))
+        xs = np.linspace(-1.5*xdim, 1.5*xdim, n_points)
+        ys = np.linspace(-1.5*ydim, 1.5*ydim, n_points)
+        xys = np.meshgrid(xs, ys, indexing='ij')
+
+        a_r = np.zeros(len(xs) * len(ys))
+        a_i = np.zeros(len(xs) * len(ys))
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names,
+                         self.widths, self.S4_options)
+
+        depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index-1] + 1e-10
+
+
+        for i, (xi, yi) in enumerate(zip(xys[0].flatten(), xys[1].flatten())):
+            calc = S.GetEpsilon(xi, yi, depth)
+            a_r[i] = np.real(calc)
+            a_i[i] = np.imag(calc)
+
+        a_r = a_r.reshape((len(xs), len(ys)))
+        a_i = a_i.reshape((len(xs), len(ys)))
+
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.figure()
+            ax1 = plt.subplot(121)
+            ax1.pcolor(xs, ys, a_r.T)
+            ax1.set_aspect(aspect=1)
+
+            ax2 = plt.subplot(122)
+            ax2.pcolor(xs, ys, a_i.T)
+            ax2.set_aspect(aspect=1)
+            plt.show()
+
+        return xs, ys, a_r, a_i
+
+    def get_fields(self, layer_index, wavelength, extent=None, depth=1e-10, n_points=200, plot=True):
+
+        def vs_pol(s, p):
+            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetFrequency(1 / wavelength)
+
+        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind],
+                         self.shapes_oc[wl_ind],
+                         self.shapes_names,
+                         self.widths, self.S4_options)
+
+        if len(self.options['pol']) == 2:
+
+            vs_pol(self.options['pol'][0], self.options['pol'][1])
+
+        else:
+            if self.options['pol'] in 'sp':
+                vs_pol(int(self.options['pol'] == "s"), int(self.options['pol'] == "p"))
+
+        if layer_index > 0:
+            depth = np.cumsum([0] + plot_obj.widths[1:-1] + [0])[layer_index - 1] + depth
+
+        if extent is None:
+            xdim = np.max(abs(np.array(self.size)[:, 0]))
+            ydim = np.max(abs(np.array(self.size)[:, 1]))
+            xs = np.linspace(-1.5 * xdim, 1.5 * xdim, n_points)
+            ys = np.linspace(-1.5 * ydim, 1.5 * ydim, n_points)
+
+        else:
+            xs = np.linspace(extent[0][0], extent[0][1], n_points)
+            ys = np.linspace(extent[1][0], extent[1][1], n_points)
+
+        xys = np.meshgrid(xs, ys, indexing='ij')
+
+        Nx = len(xs)
+        Ny = len(ys)
+
+        inds = np.meshgrid(np.arange(0, Nx), np.arange(0, Ny), indexing='ij')
+        ind_0 = inds[0].flatten()
+        ind_1 = inds[1].flatten()
+
+        E = np.zeros((Nx, Ny, 3), dtype='complex')
+        H = np.zeros((Nx, Ny, 3), dtype='complex')
+
+        total_points = len(xys[0].flatten())
+
+        for x_i, y_i in zip(range(0, total_points), range(0, total_points)):
+            calc = S.GetFields(xys[0].flatten()[x_i], xys[1].flatten()[y_i], depth)
+            E[ind_0[x_i], ind_1[y_i]] = calc[0]
+            H[ind_0[x_i], ind_1[y_i]]  = calc[1]
+
+        E_mag = np.abs(np.sqrt(np.sum(E ** 2, 2)))
+        H_mag = np.abs(np.sqrt(np.sum(H ** 2, 2)))
+
+        if plot:
+            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
+            im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
+            fig.colorbar(im1, ax=axs[0])
+            axs[0].set_xlabel('x (nm)')
+            axs[0].set_ylabel('y (nm)')
+            axs[0].set_aspect(aspect=1)
+
+            im2 = axs[1].pcolormesh(xs, ys, H_mag.T, cmap='magma')
+            fig.colorbar(im2, ax=axs[1])
+            axs[1].set_xlabel('x (nm)')
+            axs[1].set_ylabel('y (nm)')
+            axs[1].set_aspect(aspect=1)
+            plt.show()
+
+        return E, H, E_mag, H_mag
+
+    def get_fields_z_integral(self, layer_index, wavelength, extent=None, n_points=200, plot=True):
+
+        def vs_pol(s, p):
+            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetFrequency(1 / wavelength)
+
+        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind],
+                         self.shapes_oc[wl_ind],
+                         self.shapes_names,
+                         self.widths, self.S4_options)
+
+        if len(self.options['pol']) == 2:
+
+            vs_pol(self.options['pol'][0], self.options['pol'][1])
+
+        else:
+            if self.options['pol'] in 'sp':
+                vs_pol(int(self.options['pol'] == "s"), int(self.options['pol'] == "p"))
+
+        if extent is None:
+            xdim = np.max(abs(np.array(self.size)[:, 0]))
+            ydim = np.max(abs(np.array(self.size)[:, 1]))
+            xs = np.linspace(-1.5 * xdim, 1.5 * xdim, n_points)
+            ys = np.linspace(-1.5 * ydim, 1.5 * ydim, n_points)
+
+        else:
+            xs = np.linspace(extent[0][0], extent[0][1], n_points)
+            ys = np.linspace(extent[1][0], extent[1][1], n_points)
+
+        xys = np.meshgrid(xs, ys, indexing='ij')
+
+        Nx = len(xs)
+        Ny = len(ys)
+
+        inds = np.meshgrid(np.arange(0, Nx), np.arange(0, Ny), indexing='ij')
+        ind_0 = inds[0].flatten()
+        ind_1 = inds[1].flatten()
+
+        E = np.zeros((Nx, Ny, 3), dtype='complex')
+        H = np.zeros((Nx, Ny, 3), dtype='complex')
+
+        total_points = len(xys[0].flatten())
+
+        for x_i, y_i in zip(range(0, total_points), range(0, total_points)):
+            calc = S.GetLayerZIntegral(Layer='layer_' + str(layer_index),
+                                       xy=(xys[0].flatten()[x_i], xys[1].flatten()[y_i]))
+            E[ind_0[x_i], ind_1[y_i]] = calc[0]
+            H[ind_0[x_i], ind_1[y_i]]  = calc[1]
+
+        E_mag = np.sqrt(np.sum(E, 2))
+        H_mag = np.sqrt(np.sum(H, 2))
+
+        if plot:
+            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
+            im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
+            fig.colorbar(im1, ax=axs[0])
+            axs[0].set_xlabel('x (nm)')
+            axs[0].set_ylabel('y (nm)')
+            axs[0].set_aspect(aspect=1)
+
+            im2 = axs[1].pcolormesh(xs, ys, H_mag.T, cmap='magma')
+            fig.colorbar(im2, ax=axs[1])
+            axs[1].set_xlabel('x (nm)')
+            axs[1].set_ylabel('y (nm)')
+            axs[1].set_aspect(aspect=1)
+            plt.show()
+
+        return E, H, E_mag, H_mag
+
     def set_widths(self, new_widths):
         new_widths = np.append(np.insert(np.array(new_widths, dtype='f'), 0, np.inf), np.inf).tolist()
         self.widths = new_widths
@@ -668,7 +856,7 @@ class rcwa_structure:
 
         #print(self.options['theta_in'], self.options['pol'])
         if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl)
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_structure_wl)
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
@@ -677,7 +865,7 @@ class rcwa_structure:
 
         else:
             allres = [
-                self.RCWA_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                self.RCWA_structure_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
                                                          self.orders, self.options['A_per_order'], self.S4_options)
@@ -777,7 +965,7 @@ class rcwa_structure:
         return output
 
 
-    def RCWA_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
+    def RCWA_structure_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
                 A_per_order, S4_options):
 
         def vs_pol(s, p):
@@ -794,6 +982,7 @@ class rcwa_structure:
                 return R, T, A_layer
 
         S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+
 
 
         if len(pol) == 2:
@@ -824,7 +1013,6 @@ class rcwa_structure:
 
 
     def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
-#widths = stack_OS.get_widths()
         S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
         profile_data = np.zeros(len(dist))
 
@@ -886,3 +1074,5 @@ def overall_bin(x, phi_intv, angle_vector_0):
     phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
     bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
     return bin
+
+
