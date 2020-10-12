@@ -696,7 +696,6 @@ class rcwa_structure:
         a_i = a_i.reshape((len(xs), len(ys)))
 
         if plot:
-            import matplotlib.pyplot as plt
             plt.figure()
             ax1 = plt.subplot(121)
             ax1.pcolor(xs, ys, a_r.T)
@@ -999,64 +998,86 @@ class rcwa_structure:
         return output
 
 
-    def RCWA_structure_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
-                A_per_order, S4_options):
+def RCWA_structure_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
+            A_per_order, S4_options):
 
-        def vs_pol(s, p):
-            S.SetExcitationPlanewave((theta, phi), s, p, 0)
-            S.SetFrequency(1 / wl)
-            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
-            R = out['R']
-            T = out['T']
-            A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
-            if A_per_order:
-                A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
-                return R, T, A_layer, A_per_layer_order
-            else:
-                return R, T, A_layer
+    def vs_pol(s, p):
+        S.SetExcitationPlanewave((theta, phi), s, p, 0)
+        S.SetFrequency(1 / wl)
+        out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
+        R = out['R']
+        T = out['T']
+        A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
+        if A_per_order:
+            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
+            return R, T, A_layer, A_per_layer_order
+        else:
+            return R, T, A_layer
 
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+    S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
 
 
-        if len(pol) == 2:
+    if len(pol) == 2:
 
-            results = vs_pol(pol[0], pol[1])
+        results = vs_pol(pol[0], pol[1])
+
+    else:
+        if pol in 'sp':
+            results = vs_pol(int(pol == "s"), int(pol == "p"))
 
         else:
-            if pol in 'sp':
-                results = vs_pol(int(pol == "s"), int(pol == "p"))
+
+            res_s = vs_pol(1, 0)
+            res_p = vs_pol(0, 1)
+            R = (res_s[0] + res_p[0]) / 2
+            T = (res_s[1] + res_p[1]) / 2
+            A_layer = (res_s[2] + res_p[2]) / 2
+
+            if A_per_order:
+                A_per_layer_order = (res_s[3] + res_p[3]) / 2
+                results = R, T, A_layer, A_per_layer_order
 
             else:
-
-                res_s = vs_pol(1, 0)
-                res_p = vs_pol(0, 1)
-                R = (res_s[0] + res_p[0]) / 2
-                T = (res_s[1] + res_p[1]) / 2
-                A_layer = (res_s[2] + res_p[2]) / 2
-
-                if A_per_order:
-                    A_per_layer_order = (res_s[3] + res_p[3]) / 2
-                    results = R, T, A_layer, A_per_layer_order
-
-                else:
-                    results = R, T, A_layer
+                results = R, T, A_layer
 
 
-        return results
+    return results
 
 
-    def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
+def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
 
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
-        profile_data = np.zeros(len(dist))
+    S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+    profile_data = np.zeros(len(dist))
 
 
-        A = rat_output_A
+    A = rat_output_A
 
-        if len(pol) == 2:
+    if len(pol) == 2:
 
-            S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
+        S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
+        S.SetFrequency(1 / wl)
+        for j, d in enumerate(dist):
+            layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                               d)  # don't need to change this
+            layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+            profile_data[j] = data
+
+
+    else:
+        if pol in 'sp':
+            if pol == 's':
+                s = 1
+                p = 0
+            elif pol == 'p':
+                s = 0
+                p = 1
+
+            S.SetExcitationPlanewave((theta, phi), s, p, 0)
+
+
             S.SetFrequency(1 / wl)
+
             for j, d in enumerate(dist):
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
@@ -1064,45 +1085,23 @@ class rcwa_structure:
                 data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
                 profile_data[j] = data
 
-
         else:
-            if pol in 'sp':
-                if pol == 's':
-                    s = 1
-                    p = 0
-                elif pol == 'p':
-                    s = 0
-                    p = 1
-
-                S.SetExcitationPlanewave((theta, phi), s, p, 0)
 
 
-                S.SetFrequency(1 / wl)
+            S.SetFrequency(1 / wl)
+            A = rat_output_A
 
-                for j, d in enumerate(dist):
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
-                                                                       d)  # don't need to change this
-                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                    data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                    profile_data[j] = data
+            for j, d in enumerate(dist):
+                layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                   d)  # don't need to change this
+                layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                profile_data[j] = 0.5*(data_s + data_p)
 
-            else:
-
-
-                S.SetFrequency(1 / wl)
-                A = rat_output_A
-
-                for j, d in enumerate(dist):
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
-                                                                       d)  # don't need to change this
-                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                    S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                    data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                    S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                    data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                    profile_data[j] = 0.5*(data_s + data_p)
-
-        return profile_data
+    return profile_data
 
 def overall_bin(x, phi_intv, angle_vector_0):
     phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
