@@ -1,5 +1,4 @@
 import numpy as np
-from solcore.material_system import create_new_material
 import os
 
 from solcore.structure import Layer
@@ -19,6 +18,7 @@ import seaborn as sns
 
 from cycler import cycler
 
+# from solcore.material_system import create_new_material
 # Si_recon = np.loadtxt('data/Si_n15_FZ_Green_recon.csv', delimiter=',')
 #
 # Si_n = np.stack((Si_recon[:,0]/1e6, Si_recon[:,1])).T
