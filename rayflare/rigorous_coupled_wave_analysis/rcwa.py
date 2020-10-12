@@ -96,7 +96,7 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
         pol = options['pol']
 
         # RCWA options
-        rcwa_options = dict(LatticeTruncation='Circular',
+        S4_options = dict(LatticeTruncation='Circular',
                             DiscretizedEpsilon=False,
                             DiscretizationResolution=8,
                             PolarizationDecomposition=False,
@@ -106,9 +106,9 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
                             ConserveMemory=False,
                             WeismannFormulation=False)
 
-        user_options = options['rcwa_options'] if 'rcwa_options' in options.keys() else {}
-        rcwa_options.update(user_options)
-        print(rcwa_options)
+        user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
+        S4_options.update(user_options)
+        print(S4_options)
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
@@ -138,13 +138,13 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
                                                         (wavelengths[i1]*1e9, geom_list_str, layers_oc[i1], shapes_oc[i1], shapes_names,
                                                          pol, thetas_in, phis_in, widths, size,
                                                          orders, phi_sym, theta_intv, phi_intv,
-                                                         angle_vector_0, rcwa_options, detail_layer, side)
+                                                         angle_vector_0, S4_options, detail_layer, side)
                                                         for i1 in range(len(wavelengths)))
 
         else:
             allres = [RCWA_wl(wavelengths[i1]*1e9, geom_list_str, layers_oc[i1], shapes_oc[i1], shapes_names,
                               pol, thetas_in, phis_in, widths, size, orders, phi_sym, theta_intv, phi_intv,
-                              angle_vector_0, rcwa_options, detail_layer, side)
+                              angle_vector_0, S4_options, detail_layer, side)
                       for i1 in range(len(wavelengths))]
 
         #R = np.stack([item[0] for item in allres])
@@ -175,9 +175,9 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
 
 
 def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym,
-            theta_intv, phi_intv, angle_vector_0, rcwa_options, layer_details = False, side=1):
+            theta_intv, phi_intv, angle_vector_0, S4_options, layer_details = False, side=1):
 
-    S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, rcwa_options)
+    S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, S4_options)
 
     n_inc = np.real(np.sqrt(l_oc[0]))
 
@@ -609,7 +609,7 @@ class rcwa_structure:
 
 
         # RCWA options
-        rcwa_options = dict(LatticeTruncation='Circular',
+        S4_options = dict(LatticeTruncation='Circular',
                             DiscretizedEpsilon=False,
                             DiscretizationResolution=8,
                             PolarizationDecomposition=False,
@@ -619,11 +619,11 @@ class rcwa_structure:
                             ConserveMemory=False,
                             WeismannFormulation=False)
 
-        user_options = options['rcwa_options'] if 'rcwa_options' in options.keys() else {}
-        rcwa_options.update(user_options)
+        user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
+        S4_options.update(user_options)
 
         self.wavelengths = wavelengths
-        self.rcwa_options = rcwa_options
+        self.S4_options = S4_options
         self.options = options
         self.geom_list = geom_list_str
         self.shapes_oc = shapes_oc
@@ -653,7 +653,7 @@ class rcwa_structure:
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
-                                                         self.orders, self.options['A_per_order'], self.rcwa_options)
+                                                         self.orders, self.options['A_per_order'], self.S4_options)
                                                         for i1 in range(len(self.wavelengths)))
 
         else:
@@ -661,7 +661,7 @@ class rcwa_structure:
                 self.RCWA_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
-                                                         self.orders, self.options['A_per_order'], self.rcwa_options)
+                                                         self.orders, self.options['A_per_order'], self.S4_options)
                 for i1 in range(len(self.wavelengths))]
 
         if self.options['A_per_order']:
@@ -673,7 +673,7 @@ class rcwa_structure:
             self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
 
             S_for_orders = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0],
-                             self.shapes_oc[0], self.shapes_names, self.widths, self.rcwa_options)
+                             self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
 
             basis_set = S_for_orders.GetBasisSet()
             f_mat = S_for_orders.GetReciprocalLattice()
@@ -738,7 +738,7 @@ class rcwa_structure:
                                                               self.shapes_names, self.options['pol'],
                                                               self.options['theta_in'], self.options['phi_in'],
                                                               self.widths, self.size,
-                                                              self.orders, self.rcwa_options)
+                                                              self.orders, self.S4_options)
                                                              for i1 in range(len(self.wavelengths)))
 
         else:
@@ -750,7 +750,7 @@ class rcwa_structure:
                                                               self.shapes_names, self.options['pol'],
                                                               self.options['theta_in'], self.options['phi_in'],
                                                               self.widths, self.size,
-                                                              self.orders, self.rcwa_options)
+                                                              self.orders, self.S4_options)
                 for i1 in range(len(self.wavelengths))]
 
         output = np.stack(allres)
@@ -759,7 +759,7 @@ class rcwa_structure:
 
 
     def RCWA_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
-                A_per_order, rcwa_options):
+                A_per_order, S4_options):
 
         def vs_pol(s, p):
             S.SetExcitationPlanewave((theta, phi), s, p, 0)
@@ -774,7 +774,7 @@ class rcwa_structure:
             else:
                 return R, T, A_layer
 
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, rcwa_options)
+        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
 
 
         if len(pol) == 2:
@@ -804,9 +804,9 @@ class rcwa_structure:
         return results
 
 
-    def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, rcwa_options):
+    def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
 #widths = stack_OS.get_widths()
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, rcwa_options)
+        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
         profile_data = np.zeros(len(dist))
 
 
