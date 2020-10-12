@@ -89,7 +89,6 @@ def group_diffraction_orders(size, basis_set, per_order=None):
             unique_power[:, ind] = unique_power[:, ind] + per_order[:, j1]
             indiv_powers[ind].append(per_order[0, j1])
 
-        print(indiv_powers)
         degen = [len(np.unique(np.round(x, 10))) for x in indiv_powers]
 
         return {'k_xy': unique_kxy[0], 'reps': unique_kxy[3], 'per_order': unique_power, 'degeneracy': degen}

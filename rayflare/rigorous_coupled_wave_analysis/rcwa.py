@@ -109,7 +109,6 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
 
         user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
         S4_options.update(user_options)
-        print(S4_options)
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
@@ -472,7 +471,6 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
                 elif shape['type'] == 'ellipse':
                     S.SetRegionEllipse(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'rectangle':
-                    #print('rect')
                     S.SetRegionRectangle(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'polygon':
                     S.SetRegionPolygon(layer_name, mat_name, shape['center'], shape['angle'], shape['vertices'])
