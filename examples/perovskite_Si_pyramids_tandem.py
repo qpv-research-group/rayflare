@@ -204,11 +204,8 @@ if front_surf.prof_layers is not None:
     layer_widths = []
 
     for i1, struct in enumerate(SC):
-        if type(struct) == Interface:
+        if isinstance(struct, Interface):
             layer_widths.append((np.array(struct.widths)*1e9).tolist())
-
-    #plt.show()
-    import seaborn as sns
 
     offset = np.cumsum([0]+layer_widths[0])
     prof_plot = profile[0]

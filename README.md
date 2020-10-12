@@ -3,13 +3,13 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/7ff9180e5f7a460192440895d823ff15)](https://www.codacy.com/gh/qpv-research-group/rayflare?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=qpv-research-group/rayflare&amp;utm_campaign=Badge_Grade)
 [![Documentation Status](https://readthedocs.org/projects/rayflare/badge/?version=latest)](https://rayflare.readthedocs.io/en/latest/?badge=latest)
 
-
 # rayflare
 Open-source, integrated optical modelling of complex stacks
 
 You can view RayFlare's documentation [here](https://rayflare.readthedocs.io/en/latest/).
 
 *Package requirements:*
+
 - setuptools
 - numpy
 - matplotlib
@@ -52,6 +52,5 @@ make boost
 
 make S4_pyext
 ```
-
 
 ![poster](poster.png "RayFlare poster")

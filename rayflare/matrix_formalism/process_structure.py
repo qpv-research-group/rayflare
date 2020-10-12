@@ -19,13 +19,13 @@ def process_structure(SC, options):
     layer_widths = []
 
     for i1, struct in enumerate(SC):
-        if type(struct) == BulkLayer:
+        if isinstance(struct, BulkLayer):
             layer_widths.append(struct.width*1e9) # convert m to nm
-        if type(struct) == Interface:
+        if isinstance(struct, Interface):
             layer_widths.append((np.array(struct.widths)*1e9).tolist()) # convert m to nm
 
     for i1, struct in enumerate(SC):
-        if type(struct) == Interface:
+        if isinstance(struct, Interface):
             # Check: is this an interface type which requires a lookup table?
             if struct.method == 'RT_TMM':
                 print('Making lookuptable for element ' + str(i1) + ' in structure')
@@ -52,7 +52,7 @@ def process_structure(SC, options):
 
 
     for i1, struct in enumerate(SC):
-        if type(struct) == Interface:
+        if isinstance(struct, Interface):
             # perfect mirror
 
             if struct.method == 'Mirror':
