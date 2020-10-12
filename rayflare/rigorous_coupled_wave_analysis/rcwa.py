@@ -1,6 +1,7 @@
 import numpy as np
 import tmm
 import xarray as xr
+import matplotlib.pyplot as plt
 from solcore.absorption_calculator import OptiStack
 from joblib import Parallel, delayed
 from rayflare.angles import make_angle_vector
@@ -108,7 +109,6 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
 
         user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
         S4_options.update(user_options)
-        print(S4_options)
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(n_theta_bins, phi_sym, c_az)
 
@@ -424,7 +424,7 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
     #print(widths)
     S = S4.New(size, orders)
 
-    S.SetOptions(  # these are the default
+    S.SetOptions(
         LatticeTruncation = options['LatticeTruncation'],
         DiscretizedEpsilon = options['DiscretizedEpsilon'],
         DiscretizationResolution = options['DiscretizationResolution'],
@@ -463,20 +463,19 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
         geometry = geom_list[i1]
 
         if bool(geometry):
+
             for shape in geometry:
                 mat_name = 'shape_mat_' + str(shape_mats.index(str(shape['mat'])) + 1)
-                #print(str(shape['mat']), mat_name)
                 if shape['type'] == 'circle':
                     S.SetRegionCircle(layer_name, mat_name, shape['center'], shape['radius'])
                 elif shape['type'] == 'ellipse':
                     S.SetRegionEllipse(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'rectangle':
-                    #print('rect')
                     S.SetRegionRectangle(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'polygon':
                     S.SetRegionPolygon(layer_name, mat_name, shape['center'], shape['angle'], shape['vertices'])
 
-    # print(orders, len(S.GetBasisSet()))
+
 
     return S
 
@@ -487,7 +486,7 @@ def necessary_materials(geom_list):
     for i1, geom in enumerate(geom_list):
         if bool(geom):
             shape_mats.append([x['mat'] for x in geom])
-            geom_list_str[i1] = [{}] * len(geom)
+            geom_list_str[i1] =[{} for _ in range(len(geom))]
             for i2, g in enumerate(geom):
                 for item in g.keys():
                     if item != 'mat':
@@ -579,9 +578,23 @@ class rcwa_structure:
         """
 
         wavelengths = options['wavelengths']
+        geom_list = []
+        list_for_OS = []
 
-        # write a separate function that makes the OptiStack structure into an S4 object, defined materials etc.
-        geom_list = [layer.geometry for layer in structure]
+        for i1, layer in enumerate(structure):
+            if isinstance(layer, list):
+                if len(layer) == 4:
+                    geom_list.append(layer[3])
+                    list_for_OS.append([layer[0], wavelengths, layer[1]*np.ones_like(wavelengths), layer[2]*np.ones_like(wavelengths)])
+
+                if len(layer) == 5:
+                    geom_list.append(layer[4])
+                    list_for_OS.append(layer[:4])
+
+            else:
+                geom_list.append(layer.geometry)
+                list_for_OS.append(layer)
+
         geom_list.insert(0, {})  # incidence medium
         geom_list.append({})  # transmission medium
 
@@ -591,22 +604,26 @@ class rcwa_structure:
         shapes_oc = np.zeros((len(wavelengths), len(shape_mats)), dtype=complex)
 
         for i1, x in enumerate(shape_mats):
-            shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
+            if isinstance(x, list):
+                if len(x) == 3:
+                    shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
 
-        stack_OS = OptiStack(structure, bo_back_reflection=False, substrate=substrate)
+                if len(x) == 4:
+                    shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
+
+            else:
+                shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
+
+        # prepare to pass to OptiStack.
+
+        stack_OS = OptiStack(list_for_OS, bo_back_reflection=False, substrate=substrate)
         widths = stack_OS.get_widths()
-        layers_oc = np.zeros((len(wavelengths), len(structure) + 2), dtype=complex)
 
-        layers_oc[:, 0] = (incidence.n(wavelengths)) ** 2  # + 1j*incidence.k(wavelengths))**2
-        layers_oc[:, -1] = (substrate.n(wavelengths) + 1j * substrate.k(wavelengths)) ** 2
-
-        for i1, x in enumerate(structure):
-            layers_oc[:, i1 + 1] = (x.material.n(wavelengths) + 1j * x.material.k(wavelengths)) ** 2
+        layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
 
         shapes_names = [str(x) for x in shape_mats]
 
         # depth_spacing = options['depth_spacing']
-
 
         # RCWA options
         S4_options = dict(LatticeTruncation='Circular',
@@ -633,6 +650,249 @@ class rcwa_structure:
         self.size = size
         self.layers_oc = layers_oc
 
+    def save_layer_postscript(self, layer_index, filename):
+        # layer_index: layer 0 is the incidence medium
+        S = initialise_S(self.size, 1, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
+        S.OutputLayerPatternPostscript(Layer='layer_' + str(layer_index + 1), Filename=filename + '.ps')
+
+
+    def get_fourier_epsilon(self, layer_index, wavelength, extent=None, n_points=200, plot=True):
+        """
+        Get the Fourier-decomposed epsilon scanning across x-y points for some layer in the structure for the number
+        of order specified in the options for the structure. Can also plot this automatically.
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                        on the unit cell size by default
+        :param n_points: number of points to scan across in the x and y directions
+        :param plot: plot the results (True or False, default True)
+        :return: xs, ys, a_r, a_i. The x points, y points, and the real and imaginary parts of the dielectric function.
+        """
+
+        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+
+        if extent is None:
+            xdim = np.max(abs(np.array(self.size)[:, 0]))
+            ydim = np.max(abs(np.array(self.size)[:, 1]))
+            xs = np.linspace(-1.5 * xdim, 1.5 * xdim, n_points)
+            ys = np.linspace(-1.5 * ydim, 1.5 * ydim, n_points)
+
+        else:
+            xs = np.linspace(extent[0][0], extent[0][1], n_points)
+            ys = np.linspace(extent[1][0], extent[1][1], n_points)
+
+        xys = np.meshgrid(xs, ys, indexing='ij')
+
+        a_r = np.zeros(len(xs) * len(ys))
+        a_i = np.zeros(len(xs) * len(ys))
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind], self.shapes_oc[wl_ind], self.shapes_names,
+                         self.widths, self.S4_options)
+
+        if layer_index > 0:
+            depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + 1e-10
+
+        else:
+            depth = -1
+
+
+
+        for i, (xi, yi) in enumerate(zip(xys[0].flatten(), xys[1].flatten())):
+            calc = S.GetEpsilon(xi, yi, depth)
+            a_r[i] = np.real(calc)
+            a_i[i] = np.imag(calc)
+
+        a_r = a_r.reshape((len(xs), len(ys)))
+        a_i = a_i.reshape((len(xs), len(ys)))
+
+        if plot:
+            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
+            im1 = axs[0].pcolormesh(xs, ys, a_r.T, cmap='magma')
+            fig.colorbar(im1, ax=axs[0])
+            axs[0].set_xlabel('x (nm)')
+            axs[0].set_ylabel('y (nm)')
+            axs[0].set_aspect(aspect=1)
+
+            im2 = axs[1].pcolormesh(xs, ys, a_i.T, cmap='magma')
+            fig.colorbar(im2, ax=axs[1])
+            axs[1].set_xlabel('x (nm)')
+            axs[1].set_ylabel('y (nm)')
+            axs[1].set_aspect(aspect=1)
+            plt.show()
+        return xs, ys, a_r, a_i
+
+    def get_fields(self, layer_index, wavelength, pol='s', extent=None, depth=1e-10, n_points=200, plot=True):
+        """
+        Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
+        automatically. Uses the S4 function GetFields().
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param pol: polarization of the incident light, 's', 'p' or a tuple
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                        on the unit cell size by default
+        :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
+        :param n_points: number of points to scan across in the x and y directions
+        :param plot: plot the results (True or False, default True)
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the complex (x, y, z) components of the E field, the complex (x, y, z) components of the H field,
+                    the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
+        """
+
+        def vs_pol(s, p):
+            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetFrequency(1 / wavelength)
+
+        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind],
+                         self.shapes_oc[wl_ind],
+                         self.shapes_names,
+                         self.widths, self.S4_options)
+
+        if len(pol) == 2:
+
+            vs_pol(pol[0], pol[1])
+
+        else:
+            if pol in 'sp':
+                vs_pol(int(pol == "s"), int(pol == "p"))
+
+        if layer_index > 0:
+            depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
+
+        if extent is None:
+            xdim = np.max(abs(np.array(self.size)[:, 0]))
+            ydim = np.max(abs(np.array(self.size)[:, 1]))
+            xs = np.linspace(-1.5 * xdim, 1.5 * xdim, n_points)
+            ys = np.linspace(-1.5 * ydim, 1.5 * ydim, n_points)
+
+        else:
+            xs = np.linspace(extent[0][0], extent[0][1], n_points)
+            ys = np.linspace(extent[1][0], extent[1][1], n_points)
+
+        xys = np.meshgrid(xs, ys, indexing='ij')
+
+        Nx = len(xs)
+        Ny = len(ys)
+
+        inds = np.meshgrid(np.arange(0, Nx), np.arange(0, Ny), indexing='ij')
+        ind_0 = inds[0].flatten().astype(int)
+        ind_1 = inds[1].flatten().astype(int)
+
+        E = np.zeros((Nx, Ny, 3), dtype='complex')
+        H = np.zeros((Nx, Ny, 3), dtype='complex')
+
+        total_points = len(xys[0].flatten())
+
+        for x_i, y_i in zip(range(0, total_points), range(0, total_points)):
+            calc = S.GetFields(xys[0].flatten()[x_i], xys[1].flatten()[y_i], depth)
+            E[ind_0[x_i], ind_1[y_i]] = calc[0]
+            H[ind_0[x_i], ind_1[y_i]]  = calc[1]
+
+        E_mag = np.sqrt(np.abs(np.sum(E ** 2, 2)))
+        H_mag = np.sqrt(np.abs(np.sum(H ** 2, 2)))
+
+        if plot:
+            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
+            im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
+            fig.colorbar(im1, ax=axs[0])
+            axs[0].set_xlabel('x (nm)')
+            axs[0].set_ylabel('y (nm)')
+            axs[0].set_aspect(aspect=1)
+
+            im2 = axs[1].pcolormesh(xs, ys, H_mag.T, cmap='magma')
+            fig.colorbar(im2, ax=axs[1])
+            axs[1].set_xlabel('x (nm)')
+            axs[1].set_ylabel('y (nm)')
+            axs[1].set_aspect(aspect=1)
+            plt.show()
+
+        return xs, ys, E, H, E_mag, H_mag
+
+    def get_fields_z_integral(self, layer_index, wavelength, pol='s', extent=None, n_points=200, plot=True):
+        """
+        Get the magnitude of the E and H fields integrated over z in a layer, over a range of x/y points. Can also plot results
+        automatically.
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param pol: polarization of the incident light, 's', 'p' or a tuple
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                        on the unit cell size by default
+        :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
+        :param n_points: number of points to scan across in the x and y directions
+        :param plot: plot the results (True or False, default True)
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the (x, y, z) amplitudes squared of the E-field (|Ex|^2 etc.),
+                    the (x, y, z) amplitudes squared of the H-field (|Ex|^2 etc.)
+                    the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
+        """
+
+        def vs_pol(s, p):
+            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetFrequency(1 / wavelength)
+
+        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+
+        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind],
+                         self.shapes_oc[wl_ind],
+                         self.shapes_names,
+                         self.widths, self.S4_options)
+
+        if len(pol) == 2:
+
+            vs_pol(pol[0], pol[1])
+
+        else:
+            if pol in 'sp':
+                vs_pol(int(pol == "s"), int(pol == "p"))
+
+        if extent is None:
+            xdim = np.max(abs(np.array(self.size)[:, 0]))
+            ydim = np.max(abs(np.array(self.size)[:, 1]))
+            xs = np.linspace(-1.5 * xdim, 1.5 * xdim, n_points)
+            ys = np.linspace(-1.5 * ydim, 1.5 * ydim, n_points)
+
+        else:
+            xs = np.linspace(extent[0][0], extent[0][1], n_points)
+            ys = np.linspace(extent[1][0], extent[1][1], n_points)
+
+        xys = np.meshgrid(xs, ys, indexing='ij')
+
+        Nx = len(xs)
+        Ny = len(ys)
+
+        inds = np.meshgrid(np.arange(0, Nx), np.arange(0, Ny), indexing='ij')
+        ind_0 = inds[0].flatten().astype(int)
+        ind_1 = inds[1].flatten().astype(int)
+
+        E = np.zeros((Nx, Ny, 3), dtype='complex')
+        H = np.zeros((Nx, Ny, 3), dtype='complex')
+
+        total_points = len(xys[0].flatten())
+
+        for x_i, y_i in zip(range(0, total_points), range(0, total_points)):
+            calc = S.GetLayerZIntegral(Layer='layer_' + str(layer_index),
+                                       xy=(xys[0].flatten()[x_i], xys[1].flatten()[y_i]))
+            E[ind_0[x_i], ind_1[y_i]] = calc[0]
+            H[ind_0[x_i], ind_1[y_i]]  = calc[1]
+
+        E_mag = np.real(np.sqrt(np.sum(E, 2)))
+        H_mag = np.real(np.sqrt(np.sum(H, 2)))
+
+        if plot:
+            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
+            im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
+            fig.colorbar(im1, ax=axs[0])
+            axs[0].set_xlabel('x (nm)')
+            axs[0].set_ylabel('y (nm)')
+            axs[0].set_aspect(aspect=1)
+
+            im2 = axs[1].pcolormesh(xs, ys, H_mag.T, cmap='magma')
+            fig.colorbar(im2, ax=axs[1])
+            axs[1].set_xlabel('x (nm)')
+            axs[1].set_ylabel('y (nm)')
+            axs[1].set_aspect(aspect=1)
+            plt.show()
+
+        return E, H, E_mag, H_mag
+
     def set_widths(self, new_widths):
         new_widths = np.append(np.insert(np.array(new_widths, dtype='f'), 0, np.inf), np.inf).tolist()
         self.widths = new_widths
@@ -649,7 +909,7 @@ class rcwa_structure:
 
         #print(self.options['theta_in'], self.options['pol'])
         if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl)
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_structure_wl)
                                                         (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
@@ -658,7 +918,7 @@ class rcwa_structure:
 
         else:
             allres = [
-                self.RCWA_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                RCWA_structure_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
                                                          self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
                                                          self.widths, self.size,
                                                          self.orders, self.options['A_per_order'], self.S4_options)
@@ -730,7 +990,7 @@ class rcwa_structure:
 
 
         if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(self.RCWA_wl_prof)
+            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_wl_prof)
                                                              (self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
                                                               dist,
                                                               self.geom_list,
@@ -743,7 +1003,7 @@ class rcwa_structure:
 
         else:
             allres = [
-                self.RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
+                RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
                                                               dist,
                                                               self.geom_list,
                                                               self.layers_oc[i1], self.shapes_oc[i1],
@@ -758,64 +1018,86 @@ class rcwa_structure:
         return output
 
 
-    def RCWA_wl(self, wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
-                A_per_order, S4_options):
+def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
+            A_per_order, S4_options):
 
-        def vs_pol(s, p):
-            S.SetExcitationPlanewave((theta, phi), s, p, 0)
-            S.SetFrequency(1 / wl)
-            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
-            R = out['R']
-            T = out['T']
-            A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
-            if A_per_order:
-                A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
-                return R, T, A_layer, A_per_layer_order
-            else:
-                return R, T, A_layer
+    def vs_pol(s, p):
+        S.SetExcitationPlanewave((theta, phi), s, p, 0)
+        S.SetFrequency(1 / wl)
+        out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
+        R = out['R']
+        T = out['T']
+        A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
+        if A_per_order:
+            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
+            return R, T, A_layer, A_per_layer_order
+        else:
+            return R, T, A_layer
 
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+    S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
 
 
-        if len(pol) == 2:
+    if len(pol) == 2:
 
-            results = vs_pol(pol[0], pol[1])
+        results = vs_pol(pol[0], pol[1])
+
+    else:
+        if pol in 'sp':
+            results = vs_pol(int(pol == "s"), int(pol == "p"))
 
         else:
-            if pol in 'sp':
-                results = vs_pol(int(pol == "s"), int(pol == "p"))
+
+            res_s = vs_pol(1, 0)
+            res_p = vs_pol(0, 1)
+            R = (res_s[0] + res_p[0]) / 2
+            T = (res_s[1] + res_p[1]) / 2
+            A_layer = (res_s[2] + res_p[2]) / 2
+
+            if A_per_order:
+                A_per_layer_order = (res_s[3] + res_p[3]) / 2
+                results = R, T, A_layer, A_per_layer_order
 
             else:
-
-                res_s = vs_pol(1, 0)
-                res_p = vs_pol(0, 1)
-                R = (res_s[0] + res_p[0]) / 2
-                T = (res_s[1] + res_p[1]) / 2
-                A_layer = (res_s[2] + res_p[2]) / 2
-
-                if A_per_order:
-                    A_per_layer_order = (res_s[3] + res_p[3]) / 2
-                    results = R, T, A_layer, A_per_layer_order
-
-                else:
-                    results = R, T, A_layer
+                results = R, T, A_layer
 
 
-        return results
+    return results
 
 
-    def RCWA_wl_prof(self, wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
-#widths = stack_OS.get_widths()
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
-        profile_data = np.zeros(len(dist))
+def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
+
+    S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+    profile_data = np.zeros(len(dist))
 
 
-        A = rat_output_A
+    A = rat_output_A
 
-        if len(pol) == 2:
+    if len(pol) == 2:
 
-            S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
+        S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
+        S.SetFrequency(1 / wl)
+        for j, d in enumerate(dist):
+            layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                               d)  # don't need to change this
+            layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+            profile_data[j] = data
+
+
+    else:
+        if pol in 'sp':
+            if pol == 's':
+                s = 1
+                p = 0
+            elif pol == 'p':
+                s = 0
+                p = 1
+
+            S.SetExcitationPlanewave((theta, phi), s, p, 0)
+
+
             S.SetFrequency(1 / wl)
+
             for j, d in enumerate(dist):
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
@@ -823,45 +1105,23 @@ class rcwa_structure:
                 data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
                 profile_data[j] = data
 
-
         else:
-            if pol in 'sp':
-                if pol == 's':
-                    s = 1
-                    p = 0
-                elif pol == 'p':
-                    s = 0
-                    p = 1
-
-                S.SetExcitationPlanewave((theta, phi), s, p, 0)
 
 
-                S.SetFrequency(1 / wl)
+            S.SetFrequency(1 / wl)
+            A = rat_output_A
 
-                for j, d in enumerate(dist):
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
-                                                                       d)  # don't need to change this
-                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                    data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                    profile_data[j] = data
+            for j, d in enumerate(dist):
+                layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                   d)  # don't need to change this
+                layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                profile_data[j] = 0.5*(data_s + data_p)
 
-            else:
-
-
-                S.SetFrequency(1 / wl)
-                A = rat_output_A
-
-                for j, d in enumerate(dist):
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
-                                                                       d)  # don't need to change this
-                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                    S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                    data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                    S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                    data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
-                    profile_data[j] = 0.5*(data_s + data_p)
-
-        return profile_data
+    return profile_data
 
 def overall_bin(x, phi_intv, angle_vector_0):
     phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
