@@ -658,7 +658,15 @@ class rcwa_structure:
         S.OutputLayerPatternPostscript(Layer='layer_' + str(layer_index + 1), Filename=filename + '.ps')
 
 
-    def get_fourier_epsilon(self, layer_index, n_points=200, plot=True):
+    def get_fourier_epsilon(self, layer_index, wavelength, extent=None, n_points=200, plot=True):
+        """
+        Get the Fourier-decomposed epsilon scanning across x-y points for some layer in the structure for the number
+        of order specified in the options for the structure. Can also plot this automatically.
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param n_points: number of points to scan across in the x and y directions
+        :param plot: plot the results (True or False, default True)
+        :return:
+        """
 
         xdim = np.max(abs(np.array(self.size)[:, 0]))
         ydim = np.max(abs(np.array(self.size)[:, 1]))
@@ -671,7 +679,12 @@ class rcwa_structure:
         S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names,
                          self.widths, self.S4_options)
 
-        depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index-1] + 1e-10
+        if layer_index > 0:
+            depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + 1e-10
+
+        else:
+            depth = -1
+
 
 
         for i, (xi, yi) in enumerate(zip(xys[0].flatten(), xys[1].flatten())):
@@ -696,7 +709,18 @@ class rcwa_structure:
 
         return xs, ys, a_r, a_i
 
-    def get_fields(self, layer_index, wavelength, extent=None, depth=1e-10, n_points=200, plot=True):
+    def get_fields(self, layer_index, wavelength, pol='s', extent=None, depth=1e-10, n_points=200, plot=True):
+        """
+
+        :param layer_index:
+        :param wavelength:
+        :param pol:
+        :param extent:
+        :param depth:
+        :param n_points:
+        :param plot:
+        :return:
+        """
 
         def vs_pol(s, p):
             S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
@@ -709,13 +733,13 @@ class rcwa_structure:
                          self.shapes_names,
                          self.widths, self.S4_options)
 
-        if len(self.options['pol']) == 2:
+        if len(pol) == 2:
 
-            vs_pol(self.options['pol'][0], self.options['pol'][1])
+            vs_pol(pol[0], pol[1])
 
         else:
-            if self.options['pol'] in 'sp':
-                vs_pol(int(self.options['pol'] == "s"), int(self.options['pol'] == "p"))
+            if pol in 'sp':
+                vs_pol(int(pol == "s"), int(pol == "p"))
 
         if layer_index > 0:
             depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
@@ -769,7 +793,17 @@ class rcwa_structure:
 
         return E, H, E_mag, H_mag
 
-    def get_fields_z_integral(self, layer_index, wavelength, extent=None, n_points=200, plot=True):
+    def get_fields_z_integral(self, layer_index, wavelength, pol='s', extent=None, n_points=200, plot=True):
+        """
+
+        :param layer_index:
+        :param wavelength:
+        :param pol:
+        :param extent:
+        :param n_points:
+        :param plot:
+        :return:
+        """
 
         def vs_pol(s, p):
             S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
@@ -782,13 +816,13 @@ class rcwa_structure:
                          self.shapes_names,
                          self.widths, self.S4_options)
 
-        if len(self.options['pol']) == 2:
+        if len(pol) == 2:
 
-            vs_pol(self.options['pol'][0], self.options['pol'][1])
+            vs_pol(pol[0], pol[1])
 
         else:
-            if self.options['pol'] in 'sp':
-                vs_pol(int(self.options['pol'] == "s"), int(self.options['pol'] == "p"))
+            if pol in 'sp':
+                vs_pol(int(pol == "s"), int(pol == "p"))
 
         if extent is None:
             xdim = np.max(abs(np.array(self.size)[:, 0]))
@@ -820,8 +854,8 @@ class rcwa_structure:
             E[ind_0[x_i], ind_1[y_i]] = calc[0]
             H[ind_0[x_i], ind_1[y_i]]  = calc[1]
 
-        E_mag = np.sqrt(np.sum(E, 2))
-        H_mag = np.sqrt(np.sum(H, 2))
+        E_mag = np.real(np.sqrt(np.sum(E, 2)))
+        H_mag = np.real(np.sqrt(np.sum(H, 2)))
 
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
