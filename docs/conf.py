@@ -52,6 +52,14 @@ html_static_path = ['_static']
 html_theme = 'insegel'
 html_logo = 'logo.svg'
 html_favicon = 'favicon.ico'
+html_sidebars = {
+    '**': [
+        'about.html',
+        'localtoc.html',
+        'relations.html',
+        'searchbox.html'
+    ]
+}
 
 autodoc_mock_imports = ["S4"]
 

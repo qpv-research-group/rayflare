@@ -1069,7 +1069,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
     profile_data = np.zeros(len(dist))
 
-
+    
     A = rat_output_A
 
     if len(pol) == 2:
