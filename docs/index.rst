@@ -9,7 +9,7 @@
    :maxdepth: 2
    :caption: Contents:
 
-   README
+   Installation/installation
    Theory/theory
    Matrix/matrix_method
    Ray_tracing/ray_tracing
@@ -19,11 +19,13 @@
    Options/user_options.rst
 
 
-
-
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+.. image:: poster.png
+    :align: center
