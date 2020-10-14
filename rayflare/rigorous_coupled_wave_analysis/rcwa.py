@@ -571,7 +571,6 @@ class rcwa_structure:
         :param structure: A solcore Structure object with layers and materials or a OptiStack object.
         :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
         :param orders: number of orders to retain in the RCWA calculations.
-
         :param substrate: semi-infinite transmission medium
 
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
@@ -660,12 +659,15 @@ class rcwa_structure:
         """
         Get the Fourier-decomposed epsilon scanning across x-y points for some layer in the structure for the number
         of order specified in the options for the structure. Can also plot this automatically.
+
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
-                        on the unit cell size by default
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
+        on the unit cell size by default
+
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
+
         :return: xs, ys, a_r, a_i. The x points, y points, and the real and imaginary parts of the dielectric function.
         """
 
@@ -724,14 +726,17 @@ class rcwa_structure:
         """
         Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
         automatically. Uses the S4 function GetFields().
+
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
         :param pol: polarization of the incident light, 's', 'p' or a tuple
-        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
-                        on the unit cell size by default
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
+        on the unit cell size by default
+
         :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
+
         :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the complex (x, y, z) components of the E field, the complex (x, y, z) components of the H field,
                     the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
@@ -811,17 +816,20 @@ class rcwa_structure:
         """
         Get the magnitude of the E and H fields integrated over z in a layer, over a range of x/y points. Can also plot results
         automatically.
+
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
         :param pol: polarization of the incident light, 's', 'p' or a tuple
-        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
-                        on the unit cell size by default
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
+        on the unit cell size by default
+
         :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
-        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the (x, y, z) amplitudes squared of the E-field (|Ex|^2 etc.),
-                    the (x, y, z) amplitudes squared of the H-field (|Ex|^2 etc.)
-                    the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
+
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the (x, y, z) amplitudes squared of the E-field (|Ex|^2 etc.), \
+        the (x, y, z) amplitudes squared of the H-field (|Ex|^2 etc.) the magnitude of the E-field, \
+        the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
 
         def vs_pol(s, p):

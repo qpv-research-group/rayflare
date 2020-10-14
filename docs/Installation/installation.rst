@@ -30,11 +30,10 @@ have to use pip3.
 
 First, we need to install some compilers and some libraries which S4 uses.
 
-.. code-block::
+.. code-block:: console
 
     sudo apt install make git gcc g++ gfortran
     sudo apt-get install libopenblas-dev libfftw3-dev libsuitesparse-dev
-
 
 In the first line, we install the 'make' command which is needed to install S4, as well as git and compilers we
 will need for both Fortran (in the PDD solver in Solcore) and C++ (in S4). Then we install some external libraries which
@@ -43,11 +42,11 @@ S4 needs to build the Python extension.
 Setting up to install S4 on MacOS
 -----------------------------------
 
-There are multiple ways to install Python in MacOS - you can use [homebrew](https://brew.sh/). If you install
+There are multiple ways to install Python in MacOS - you can use homebrew_. If you install
 it using :literal:`brew install python3` (after installing homebrew), you will automatically have venv available and can make
 a virtual environment easily with:
 
-.. code-block::
+.. code-block:: console
 
     python3 -m venv mainenv
     source mainenv/bin/activate
@@ -57,7 +56,7 @@ For the relevant compilers and the :literal:`make` and :literal:`git` commands, 
 you can install through the App store), or you can install them using Homebrew. To install the relevant libraries for S4,
 you can again use homebrew:
 
-.. code-block::
+.. code-block:: console
 
     brew install fftw suite-sparse openblas lapack
 
@@ -67,14 +66,14 @@ Installing S4
 
 Install some packages we will need:
 
-.. code-block::
+.. code-block:: console
 
     pip install numpy setuptools
 
 
 Downloading and installing S4 (start from the directory in which you want to download the S4 folder):
 
-.. code-block::
+.. code-block:: console
 
     git clone https://github.com/phoebe-p/S4.git
     cd S4
@@ -90,7 +89,7 @@ on the terminal screen. If you activated the virtual environment, this should au
 Installing RayFlare
 ---------------------
 
-.. code-block::
+.. code-block:: console
 
     git clone https://github.com/qpv-research-group/rayflare.git
     cd rayflare
@@ -129,7 +128,7 @@ the developers state that it was developed on Windows).
 Troubleshooting
 -----------------------------------
 
-- **The :literal:`make boost` command gives loads of output and takes a long time.**
+- **The 'make boost' command gives loads of output and takes a long time.**
 
     This is normal. Have a coffee/tea/stretching break :)
 
@@ -153,3 +152,4 @@ Troubleshooting
 .. _official website: https://releases.ubuntu.com/18.04/
 .. _here: https://itsfoss.com/install-linux-in-virtualbox/
 .. _dual boot: https://linuxconfig.org/how-to-install-ubuntu-20-04-alongside-windows-10-dual-boot
+.. _homebrew: https://brew.sh/
