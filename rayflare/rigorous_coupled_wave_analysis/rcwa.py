@@ -664,7 +664,6 @@ class rcwa_structure:
         :param wavelength: wavelength (in nm) at which to get epsilon
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
-
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
 
@@ -732,8 +731,7 @@ class rcwa_structure:
         :param pol: polarization of the incident light, 's', 'p' or a tuple
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
-
-        :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
+        :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
 
@@ -822,8 +820,6 @@ class rcwa_structure:
         :param pol: polarization of the incident light, 's', 'p' or a tuple
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
-
-        :param depth in the layer (from the top of the layer) in nm at which to calculate the fields
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
 
