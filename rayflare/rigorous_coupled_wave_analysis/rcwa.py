@@ -895,7 +895,7 @@ class rcwa_structure:
             axs[1].set_aspect(aspect=1)
             plt.show()
 
-        return E, H, E_mag, H_mag
+        return xs, ys, E, H, E_mag, H_mag
 
     def set_widths(self, new_widths):
         new_widths = np.append(np.insert(np.array(new_widths, dtype='f'), 0, np.inf), np.inf).tolist()
