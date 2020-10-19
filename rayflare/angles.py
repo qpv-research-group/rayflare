@@ -74,9 +74,9 @@ def theta_summary(out_mat, angle_vector, n_theta_bins, front_or_rear="front"):
                            coords={'theta_in': (['index_in'],  angle_vector[out_mat.shape[1]:,1]),
                                    'theta_out': (['index_out'], angle_vector[:out_mat.shape[0],1])})
 
-    sum_mat = out_mat.groupby('theta_in').apply(np.mean, args=(1, None))
+    sum_mat = out_mat.groupby('theta_in').map(np.mean, args=(1, None))
 
-    sum_mat = sum_mat.groupby('theta_out').apply(weighted_mean, args=('theta_out', 0, None))
+    sum_mat = sum_mat.groupby('theta_out').map(weighted_mean, args=('theta_out', 0, None))
 
     if front_or_rear == "front":
         sum_mat = xr.DataArray(sum_mat.data, dims=[r'$\theta_{out}$', r'$\theta_{in}$'],
@@ -130,6 +130,12 @@ def theta_summary_A(A_mat, angle_vector):
     A_mat = xr.DataArray(A_mat, dims=['layer_out', 'index_in'],
                            coords={'theta_in': (['index_in'], angle_vector[:A_mat.shape[1],1]),
                                    'layer_out': 1+np.arange(A_mat.shape[0])})
-    sum_mat = A_mat.groupby('theta_in').apply(np.sum, args=(1, None))
+    sum_mat = A_mat.groupby('theta_in').map(np.sum, args=(1, None))
 
     return sum_mat.data
+
+
+def overall_bin(x, phi_intv, angle_vector_0):
+    phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
+    ov_bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
+    return ov_bin

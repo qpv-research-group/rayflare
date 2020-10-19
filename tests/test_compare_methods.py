@@ -154,7 +154,6 @@ def test_absorption_profile():
     options.n_rays = 2000
     options.depth_spacing = 1e-6
 
-
     rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                         materials = [GaAs, Si, Ge],
                         widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)

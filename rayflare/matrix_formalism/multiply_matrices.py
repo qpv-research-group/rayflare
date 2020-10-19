@@ -1,7 +1,7 @@
 import numpy as np
 from sparse import load_npz, dot, COO, stack
 from rayflare.config import results_path
-from rayflare.angles import make_angle_vector, fold_phi
+from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
 from rayflare.structure import Interface, BulkLayer
@@ -85,7 +85,7 @@ def out_to_in_matrix(phi_sym, angle_vector, theta_intv, phi_intv):
                            coords={'theta_bin': (['angle_in'], binned_theta_out)},
                            dims=['angle_in'])
 
-    bin_out = phi_out.groupby('theta_bin').apply(overall_bin,
+    bin_out = phi_out.groupby('theta_bin').map(overall_bin,
                                                  args=(phi_intv, angle_vector[:, 0])).data
 
     out_to_in[bin_out, np.arange(len(angle_vector))] = 1
@@ -94,13 +94,6 @@ def out_to_in_matrix(phi_sym, angle_vector, theta_intv, phi_intv):
     down_to_up = out_to_in[:int(len(angle_vector)/2), int(len(angle_vector)/2):]
 
     return COO(up_to_down), COO(down_to_up)
-
-
-def overall_bin(x, phi_intv, angle_vector_0):
-    phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
-    ov_bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
-    return ov_bin
-
 
 
 def make_D(alphas, thick, thetas):

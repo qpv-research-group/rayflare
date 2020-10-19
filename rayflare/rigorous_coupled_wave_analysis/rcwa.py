@@ -4,7 +4,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from solcore.absorption_calculator import OptiStack
 from joblib import Parallel, delayed
-from rayflare.angles import make_angle_vector
+from rayflare.angles import make_angle_vector, overall_bin
 import os
 from sparse import COO, save_npz, load_npz, stack
 from rayflare.config import results_path
@@ -212,7 +212,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
                               coords={'theta_bin': (['angle_in'], binned_theta_in)},
                               dims=['angle_in'])
         #print(len(phi_intv), len(angle_vector_0))
-        in_bin = phi_in.groupby('theta_bin').apply(overall_bin,
+        in_bin = phi_in.groupby('theta_bin').map(overall_bin,
                                                    args=(phi_intv, angle_vector_0)).data - int(len(angle_vector_0)/2)
 
     #print(in_bin)
@@ -928,13 +928,15 @@ class rcwa_structure:
                                                          self.orders, self.options['A_per_order'], self.S4_options)
                 for i1 in range(len(self.wavelengths))]
 
-        if self.options['A_per_order']:
-            R = np.stack([item[0] for item in allres])
-            T = np.stack([item[1] for item in allres])
-            A_mat = np.stack([item[2] for item in allres])
-            A_order = np.stack([item[3] for item in allres])
+        R = np.stack([item[0] for item in allres])
+        T = np.stack([item[1] for item in allres])
+        A_mat = np.stack([item[2] for item in allres])
 
-            self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
+        self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
+
+        if self.options['A_per_order']:
+
+            A_order = np.stack([item[3] for item in allres])
 
             S_for_orders = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0],
                              self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
@@ -945,11 +947,6 @@ class rcwa_structure:
             return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
 
         else:
-            R = np.stack([item[0] for item in allres])
-            T = np.stack([item[1] for item in allres])
-            A_mat = np.stack([item[2] for item in allres])
-
-            self.rat_output_A = np.sum(A_mat, 1) # used for profile calculation
 
             return {'R': R, 'T': T, 'A_per_layer': A_mat}
 
@@ -1126,8 +1123,3 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 profile_data[j] = 0.5*(data_s + data_p)
 
     return profile_data
-
-def overall_bin(x, phi_intv, angle_vector_0):
-    phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
-    ov_bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
-    return ov_bin

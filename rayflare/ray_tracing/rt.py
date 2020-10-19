@@ -1,5 +1,4 @@
 import numpy as np
-import numpy.matlib
 import os
 from scipy.spatial import Delaunay
 from cmath import sin, cos, sqrt, acos, atan
@@ -10,6 +9,7 @@ import xarray as xr
 from rayflare.angles import fold_phi, make_angle_vector
 from sparse import COO, save_npz, load_npz, stack
 from rayflare.config import results_path
+from rayflare.angles import overall_bin
 from joblib import Parallel, delayed
 from copy import deepcopy
 from warnings import warn
@@ -307,14 +307,14 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
                           coords={'theta_bin': (['angle_in'], binned_theta_in)},
                           dims=['angle_in'])
 
-    bin_in = phi_in.groupby('theta_bin').apply(overall_bin,
+    bin_in = phi_in.groupby('theta_bin').map(overall_bin,
                                                args=(phi_intv, angle_vector[:, 0])).data
 
     phi_out = xr.DataArray(phi_out,
                            coords={'theta_bin': (['angle_in', 'position'], binned_theta_out)},
                            dims=['angle_in', 'position'])
 
-    bin_out = phi_out.groupby('theta_bin').apply(overall_bin,
+    bin_out = phi_out.groupby('theta_bin').map(overall_bin,
                                                  args=(phi_intv, angle_vector[:, 0])).data
 
 
@@ -499,7 +499,7 @@ class rt_structure:
                                                                                           surfaces, widths, z_pos, I_thresh, pol, randomize)
                         absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
                         thetas[c+offset, i1] = th_o
-                        Is[c + offset, i1] = I
+                        Is[c + offset, i1] = np.real(I)
                         phis[c+offset, i1] = phi_o
                         A_layer[i1] = A_layer[i1] + A_per_layer/(n_reps*nx*ny)
                         n_passes[c+offset, i1] = n_pass
@@ -529,11 +529,12 @@ class rt_structure:
 
         else:
 
-            allres = Parallel(n_jobs=-1)(delayed(parallel_inner)(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
+            allres = Parallel(n_jobs=options['n_jobs'])(delayed(parallel_inner)(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
                                                                   surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize) for
                                         i1 in range(len(wavelengths)))
 
-            Is = np.stack(item[0] for item in allres)
+
+            Is = np.stack([item[0] for item in allres])
             absorption_profiles = np.stack([item[1] for item in allres])
             A_layer = np.stack([item[2] for item in allres])
             thetas = np.stack([item[3] for item in allres])
@@ -604,10 +605,6 @@ def normalize(x):
         x = x/sum(x) - x.coords['A']
     return x
 
-def overall_bin(x, phi_intv, angle_vector_0):
-    phi_ind = np.digitize(x, phi_intv[x.coords['theta_bin'].data[0]], right=True) - 1
-    ov_bin = np.argmin(abs(angle_vector_0 - x.coords['theta_bin'].data[0])) + phi_ind
-    return ov_bin
 
 def make_profiles_wl(unique_thetas, n_a_in, side, widths,
                      angle_distmat, wl, lookuptable, pol, depth_spacing, prof_layers):
@@ -627,14 +624,14 @@ def make_profiles_wl(unique_thetas, n_a_in, side, widths,
     def profile_per_angle(x, z, offset, side, nz):
         i2 = x.coords['global_index'].item(0)
         non_zero=np.where(nz[:, i2])[0]
-        by_layer = x.groupby('layer').apply(profile_per_layer, z=z, offset=offset, side=side, non_zero=non_zero)
+        by_layer = x.groupby('layer').map(profile_per_layer, z=z, offset=offset, side=side, non_zero=non_zero)
         return by_layer
 
     #def scaled_profile(x, z, offset, side):
     #    print('wl1')
     #    xloc = x.loc[dict(coeff='A1')].reduce(np.sum,'layer')
     #    nz = xloc != 0
-    #    by_angle = x.groupby('global_index').apply(profile_per_angle, z=z, offset=offset, side=side, nz=nz)
+    #    by_angle = x.groupby('global_index').map(profile_per_angle, z=z, offset=offset, side=side, nz=nz)
     #    return by_angle
 
     def scale_func(x, scale_params):
@@ -656,8 +653,8 @@ def make_profiles_wl(unique_thetas, n_a_in, side, widths,
                     'A3_i'])]  # have to scale these to make sure integrated absorption is correct
     c_params = params.loc[dict(coeff=['a1', 'a3'])]  # these should not be scaled
 
-    scale_res = pr.groupby('global_index').apply(scale_func, scale_params=s_params)
-    const_res = pr.groupby('global_index').apply(select_func, const_params=c_params)
+    scale_res = pr.groupby('global_index').map(scale_func, scale_params=s_params)
+    const_res = pr.groupby('global_index').map(select_func, const_params=c_params)
 
 
     params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=np.arange(1, len(widths)+1))
@@ -674,7 +671,7 @@ def make_profiles_wl(unique_thetas, n_a_in, side, widths,
     xloc = params.loc[dict(coeff='A1')].reduce(np.sum, 'layer')
     nz = xloc != 0
 
-    ans = params.loc[dict(layer=prof_layers)].groupby('global_index').apply(profile_per_angle,
+    ans = params.loc[dict(layer=prof_layers)].groupby('global_index').map(profile_per_angle,
                                                                             z=z_list, offset=offsets, side=side, nz=nz).drop('coeff')
     ans = ans.fillna(0)
 
@@ -1193,7 +1190,7 @@ def check_intersect(r_a, d, tri):
 
     # all the stuff which is only surface-dependent (and not dependent on incoming direction) is
     # in the surface object tri.
-    D = np.matlib.repmat(np.transpose([-d]), 1, tri.size).T
+    D = np.tile(-d, (tri.size, 1))
     pref = 1 / np.sum(D * tri.crossP, axis=1)
     corner = r_a - tri.P_0s
     t = pref * np.sum(tri.crossP * corner, axis=1)
