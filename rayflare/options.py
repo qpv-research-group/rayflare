@@ -30,7 +30,7 @@ class default_options(State):
                                 SubpixelSmoothing=False,
                                 ConserveMemory=False,
                                 WeismannFormulation=False)
-        
+        self.rcwa_orders = 10
         
         # Ray-tracing options
         self.nx = 10
@@ -43,3 +43,5 @@ class default_options(State):
         
         # TMM options
         self.lookuptable_angles = 300
+        self.coherent = True
+        self.coherency_list = None

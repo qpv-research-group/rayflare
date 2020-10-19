@@ -7,9 +7,6 @@ import xarray as xr
 from sparse import COO, save_npz, load_npz, stack
 from solcore.absorption_calculator import OptiStack
 
-degree = np.pi / 180
-
-
 def TMM(layers, incidence, transmission, surf_name, options,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
     """
@@ -104,7 +101,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
     else:
 
-        wavelengths = options['wavelengths']*1e9 # convert to nm
+        wavelengths = options['wavelengths']
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'], options['c_azimuth'])
         angles_in = angle_vector[:int(len(angle_vector) / 2), :]
@@ -185,13 +182,22 @@ def TMM(layers, incidence, transmission, surf_name, options,
         if profile:
             Aprof_loop = np.empty((n_angles, len(wavelengths), len(dist)))
 
-        tmm_struct = tmm_structure(optlayers, coherent=coherent, coherency_list=coherency_list, no_back_reflection=False)
+        tmm_struct = tmm_structure(optlayers, incidence, transmission, False)
+
+        pass_options = {}
+        pass_options['coherent'] = coherent
+        pass_options['coherency_list'] = coherency_list
+        pass_options['wavelengths'] = wavelengths
+        pass_options['depth_spacing'] =  options['depth_spacing']
 
         for i2, pol in enumerate(pols):
 
             for i3, theta in enumerate(thetas):
 
-                res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, depth_spacing = options['depth_spacing'])
+                pass_options['pol'] = pol
+                pass_options['theta_in'] = theta
+
+                res = tmm_struct.calculate(pass_options, profile=profile, layers=prof_layers)
 
                 R_loop[:, i3] = np.real(res['R'])
                 T_loop[:, i3] = np.real(res['T'])
@@ -269,7 +275,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
 class tmm_structure:
 
-    def __init__(self, stack, coherent=True, coherency_list=None, no_back_reflection=False):
+    def __init__(self, stack, incidence=None, transmission=None, no_back_reflection=False):
 
         """ Set up structure for TMM calculations
 
@@ -288,36 +294,15 @@ class tmm_structure:
         if 'OptiStack' in str(type(stack)):
             stack.no_back_reflection = no_back_reflection
         else:
-            if hasattr(stack, 'substrate'):
-                substrate = stack.substrate
-            else:
-                substrate = None
             stack = OptiStack(stack, no_back_reflection=no_back_reflection,
-                              substrate=substrate)
+                              substrate=transmission, incidence=incidence)
 
-        if not coherent:
-            if coherency_list is not None:
-                assert len(coherency_list) == stack.num_layers, \
-                    'Error: The coherency list must have as many elements (now {}) as the ' \
-                    'number of layers (now {}).'.format(len(coherency_list), stack.num_layers)
-
-                if stack.no_back_reflection:
-                    coherency_list = ['i'] + coherency_list + ['i', 'i']
-                else:
-                    coherency_list = ['i'] + coherency_list + ['i']
-
-            else:
-                raise Exception('Error: For incoherent or partly incoherent calculations you must supply the '
-                                'coherency_list parameter with as many elements as the number of layers in the '
-                                'structure')
 
         self.stack = stack
-        self.coherent = coherent
-        self.coherency_list = coherency_list
+        self.no_back_reflection = no_back_reflection
 
 
-
-    def calculate(self, wavelength, angle=0, pol='u', profile=False, layers=None, depth_spacing = 1):
+    def calculate(self, options, profile=False, layers=None):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
 
@@ -334,9 +319,31 @@ class tmm_structure:
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
+        wavelength = options['wavelengths']*1e9
+        pol =  options['pol']
+        angle = options['theta_in']
+        depth_spacing = options['depth_spacing']
+
+        coherency_list = options['coherency_list']
+        coherent = options['coherent']
+
         stack = self.stack
-        coherency_list = self.coherency_list
-        coherent = self.coherent
+
+        if not coherent:
+            if coherency_list is not None:
+                assert len(coherency_list) == stack.num_layers, \
+                    'Error: The coherency list must have as many elements (now {}) as the ' \
+                    'number of layers (now {}).'.format(len(coherency_list), stack.num_layers)
+
+                if self.no_back_reflection:
+                    coherency_list = ['i'] + coherency_list + ['i', 'i']
+                else:
+                    coherency_list = ['i'] + coherency_list + ['i']
+
+            else:
+                raise Exception('Error: For incoherent or partly incoherent calculations you must supply the '
+                                'coherency_list parameter with as many elements as the number of layers in the '
+                                'structure')
 
         num_wl = len(wavelength)
         output = {'R': np.zeros(num_wl), 'A': np.zeros(num_wl), 'T': np.zeros(num_wl), 'all_p': [], 'all_s': []}

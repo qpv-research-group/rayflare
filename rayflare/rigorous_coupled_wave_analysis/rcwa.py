@@ -564,14 +564,14 @@ def get_reciprocal_lattice(size, orders):
 
 class rcwa_structure:
     # TODO: make this accept an OptiStack, and check the substrate of the SolarCell object
-    def __init__(self, structure, size, orders, options, incidence, substrate):
+    def __init__(self, structure, size, options, incidence, transmission):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined using an RCWA method implemented using the S4 package.
 
         :param structure: A solcore Structure object with layers and materials or a OptiStack object.
         :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
         :param orders: number of orders to retain in the RCWA calculations.
-        :param substrate: semi-infinite transmission medium
+        :param transmission: semi-infinite transmission medium
 
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
@@ -615,7 +615,7 @@ class rcwa_structure:
 
         # prepare to pass to OptiStack.
 
-        stack_OS = OptiStack(list_for_OS, bo_back_reflection=False, substrate=substrate)
+        stack_OS = OptiStack(list_for_OS, no_back_reflection=False, substrate=transmission, incidence=incidence)
         widths = stack_OS.get_widths()
 
         layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
@@ -638,16 +638,54 @@ class rcwa_structure:
         user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
         S4_options.update(user_options)
 
-        self.wavelengths = wavelengths
-        self.S4_options = S4_options
-        self.options = options
         self.geom_list = geom_list_str
         self.shapes_oc = shapes_oc
         self.shapes_names = shapes_names
         self.widths = widths
-        self.orders = orders
         self.size = size
         self.layers_oc = layers_oc
+
+
+    def calculate(self, options):
+        wl = options['wavelengths']*1e9
+
+        if options['parallel']:
+            allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_structure_wl)
+                                                        (wl[i1], self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                                                         self.shapes_names, options['pol'], options['theta_in']*180/np.pi, options['phi_in']*180/np.pi,
+                                                         self.widths, self.size,
+                                                         options['orders'], options['A_per_order'], options['S4_options'])
+                                                        for i1 in range(len(wl)))
+
+        else:
+            allres = [
+                RCWA_structure_wl(wl[i1], self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                                                         self.shapes_names, options['pol'], options['theta_in']*180/np.pi, options['phi_in']*180/np.pi,
+                                                         self.widths, self.size,
+                                                         options['orders'], options['A_per_order'], options['S4_options'])
+                for i1 in range(len(wl))]
+
+        R = np.stack([item[0] for item in allres])
+        T = np.stack([item[1] for item in allres])
+        A_mat = np.stack([item[2] for item in allres])
+
+        self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
+
+        if options['A_per_order']:
+
+            A_order = np.stack([item[3] for item in allres])
+
+            S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, self.layers_oc[0],
+                             self.shapes_oc[0], self.shapes_names, self.widths, options['S4_options'])
+
+            basis_set = S_for_orders.GetBasisSet()
+            f_mat = S_for_orders.GetReciprocalLattice()
+
+            return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
+
+        else:
+
+            return {'R': R, 'T': T, 'A_per_layer': A_mat}
 
     def save_layer_postscript(self, layer_index, filename):
         # layer_index: layer 0 is the incidence medium
@@ -740,7 +778,7 @@ class rcwa_structure:
         """
 
         def vs_pol(s, p):
-            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetExcitationPlanewave((self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi), s, p, 0)
             S.SetFrequency(1 / wavelength)
 
         wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
@@ -810,6 +848,7 @@ class rcwa_structure:
 
         return xs, ys, E, H, E_mag, H_mag
 
+
     def get_fields_z_integral(self, layer_index, wavelength, pol='s', extent=None, n_points=200, plot=True):
         """
         Get the magnitude of the E and H fields integrated over z in a layer, over a range of x/y points. Can also plot results
@@ -829,7 +868,7 @@ class rcwa_structure:
         """
 
         def vs_pol(s, p):
-            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetExcitationPlanewave((self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi), s, p, 0)
             S.SetFrequency(1 / wavelength)
 
         wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
@@ -908,50 +947,6 @@ class rcwa_structure:
 
         self.geom_list[layer_index][geom_index].update(geom_entry)
 
-
-    def calculate(self):
-
-        #print(self.options['theta_in'], self.options['pol'])
-        if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_structure_wl)
-                                                        (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
-                                                         self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
-                                                         self.widths, self.size,
-                                                         self.orders, self.options['A_per_order'], self.S4_options)
-                                                        for i1 in range(len(self.wavelengths)))
-
-        else:
-            allres = [
-                RCWA_structure_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
-                                                         self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
-                                                         self.widths, self.size,
-                                                         self.orders, self.options['A_per_order'], self.S4_options)
-                for i1 in range(len(self.wavelengths))]
-
-        R = np.stack([item[0] for item in allres])
-        T = np.stack([item[1] for item in allres])
-        A_mat = np.stack([item[2] for item in allres])
-
-        self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
-
-        if self.options['A_per_order']:
-
-            A_order = np.stack([item[3] for item in allres])
-
-            S_for_orders = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0],
-                             self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
-
-            basis_set = S_for_orders.GetBasisSet()
-            f_mat = S_for_orders.GetReciprocalLattice()
-
-            return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
-
-        else:
-
-            return {'R': R, 'T': T, 'A_per_layer': A_mat}
-
-
-
     def calculate_profile(self, z_limit=None, step_size=2, dist=None):
         """ It calculates the absorbed energy density within the material. From the documentation:
 
@@ -997,7 +992,7 @@ class rcwa_structure:
                                                               self.geom_list,
                                                               self.layers_oc[i1], self.shapes_oc[i1],
                                                               self.shapes_names, self.options['pol'],
-                                                              self.options['theta_in'], self.options['phi_in'],
+                                                              self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi,
                                                               self.widths, self.size,
                                                               self.orders, self.S4_options)
                                                              for i1 in range(len(self.wavelengths)))
@@ -1009,7 +1004,7 @@ class rcwa_structure:
                                                               self.geom_list,
                                                               self.layers_oc[i1], self.shapes_oc[i1],
                                                               self.shapes_names, self.options['pol'],
-                                                              self.options['theta_in'], self.options['phi_in'],
+                                                              self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi,
                                                               self.widths, self.size,
                                                               self.orders, self.S4_options)
                 for i1 in range(len(self.wavelengths))]
