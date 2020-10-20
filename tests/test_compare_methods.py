@@ -124,7 +124,7 @@ def test_planar_structure():
 
     assert TMM_reference == approx(TMM_matrix, abs=0.01)
     assert TMM_reference == approx(RCWA_matrix, abs=0.01)
-    assert TMM_reference == approx(RT_matrix, abs=0.15)
+    assert TMM_reference == approx(RT_matrix, abs=0.2)
 
     # import matplotlib.pyplot as plt
     # import seaborn as sns
@@ -262,7 +262,7 @@ def test_planar_structure_45deg():
 
     assert TMM_reference == approx(TMM_matrix, abs=0.05)
     assert TMM_reference == approx(RCWA_matrix, abs=0.05)
-    assert TMM_reference == approx(RT_matrix, abs=0.25)
+    assert TMM_reference == approx(RT_matrix, abs=0.3)
 
     # import matplotlib.pyplot as plt
     # import seaborn as sns
