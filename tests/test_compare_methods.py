@@ -380,6 +380,17 @@ def test_absorption_profile_incoh_angles():
     assert output_p['profile'].shape == result_rt_p['profile'].shape
     assert rt_profile_p == approx(tmm_profile_p, rel=0.2)
 
+    options.pol = 'u'
+
+    result_rt_u = rtstr.calculate(options)
+    output_u = strt.calculate(options, profile=True, layers=[1, 2, 3])
+
+    tmm_profile_u = output_u['profile'][output_u['profile'] > 1e-7]
+    rt_profile_u = result_rt_u['profile'][output_u['profile'] > 1e-7]
+
+    assert output_u['profile'].shape == result_rt_u['profile'].shape
+    assert rt_profile_u == approx(tmm_profile_u, rel=0.2)
+
 
 def test_absorption_profile_coh_angles():
     from rayflare.ray_tracing.rt import rt_structure
@@ -438,9 +449,20 @@ def test_absorption_profile_coh_angles():
     assert output_p['profile'].shape == result_rt_p['profile'].shape
     assert rt_profile_p == approx(tmm_profile_p, rel=0.4)
 
+    options.pol = 'u'
+
+    result_rt_u = rtstr.calculate(options)
+    output_u = strt.calculate(options, profile=True, layers=[1, 2, 3])
+
+    tmm_profile_u = output_u['profile'][output_u['profile'] > 1e-7]
+    rt_profile_u = result_rt_u['profile'][output_u['profile'] > 1e-7]
+
+    assert output_u['profile'].shape == result_rt_u['profile'].shape
+    assert rt_profile_u == approx(tmm_profile_u, rel=0.4)
+
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
-def all_profiles():
+def rcwa_tmm_profiles_coh():
     from rayflare.options import default_options
     from solcore import material
     from solcore import si
