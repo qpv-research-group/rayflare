@@ -272,8 +272,9 @@ def test_planar_structure_45deg():
     # plt.plot(wavelengths, RCWA_matrix, color=cols[2])
     # plt.plot(wavelengths, RT_matrix, color=cols[3])
     # plt.show()
-    #
 
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_absorption_profile():
     from rayflare.ray_tracing.rt import rt_structure
     from rayflare.textures import planar_surface
