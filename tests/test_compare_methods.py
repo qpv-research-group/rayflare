@@ -294,7 +294,7 @@ def test_absorption_profile():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1400, 2)*1e-9
+    options.wavelengths = np.linspace(700, 1400, 4)*1e-9
     options.theta_in = 45*np.pi/180
     options.nx = 5
     options.ny = 5
@@ -313,13 +313,135 @@ def test_absorption_profile():
     strt = tmm_structure(stack, incidence=Air, transmission=Air,
                          no_back_reflection=False)
 
-    options.depth_spacing = 1000
-
     output = strt.calculate(options, profile=True, layers=[1, 2, 3])
 
-    tmm_profile = output['profile'][output['profile'] > 1e-8]
-    rt_profile = result_rt['profile'][output['profile'] > 1e-8]
+    tmm_profile = output['profile'][output['profile'] > 1e-7]
+    rt_profile = result_rt['profile'][output['profile'] > 1e-7]
 
     assert output['profile'].shape == result_rt['profile'].shape
-    assert rt_profile == approx(tmm_profile, rel=0.2)
+    assert rt_profile == approx(tmm_profile, rel=0.3)
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_absorption_profile_incoh_angles():
+    from rayflare.ray_tracing.rt import rt_structure
+    from rayflare.textures import planar_surface
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from solcore.structure import Layer
+
+    Air = material('Air')()
+    Si = material('Si')()
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+
+    triangle_surf = planar_surface()
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1400, 4)*1e-9
+    options.theta_in = 45*np.pi/180
+    options.nx = 5
+    options.ny = 5
+    options.pol = 'p'
+    options.n_rays = 2000
+    options.depth_spacing = 1e-6
+    options.coherent = False
+    options.coherency_list = ['c', 'i', 'i']
+    options.theta_in = np.pi/4
+    options.phi_in = np.pi/3
+    options.pol = 's'
+
+    rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
+                        materials = [GaAs, Si, Ge],
+                        widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)
+    result_rt_s = rtstr.calculate(options)
+
+
+    stack = [Layer(si('100um'), GaAs), Layer(si('70um'), Si), Layer(si('50um'), Ge)]
+
+    strt = tmm_structure(stack, incidence=Air, transmission=Air,
+                         no_back_reflection=False)
+
+    output_s = strt.calculate(options, profile=True, layers=[1, 2, 3])
+
+    tmm_profile_s = output_s['profile'][output_s['profile'] > 1e-7]
+    rt_profile_s = result_rt_s['profile'][output_s['profile'] > 1e-7]
+
+    assert output_s['profile'].shape == result_rt_s['profile'].shape
+    assert rt_profile_s == approx(tmm_profile_s, rel=0.1)
+
+    options.pol = 'p'
+
+    result_rt_p = rtstr.calculate(options)
+    output_p = strt.calculate(options, profile=True, layers=[1, 2, 3])
+
+    tmm_profile_p = output_p['profile'][output_p['profile'] > 1e-7]
+    rt_profile_p = result_rt_p['profile'][output_p['profile'] > 1e-7]
+
+    assert output_p['profile'].shape == result_rt_p['profile'].shape
+    assert rt_profile_p == approx(tmm_profile_p, rel=0.1)
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_absorption_profile_coh_angles():
+    from rayflare.ray_tracing.rt import rt_structure
+    from rayflare.textures import planar_surface
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from solcore.structure import Layer
+
+    Air = material('Air')()
+    Si = material('Si')()
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+
+    triangle_surf = planar_surface()
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1400, 4)*1e-9
+    options.theta_in = 45*np.pi/180
+    options.nx = 5
+    options.ny = 5
+    options.pol = 'p'
+    options.n_rays = 2000
+    options.depth_spacing = 1e-6
+    options.theta_in = np.pi/4
+    options.phi_in = np.pi/3
+    options.pol = 's'
+
+    rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
+                        materials = [GaAs, Si, Ge],
+                        widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)
+    result_rt_s = rtstr.calculate(options)
+
+
+    stack = [Layer(si('100um'), GaAs), Layer(si('70um'), Si), Layer(si('50um'), Ge)]
+
+    strt = tmm_structure(stack, incidence=Air, transmission=Air,
+                         no_back_reflection=False)
+
+    output_s = strt.calculate(options, profile=True, layers=[1, 2, 3])
+
+    tmm_profile_s = output_s['profile'][output_s['profile'] > 1e-7]
+    rt_profile_s = result_rt_s['profile'][output_s['profile'] > 1e-7]
+
+    assert output_s['profile'].shape == result_rt_s['profile'].shape
+    assert rt_profile_s == approx(tmm_profile_s, rel=0.3)
+
+    options.pol = 'p'
+
+    result_rt_p = rtstr.calculate(options)
+    output_p = strt.calculate(options, profile=True, layers=[1, 2, 3])
+
+    tmm_profile_p = output_p['profile'][output_p['profile'] > 1e-7]
+    rt_profile_p = result_rt_p['profile'][output_p['profile'] > 1e-7]
+
+    assert output_p['profile'].shape == result_rt_p['profile'].shape
+    assert rt_profile_p == approx(tmm_profile_p, rel=0.3)
 

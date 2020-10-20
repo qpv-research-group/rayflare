@@ -101,10 +101,8 @@ class Texture:
 
 class RTgroup:
 
-    def __init__(self, textures, materials=None, widths=None, depth_spacing=1):
+    def __init__(self, textures, materials=None, widths=None):
         self.materials = materials
         self.textures = textures
         self.widths = widths
-        self.depth_spacing = depth_spacing
-
 

@@ -86,7 +86,11 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         n_theta_bins = options['n_theta_bins']
         c_az = options['c_azimuth']
         pol = options['pol']
-        depth_spacing = options['depth_spacing']
+
+        if calc_profile is not None:
+            depth_spacing = options['depth_spacing']*1e9 # convert from m to nm
+        else:
+            depth_spacing = None
 
         if front_or_rear == 'front':
             side = 1
@@ -423,16 +427,16 @@ class rt_structure:
         phi = options['phi_in']
         I_thresh = options['I_thresh']
 
-        widths = self.widths
+        widths = self.widths[:]
         widths.insert(0, 0)
         widths.append(0)
         widths = 1e6*np.array(widths)  # convert to um
     
-        z_space = 1e6*options['depth_spacing']
+        z_space = 1e6*options['depth_spacing'] # convert from m to um
         z_pos = np.arange(0, sum(widths), z_space)
 
-        mats = self.mats
-        surfaces = self.surfaces
+        mats = self.mats[:]
+        surfaces = self.surfaces[:]
     
         nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
         alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
@@ -608,6 +612,8 @@ def normalize(x):
 
 def make_profiles_wl(unique_thetas, n_a_in, side, widths,
                      angle_distmat, wl, lookuptable, pol, depth_spacing, prof_layers):
+
+    # widths and depth_spacing are passed in nm!
 
     def profile_per_layer(xx, z, offset, side, non_zero):
         layer_index = xx.coords['layer'].item(0) - 1
