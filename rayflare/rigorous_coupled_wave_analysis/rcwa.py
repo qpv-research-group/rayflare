@@ -568,12 +568,10 @@ class rcwa_structure:
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined using an RCWA method implemented using the S4 package.
 
-        :param structure: A solcore Structure object with layers and materials or a OptiStack object.
+        :param structure: A solcore Structure/SolarCell object with layers and materials or a OptiStack object.
         :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-        :param orders: number of orders to retain in the RCWA calculations.
-        :param transmission: semi-infinite transmission medium
-
-        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+        :param incidence: semi-infinite incidence medium
+        :param transmission: semi-infinite transmission medium (substrate)
         """
 
         wavelengths = options['wavelengths']
@@ -647,6 +645,21 @@ class rcwa_structure:
 
 
     def calculate(self, options):
+        """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
+             defined.
+
+             :param options: options for the calculation. The key entries are: \
+                        - wavelength: Wavelengths (in m) in which calculate the data. An array.
+                        - theta_in: polar angle (in radians) of the incident light.
+                        - phi_in: azimuthal angle (in radians) of the incident light.
+                        - pol: Polarisation of the light: 's', 'p' or 'u'.
+                        - orders: number of Fourier orders to retain in the RCWA calculation
+                        - parallel: True of False, whether or not to run simulation on parallel
+                        - n_jobs: if parallel, specifies how many cores are used. See joblib documentation
+                        - A_per_order: whether or not to calculate the absorption per diffraction order
+                        - S4_options: options passed to the S4 solver.
+             :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+             """
         wl = options['wavelengths']*1e9
 
         if options['parallel']:

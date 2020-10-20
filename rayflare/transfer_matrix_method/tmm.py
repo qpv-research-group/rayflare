@@ -279,16 +279,11 @@ class tmm_structure:
 
         """ Set up structure for TMM calculations
 
-        :param stack: an OptiStack object.
-        :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
-        :param angle: Angle (in radians) of the incident light. Default: 0 (normal incidence).
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-        :param coherent: If the light is coherent or not. If not, a coherency list must be added.
-        :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which \
-        incoherent ('i'). It needs as many elements as layers in the structure.
-        :param profile: whether or not to calculate the absorption profile
-        :param layers: indices of the layers in which to calculate the absorption profile. Layer 0 is the incidence medium.
-        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+        :param stack: an OptiStack or SolarCell object.
+        :param incidence: incidence medium (Solcore material)
+        :param transmission: transmission medium/substrate (Solcore material)
+        :param no_back_reflection: whether to suppress reflections at the interface between the final material \
+                in the stack and the substrate (default False)
         """
 
         if 'OptiStack' in str(type(stack)):
@@ -306,13 +301,13 @@ class tmm_structure:
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
 
-        :param stack: an OptiStack object.
-        :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
-        :param angle: Angle (in radians) of the incident light. Default: 0 (normal incidence).
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-        :param coherent: If the light is coherent or not. If not, a coherency list must be added.
-        :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which \
-        incoherent ('i'). It needs as many elements as layers in the structure.
+        :param options: options for the calculation. The key entries are: \
+                    - wavelength: Wavelengths (in m) in which calculate the data. An array.
+                    - theta_in: Angle (in radians) of the incident light.
+                    - pol: Polarisation of the light: 's', 'p' or 'u'.
+                    - coherent: If the light is coherent or not. If not, a coherency list must be added.
+                    - coherency_list: A list indicating in which layers light should be treated as coherent ('c') and in which \
+                        incoherent ('i'). It needs as many elements as layers in the structure.
         :param profile: whether or not to calculate the absorption profile
         :param layers: indices of the layers in which to calculate the absorption profile. Layer 0 is the incidence medium.
 
@@ -366,7 +361,6 @@ class tmm_structure:
                             fn.A3 = np.vstack((fn.A3, fn_l.A3))
 
                         else:
-                            # DO NOT KNOW IF UNITS ARE CORRECT
                             alpha = np.imag(stack.get_indices(wavelength)[l]) * 4 * np.pi / wavelength
                             fn.a1 = np.vstack((fn.a1, alpha))
                             fn.A2 = np.vstack((fn.A2, alpha * fraction_reaching[l - 1]))
@@ -416,7 +410,6 @@ class tmm_structure:
 
 
                         else:
-                            # DO NOT KNOW IF UNITS ARE CORRECT
                             alpha = np.imag(stack.get_indices(wavelength)[l]) * 4 * np.pi / wavelength
                             fn.a1 = np.vstack((fn.a1, alpha))
                             fn.A2 = np.vstack((fn.A2, alpha * fraction_reaching[l - 1]))

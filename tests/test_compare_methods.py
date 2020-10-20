@@ -298,7 +298,7 @@ def test_absorption_profile():
     options.theta_in = 45*np.pi/180
     options.nx = 5
     options.ny = 5
-    options.pol = 'p'
+    options.pol = 'u'
     options.n_rays = 2000
     options.depth_spacing = 1e-6
 
@@ -345,7 +345,6 @@ def test_absorption_profile_incoh_angles():
     options.theta_in = 45*np.pi/180
     options.nx = 5
     options.ny = 5
-    options.pol = 'p'
     options.n_rays = 2000
     options.depth_spacing = 1e-6
     options.coherent = False
@@ -408,7 +407,6 @@ def test_absorption_profile_coh_angles():
     options.theta_in = 45*np.pi/180
     options.nx = 5
     options.ny = 5
-    options.pol = 'p'
     options.n_rays = 2000
     options.depth_spacing = 1e-6
     options.theta_in = np.pi/4
