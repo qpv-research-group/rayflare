@@ -136,6 +136,7 @@ def test_planar_structure():
     # plt.show()
 
 
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_planar_structure_45deg():
 
     # solcore imports

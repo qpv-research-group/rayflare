@@ -24,6 +24,7 @@ wavelengths = np.linspace(250, 1900, 500) * 1e-9
 options = default_options()
 
 options.wavelengths = wavelengths
+options.orders = 2
 
 size = ((100, 0), (0, 100))
 
@@ -34,21 +35,22 @@ solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
                                Layer(material=GaAs, width=si('4000nm')),
                                Layer(material=Ge, width=si('3000nm'))], substrate=Ag)
 
-rcwa_setup = rcwa_structure(solar_cell, size, 2, options, Air, Ag)
-tmm_setup = tmm_structure(solar_cell, coherent=True)
+
+rcwa_setup = rcwa_structure(solar_cell, size=size, options=options, incidence=Air, transmission=Ag)
+tmm_setup = tmm_structure(solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False)
 
 spect = np.loadtxt('data/AM0.csv', delimiter=',')
 
 AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths * 1e9)
 
 for pol in ['s', 'p', 'u']:
-    for angle in [0, 60]:
+    for angle in [0, np.pi/3]:
 
         options['pol'] = pol
         options['theta_in'] = angle
 
-        rcwa_result = rcwa_setup.calculate()
-        tmm_result = tmm_setup.calculate(wavelength=wavelengths*1e9, pol=pol, angle=angle*np.pi/180)
+        rcwa_result = rcwa_setup.calculate(options)
+        tmm_result = tmm_setup.calculate(options)
 
         Jsc_TMM = 0.1 * (q / (h * c))* np.trapz(wavelengths[:, None]*1e9*tmm_result['A_per_layer'] * AM0[:, None],
                                                     wavelengths*1e9, axis=0)/1e9
