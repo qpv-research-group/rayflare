@@ -394,13 +394,14 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         return out_mat, A_mat
 
 class rt_structure:
-    """
+    """ Set up structure for RT calculations.
 
-    :param textures:
-    :param materials:
-    :param widths:
-    :param incidence:
-    :param transmission:
+    :param textures: list of surface textures. Each entry in the list is another list of two RTSurface objects,
+        describing what the surface looks like for front and rear incidence, respectively
+    :param materials: list of Solcore materials for each layer (excluding the incidence and transmission medium)
+    :param widths: list widths of the layers in m
+    :param incidence: incidence medium (Solcore material)
+    :param transmission: transmission medium (Solcore material)
     """
 
     def __init__(self, textures, materials, widths, incidence, transmission):
@@ -431,10 +432,25 @@ class rt_structure:
         self.cum_width = cum_width
 
     def calculate(self, options):
-        """
+        """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
+            defined.
 
-        :param options:
-        :return:
+        :param options: options for the calculation. The key entries are:
+
+           - wavelength: Wavelengths (in m) in which calculate the data. An array.
+           - theta_in: Polar angle (in radians) of the incident light.
+           - phi_in: azimuthal angle (in radians) of the incident light.
+           - I_thresh: once the intensity reaches this fraction of the incident light, the light is considered to be absorbed.
+           - pol: Polarisation of the light: 's', 'p' or 'u'.
+           - depth_spacing: depth spacing for absorption profile calculations (m)
+           - nx and ny: number of points to scan across the surface in the x and y directions (integers)
+           - random_ray_position: True/False. instead of scanning across the surface, choose nx*ny points randomly
+           - avoid_edges: True/False. Whether to avoid the edge of the texture on purpose (may be useful for AFM scans)
+           - randomize_surface: True/False. Randomize the ray position in the x/y direction before each surface interaction
+           - parallel: True/False. Whether or not to execute calculations in parallel
+           - n_jobs: n_jobs argument for Parallel function of joblib. Controls how many threads are used.
+
+        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
         wavelengths = options['wavelengths']
