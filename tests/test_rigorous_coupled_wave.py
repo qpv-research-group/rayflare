@@ -36,7 +36,8 @@ def test_RAT():
                'parallel': True, 'n_jobs': -1,
                'phi_symmetry': np.pi / 2,
                'project_name': 'ultrathin',
-               'A_per_order': True
+               'A_per_order': True,
+               'orders': 19
                }
 
     ropt = dict(LatticeTruncation='Circular',
@@ -63,11 +64,10 @@ def test_RAT():
                             Layer(material=InAlP_hole_barrier, width=si('19nm'))] + grating1 + grating2,
                            substrate=Ag)
 
-    order = 19
 
-    S4_setup = rcwa_structure(solar_cell, size, order, options, Air, Ag)
+    S4_setup = rcwa_structure(solar_cell, size, options, Air, Ag)
 
-    RAT = S4_setup.calculate()
+    RAT = S4_setup.calculate(options)
 
     assert RAT['R'] == approx(np.array([0.41892312, 0.43915471, 0.26330785, 0.24965168, 0.72211567,
                                         0.73748424, 0.25604396, 0.61168331, 0.96145068, 0.97934733]))
@@ -86,7 +86,7 @@ def test_RAT():
        [8.88178420e-16, 9.99200722e-16, 4.99600361e-16, 1.66533454e-16,  2.79400793e-02],
        [3.88578059e-16, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,  1.71031114e-02]]))
 
-    assert len(RAT['basis_set']) == order
+    assert len(RAT['basis_set']) == 19
 
     assert RAT['reciprocal'] == ((0.002, -0.0011547005383792516), (-0.0, 0.002309401076758503))
 

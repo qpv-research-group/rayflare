@@ -58,10 +58,10 @@ wavelengths = np.linspace(300, 1200, 50)*1e-9
 options = default_options()
 options.wavelengths = wavelengths
 options.project_name = 'perovskite_Si_example'
-options.n_rays = 24000
+options.n_rays = 2000
 options.n_theta_bins = 30
-options.nx = 10
-options.ny = 10
+options.nx = 2
+options.ny = 2
 
 Si = material('Si')()
 Air = material('Air')()
@@ -99,7 +99,7 @@ surf = regular_pyramids(elevation_angle=55, upright=True)
 surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
 front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_widthcorr',
-                       coherent=True)
+                       coherent=True, prof_layers=np.arange(1, 10))
 back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_2',
                       coherent=True)
 

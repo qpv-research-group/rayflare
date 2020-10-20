@@ -86,7 +86,11 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
         n_theta_bins = options['n_theta_bins']
         c_az = options['c_azimuth']
         pol = options['pol']
-        depth_spacing = options['depth_spacing']
+
+        if calc_profile is not None:
+            depth_spacing = options['depth_spacing']*1e9 # convert from m to nm
+        else:
+            depth_spacing = None
 
         if front_or_rear == 'front':
             side = 1
@@ -390,6 +394,16 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         return out_mat, A_mat
 
 class rt_structure:
+    """ Set up structure for RT calculations.
+
+    :param textures: list of surface textures. Each entry in the list is another list of two RTSurface objects,
+        describing what the surface looks like for front and rear incidence, respectively
+    :param materials: list of Solcore materials for each layer (excluding the incidence and transmission medium)
+    :param widths: list widths of the layers in m
+    :param incidence: incidence medium (Solcore material)
+    :param transmission: transmission medium (Solcore material)
+    """
+
     def __init__(self, textures, materials, widths, incidence, transmission):
 
         self.textures = textures
@@ -418,21 +432,42 @@ class rt_structure:
         self.cum_width = cum_width
 
     def calculate(self, options):
+        """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
+            defined.
+
+        :param options: options for the calculation. The key entries are:
+
+           - wavelength: Wavelengths (in m) in which calculate the data. An array.
+           - theta_in: Polar angle (in radians) of the incident light.
+           - phi_in: azimuthal angle (in radians) of the incident light.
+           - I_thresh: once the intensity reaches this fraction of the incident light, the light is considered to be absorbed.
+           - pol: Polarisation of the light: 's', 'p' or 'u'.
+           - depth_spacing: depth spacing for absorption profile calculations (m)
+           - nx and ny: number of points to scan across the surface in the x and y directions (integers)
+           - random_ray_position: True/False. instead of scanning across the surface, choose nx*ny points randomly
+           - avoid_edges: True/False. Whether to avoid the edge of the texture on purpose (may be useful for AFM scans)
+           - randomize_surface: True/False. Randomize the ray position in the x/y direction before each surface interaction
+           - parallel: True/False. Whether or not to execute calculations in parallel
+           - n_jobs: n_jobs argument for Parallel function of joblib. Controls how many threads are used.
+
+        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+        """
+
         wavelengths = options['wavelengths']
         theta = options['theta_in']
         phi = options['phi_in']
         I_thresh = options['I_thresh']
 
-        widths = self.widths
+        widths = self.widths[:]
         widths.insert(0, 0)
         widths.append(0)
         widths = 1e6*np.array(widths)  # convert to um
     
-        z_space = 1e6*options['depth_spacing']
+        z_space = 1e6*options['depth_spacing'] # convert from m to um
         z_pos = np.arange(0, sum(widths), z_space)
 
-        mats = self.mats
-        surfaces = self.surfaces
+        mats = self.mats[:]
+        surfaces = self.surfaces[:]
     
         nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
         alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
@@ -560,6 +595,11 @@ class rt_structure:
                     'thetas': thetas, 'phis': phis, 'R0': R0, 'n_passes': n_passes, 'n_interactions': n_interactions}
 
 
+    def calculate_profile(self, options):
+        prof = self.calculate(options)['profile']
+        return prof
+
+
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize):
     #print(widths)
     # thetas and phis divided into
@@ -608,6 +648,8 @@ def normalize(x):
 
 def make_profiles_wl(unique_thetas, n_a_in, side, widths,
                      angle_distmat, wl, lookuptable, pol, depth_spacing, prof_layers):
+
+    # widths and depth_spacing are passed in nm!
 
     def profile_per_layer(xx, z, offset, side, non_zero):
         layer_index = xx.coords['layer'].item(0) - 1

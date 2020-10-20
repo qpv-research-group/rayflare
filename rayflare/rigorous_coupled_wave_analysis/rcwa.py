@@ -564,17 +564,16 @@ def get_reciprocal_lattice(size, orders):
 
 class rcwa_structure:
     # TODO: make this accept an OptiStack, and check the substrate of the SolarCell object
-    def __init__(self, structure, size, orders, options, incidence, substrate):
-        """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
-        defined using an RCWA method implemented using the S4 package.
+    """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
+    defined using an RCWA method implemented using the S4 package.
 
-        :param structure: A solcore Structure object with layers and materials or a OptiStack object.
-        :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-        :param orders: number of orders to retain in the RCWA calculations.
-        :param substrate: semi-infinite transmission medium
+    :param structure: A solcore Structure/SolarCell object with layers and materials or a OptiStack object.
+    :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
+    :param incidence: semi-infinite incidence medium
+    :param transmission: semi-infinite transmission medium (substrate)
+    """
 
-        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
-        """
+    def __init__(self, structure, size, options, incidence, transmission):
 
         wavelengths = options['wavelengths']
         geom_list = []
@@ -615,7 +614,7 @@ class rcwa_structure:
 
         # prepare to pass to OptiStack.
 
-        stack_OS = OptiStack(list_for_OS, bo_back_reflection=False, substrate=substrate)
+        stack_OS = OptiStack(list_for_OS, no_back_reflection=False, substrate=transmission, incidence=incidence)
         widths = stack_OS.get_widths()
 
         layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
@@ -638,16 +637,123 @@ class rcwa_structure:
         user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
         S4_options.update(user_options)
 
-        self.wavelengths = wavelengths
-        self.S4_options = S4_options
-        self.options = options
         self.geom_list = geom_list_str
         self.shapes_oc = shapes_oc
         self.shapes_names = shapes_names
         self.widths = widths
-        self.orders = orders
         self.size = size
         self.layers_oc = layers_oc
+
+
+    def calculate(self, options):
+        """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
+             defined.
+
+             :param options: options for the calculation. The key entries are:
+
+                    - wavelength: Wavelengths (in m) in which calculate the data. An array.
+                    - theta_in: polar angle (in radians) of the incident light.
+                    - phi_in: azimuthal angle (in radians) of the incident light.
+                    - pol: Polarisation of the light: 's', 'p' or 'u'.
+                    - orders: number of Fourier orders to retain in the RCWA calculation
+                    - parallel: True of False, whether or not to run simulation on parallel
+                    - n_jobs: if parallel, specifies how many cores are used. See joblib documentation
+                    - A_per_order: whether or not to calculate the absorption per diffraction order
+                    - S4_options: options passed to the S4 solver.
+
+             :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+             """
+        wl = options['wavelengths']*1e9
+
+        if options['parallel']:
+            allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_structure_wl)
+                                                        (wl[i1], self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                                                         self.shapes_names, options['pol'], options['theta_in']*180/np.pi, options['phi_in']*180/np.pi,
+                                                         self.widths, self.size,
+                                                         options['orders'], options['A_per_order'], options['S4_options'])
+                                                        for i1 in range(len(wl)))
+
+        else:
+            allres = [
+                RCWA_structure_wl(wl[i1], self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
+                                                         self.shapes_names, options['pol'], options['theta_in']*180/np.pi, options['phi_in']*180/np.pi,
+                                                         self.widths, self.size,
+                                                         options['orders'], options['A_per_order'], options['S4_options'])
+                for i1 in range(len(wl))]
+
+        R = np.stack([item[0] for item in allres])
+        T = np.stack([item[1] for item in allres])
+        A_mat = np.stack([item[2] for item in allres])
+
+        self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
+
+        if options['A_per_order']:
+
+            A_order = np.stack([item[3] for item in allres])
+
+            S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, self.layers_oc[0],
+                             self.shapes_oc[0], self.shapes_names, self.widths, options['S4_options'])
+
+            basis_set = S_for_orders.GetBasisSet()
+            f_mat = S_for_orders.GetReciprocalLattice()
+
+            return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
+
+        else:
+
+            return {'R': R, 'T': T, 'A_per_layer': A_mat}
+
+
+    def calculate_profile(self, options):
+        """ It calculates the absorbed energy density within the material.
+
+        In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
+        density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
+
+        """
+
+        wl = options['wavelengths'] * 1e9
+        dist = options['z_points'] if 'z_points' in options.keys() else None
+        z_limit = options['z_limit'] if 'z_limit' in options.keys() else None
+
+        step_size = options['depth_spacing']*1e9
+
+        if dist is None:
+            if z_limit is None:
+                z_limit = np.sum(self.widths[1:-1])
+            dist = np.arange(0, z_limit, step_size)
+
+        self.dist = dist
+
+        if options['parallel']:
+            allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl_prof)
+                                                             (wl[i1], self.rat_output_A[i1],
+                                                              dist,
+                                                              self.geom_list,
+                                                              self.layers_oc[i1], self.shapes_oc[i1],
+                                                              self.shapes_names, options['pol'],
+                                                              options['theta_in'] * 180 / np.pi,
+                                                              options['phi_in'] * 180 / np.pi,
+                                                              self.widths, self.size,
+                                                              options['orders'], options['S4_options'])
+                                                             for i1 in range(len(wl)))
+
+        else:
+            allres = [
+                RCWA_wl_prof(wl[i1], self.rat_output_A[i1],
+                                                              dist,
+                                                              self.geom_list,
+                                                              self.layers_oc[i1], self.shapes_oc[i1],
+                                                              self.shapes_names, options['pol'],
+                                                              options['theta_in'] * 180 / np.pi,
+                                                              options['phi_in'] * 180 / np.pi,
+                                                              self.widths, self.size,
+                                                              options['orders'], options['S4_options'])
+                for i1 in range(len(wl))]
+
+        output = np.stack(allres)
+
+        return output
 
     def save_layer_postscript(self, layer_index, filename):
         # layer_index: layer 0 is the incidence medium
@@ -740,7 +846,7 @@ class rcwa_structure:
         """
 
         def vs_pol(s, p):
-            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetExcitationPlanewave((self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi), s, p, 0)
             S.SetFrequency(1 / wavelength)
 
         wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
@@ -810,6 +916,7 @@ class rcwa_structure:
 
         return xs, ys, E, H, E_mag, H_mag
 
+
     def get_fields_z_integral(self, layer_index, wavelength, pol='s', extent=None, n_points=200, plot=True):
         """
         Get the magnitude of the E and H fields integrated over z in a layer, over a range of x/y points. Can also plot results
@@ -829,7 +936,7 @@ class rcwa_structure:
         """
 
         def vs_pol(s, p):
-            S.SetExcitationPlanewave((self.options['theta_in'], self.options['phi_in']), s, p, 0)
+            S.SetExcitationPlanewave((self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi), s, p, 0)
             S.SetFrequency(1 / wavelength)
 
         wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
@@ -909,116 +1016,6 @@ class rcwa_structure:
         self.geom_list[layer_index][geom_index].update(geom_entry)
 
 
-    def calculate(self):
-
-        #print(self.options['theta_in'], self.options['pol'])
-        if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_structure_wl)
-                                                        (self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
-                                                         self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
-                                                         self.widths, self.size,
-                                                         self.orders, self.options['A_per_order'], self.S4_options)
-                                                        for i1 in range(len(self.wavelengths)))
-
-        else:
-            allres = [
-                RCWA_structure_wl(self.wavelengths[i1] * 1e9, self.geom_list, self.layers_oc[i1], self.shapes_oc[i1],
-                                                         self.shapes_names, self.options['pol'], self.options['theta_in'], self.options['phi_in'],
-                                                         self.widths, self.size,
-                                                         self.orders, self.options['A_per_order'], self.S4_options)
-                for i1 in range(len(self.wavelengths))]
-
-        R = np.stack([item[0] for item in allres])
-        T = np.stack([item[1] for item in allres])
-        A_mat = np.stack([item[2] for item in allres])
-
-        self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
-
-        if self.options['A_per_order']:
-
-            A_order = np.stack([item[3] for item in allres])
-
-            S_for_orders = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[0],
-                             self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
-
-            basis_set = S_for_orders.GetBasisSet()
-            f_mat = S_for_orders.GetReciprocalLattice()
-
-            return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
-
-        else:
-
-            return {'R': R, 'T': T, 'A_per_layer': A_mat}
-
-
-
-    def calculate_profile(self, z_limit=None, step_size=2, dist=None):
-        """ It calculates the absorbed energy density within the material. From the documentation:
-
-        'In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
-        density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
-
-        Integrating this absorption profile in the whole stack gives the same result that the absorption obtained with
-        calculate_rat as long as the spacial mesh (controlled by steps_thinest_layer) is fine enough. If the structure is
-        very thick and the mesh not thin enough, the calculation might diverege at short wavelengths.
-
-        For now, it only works for normal incident, coherent light.
-
-        :param structure: A solcore structure with layers and materials.
-        :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-        :param orders: number of orders to retain in the RCWA calculations.
-        :param wavelength: Wavelengths (in nm) in which calculate the data.
-        :param rat_output: output from calculate_rat_rcwa
-        :param z_limit: Maximum value in the z direction at which to calculate depth-dependent absorption (nm)
-        :param steps_size: if the dist is not specified, the step size in nm to use in the depth-dependent calculation
-        :param dist: the positions (in nm) at which to calculate depth-dependent absorption
-        :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
-        :param phi: azimuthal incidence angle in degrees. Default: 0
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-        :param substrate: semi-infinite transmission medium
-
-        :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a \
-        function of the position and the wavelength.
-        """
-
-
-        if dist is None:
-            if z_limit is None:
-                z_limit = np.sum(self.widths[1:-1])
-            dist = np.arange(0, z_limit, step_size)
-
-        self.dist = dist
-
-
-        if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_wl_prof)
-                                                             (self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
-                                                              dist,
-                                                              self.geom_list,
-                                                              self.layers_oc[i1], self.shapes_oc[i1],
-                                                              self.shapes_names, self.options['pol'],
-                                                              self.options['theta_in'], self.options['phi_in'],
-                                                              self.widths, self.size,
-                                                              self.orders, self.S4_options)
-                                                             for i1 in range(len(self.wavelengths)))
-
-        else:
-            allres = [
-                RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
-                                                              dist,
-                                                              self.geom_list,
-                                                              self.layers_oc[i1], self.shapes_oc[i1],
-                                                              self.shapes_names, self.options['pol'],
-                                                              self.options['theta_in'], self.options['phi_in'],
-                                                              self.widths, self.size,
-                                                              self.orders, self.S4_options)
-                for i1 in range(len(self.wavelengths))]
-
-        output = np.stack(allres)
-
-        return output
-
-
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
 
@@ -1081,7 +1078,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
             layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                d)  # don't need to change this
             layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
             profile_data[j] = data
 
 
@@ -1103,7 +1100,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
                 profile_data[j] = data
 
         else:
@@ -1117,9 +1114,9 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
                 S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
                 profile_data[j] = 0.5*(data_s + data_p)
 
     return profile_data

@@ -4,10 +4,10 @@ import numpy as np
 def test_tmm_structure():
     from rayflare.transfer_matrix_method import tmm_structure
 
-
+    options = dict(wavelengths = np.array([]), pol='s', coherent=True, coherency_list=None,
+                   theta_in=0, depth_spacing=10)
     tmm_setup = tmm_structure([])
-    RAT = tmm_setup.calculate(wavelength=np.array([]))
-
+    RAT = tmm_setup.calculate(options)
 
     assert sorted(list(RAT.keys())) == ["A", "A_per_layer", "R", "T", "all_p", "all_s"]
 
@@ -21,6 +21,7 @@ def test_inc_coh_tmm():
     GaInP = material("GaInP")(In=0.5)
     GaAs = material("GaAs")()
     Ge = material("Ge")()
+    Air = material("Air")()
 
     optical_struct = SolarCell(
         [
@@ -40,11 +41,14 @@ def test_inc_coh_tmm():
         ["i", "i", "i", "i"],
     ]
 
+    options = dict(wavelengths = wl*1e-9, pol='u', coherent=False, coherency_list=None,
+                   theta_in=0, depth_spacing=10)
 
     results = []
     for cl in c_list:
-        tmm_setup = tmm_structure(optical_struct, coherent=False, coherency_list=cl, no_back_reflection=False)
-        RAT = tmm_setup.calculate(wl, angle=0, pol='u')
+        options['coherency_list'] = cl
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
+        RAT = tmm_setup.calculate(options)
         results.append(np.sum(RAT['A_per_layer'], 1))
 
     A_calc = np.stack(results)
@@ -68,6 +72,7 @@ def test_sp_pol():
     GaInP = material("GaInP")(In=0.5)
     GaAs = material("GaAs")()
     Ge = material("Ge")()
+    Air = material("Air")()
 
     optical_struct = SolarCell(
         [
@@ -80,29 +85,38 @@ def test_sp_pol():
 
     wl = np.linspace(400, 1200, 10)
 
+    options = dict(wavelengths=wl * 1e-9, pol='u', coherent=True, coherency_list=None,
+                   theta_in=0, depth_spacing=10)
+
     results_s = []
+    options['pol'] = 's'
 
     for angle in [0, np.pi/4, np.pi/3, 0.49*np.pi]:
-        tmm_setup = tmm_structure(optical_struct, coherent=True, no_back_reflection=False)
-        RAT = tmm_setup.calculate(wl, angle=angle, pol='s')
+        options['theta_in'] = angle
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
+        RAT = tmm_setup.calculate(options)
         results_s.append(np.sum(RAT['A_per_layer'], 1))
 
     A_calc_s = np.stack(results_s)
 
     results_p = []
+    options['pol'] = 'p'
 
     for angle in [0, np.pi/4, np.pi/3, 0.49*np.pi]:
-        tmm_setup = tmm_structure(optical_struct, coherent=True, no_back_reflection=False)
-        RAT = tmm_setup.calculate(wl, angle=angle, pol='p')
+        options['theta_in'] = angle
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
+        RAT = tmm_setup.calculate(options)
         results_p.append(np.sum(RAT['A_per_layer'], 1))
 
     A_calc_p = np.stack(results_p)
 
     results_u = []
+    options['pol'] = 'u'
 
     for angle in [0, np.pi/4, np.pi/3, 0.49*np.pi]:
-        tmm_setup = tmm_structure(optical_struct, coherent=True, no_back_reflection=False)
-        RAT = tmm_setup.calculate(wl, angle=angle, pol='u')
+        options['theta_in'] = angle
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
+        RAT = tmm_setup.calculate(options)
         results_u.append(np.sum(RAT['A_per_layer'], 1))
 
     A_calc_u = np.stack(results_u)
@@ -133,6 +147,7 @@ def test_tmm_structure_abs():
     GaAs = material('GaAs')()
     Ge = material('Ge')()
     Ag = material('Ag')()
+    Air = material('Air')()
 
     Al2O3 = material('Al2O3')()
 
@@ -148,24 +163,27 @@ def test_tmm_structure_abs():
                'n_jobs': -1,
                'theta_in': 0,
                'phi_in': 0,
-               'A_per_order': False}
+               'A_per_order': False,
+               'depth_spacing': 1,
+               'coherent': True,
+               'coherency_list': None}
 
     ARC = [Layer(si('80nm'), Al2O3)]
 
     solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
                                   Layer(material=GaAs, width=si('4000nm')),
-                                  Layer(material=Ge, width=si('3000nm'))], substrate=Ag)
+                                  Layer(material=Ge, width=si('3000nm'))])
 
-    tmm_setup = tmm_structure(solar_cell, coherent=True)
+    tmm_setup = tmm_structure(solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False)
 
     integrated = np.zeros((6, 3))
     j1 = 0
     for pol in ['s', 'p', 'u']:
-        for angle in [0, 60]:
+        for angle in [0, np.pi/3]:
             options['pol'] = pol
             options['theta_in'] = angle
 
-            tmm_result = tmm_setup.calculate(wavelength=wavelengths * 1e9, pol=pol, angle=angle * np.pi / 180)
+            tmm_result = tmm_setup.calculate(options)
 
             integr = 1e4*np.trapz(
                 wavelengths[:, None] * 1e9 * tmm_result['A_per_layer'],

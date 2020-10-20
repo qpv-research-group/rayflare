@@ -40,8 +40,7 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
         print('Existing lookup table found')
         allres = xr.open_dataset(savepath)
     else:
-        wavelengths = options['wavelengths']*1e9 # convert to nm
-        #pol = options['pol']
+        wavelengths = options['wavelengths']
         n_angles = options['lookuptable_angles']
         thetas = np.linspace(0, np.pi/2, n_angles)
         if prof_layers is not None:
@@ -63,16 +62,16 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
 
         R = xr.DataArray(np.empty((2, 2, len(wavelengths), n_angles)),
                          dims=['side', 'pol', 'wl', 'angle'],
-                         coords={'side': sides, 'pol': pols, 'wl': wavelengths, 'angle': thetas},
+                         coords={'side': sides, 'pol': pols, 'wl': wavelengths*1e9, 'angle': thetas},
                          name='R')
         T = xr.DataArray(np.empty((2, 2, len(wavelengths), n_angles)),
                          dims=['side', 'pol', 'wl', 'angle'],
-                         coords={'side': sides, 'pol': pols, 'wl': wavelengths, 'angle': thetas},
+                         coords={'side': sides, 'pol': pols, 'wl': wavelengths*1e9, 'angle': thetas},
                          name='T')
         Alayer = xr.DataArray(np.empty((2, 2, n_angles, len(wavelengths), n_layers)),
                               dims=['side', 'pol', 'angle', 'wl', 'layer'],
                               coords={'side': sides, 'pol': pols,
-                                      'wl': wavelengths,
+                                      'wl': wavelengths*1e9,
                                       'angle': thetas,
                                       'layer': range(1, n_layers + 1)}, name='Alayer')
 
@@ -80,11 +79,15 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
             Aprof = xr.DataArray(np.empty((2, 2, n_angles, 6, len(prof_layers), len(wavelengths))),
                                   dims=['side', 'pol', 'angle', 'coeff', 'layer', 'wl'],
                               coords={'side': sides, 'pol': pols,
-                                      'wl': wavelengths,
+                                      'wl': wavelengths*1e9,
                                       'angle': thetas,
                                       'layer': prof_layers,
                                       'coeff': ['A1', 'A2', 'A3_r', 'A3_i', 'a1', 'a3']}, name='Aprof')
 
+        pass_options = {}
+
+        pass_options['wavelengths'] = wavelengths
+        pass_options['depth_spacing'] = 1e5
 
         for i1, side in enumerate(sides):
             R_loop = np.empty((len(wavelengths), n_angles))
@@ -93,13 +96,19 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
             if profile:
                 Aprof_loop = np.empty((n_angles, 6, len(prof_layers), len(wavelengths)))
 
+            pass_options['coherent'] = coherent
+            pass_options['coherency_list'] = coherency_lists[i1]
+
             for i2, pol in enumerate(pols):
 
                 for i3, theta in enumerate(thetas):
 
-                    tmm_struct =  tmm_structure(optstacks[i1], coherent=coherent, coherency_list=coherency_lists[i1])
+                    pass_options['pol'] = pol
+                    pass_options['theta_in'] = theta
+
+                    tmm_struct =  tmm_structure(optstacks[i1])
                     #print(side, pol, theta)
-                    res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, depth_spacing=1e5)
+                    res = tmm_struct.calculate(pass_options, profile=profile, layers=prof_layers)
                     R_loop[:, i3] = np.real(res['R'])
                     T_loop[:, i3] = np.real(res['T'])
                     Alayer_loop[i3, :, :] = np.real(res['A_per_layer'])

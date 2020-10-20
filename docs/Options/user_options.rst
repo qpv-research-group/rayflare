@@ -2,7 +2,8 @@ Options
 =======
 
 The function default_options is provided so not every
-value has to be set manually by the user each time. All the user options, and their meanings, are listed below.
+value has to be set manually by the user each time. All the user options, and their meanings, are listed below. As a general
+rule, values with units of distance (wavelength, depth spacing) are in m while values in degrees are in radians.
 
 General options/options for matrix framework
 ---------------------------------------------
@@ -27,6 +28,8 @@ Options used only by RCWA (S4)
 
 - **A_per_order**: whether or not to calculate absorption per diffraction order (Boolean)
 - **S4_options**: options which are passed to S4. See S4 documentation for details
+- **orders**: the number of Fourier orders to retain. The actual number of orders used may be different, depending on
+the lattice truncation rule used.
 
 Options used only by the ray-tracer
 ---------------------------------------------

@@ -12,7 +12,7 @@ class default_options(State):
         self.phi_symmetry = np.pi/4
         self.n_theta_bins = 50
         self.I_thresh = 1e-2
-        self.depth_spacing = 1
+        self.depth_spacing = 1e-9
         self.parallel = True
         self.pol = 'u'
         self.n_jobs = -1
@@ -30,7 +30,7 @@ class default_options(State):
                                 SubpixelSmoothing=False,
                                 ConserveMemory=False,
                                 WeismannFormulation=False)
-        
+        self.orders = 10
         
         # Ray-tracing options
         self.nx = 10
@@ -43,3 +43,5 @@ class default_options(State):
         
         # TMM options
         self.lookuptable_angles = 300
+        self.coherent = True
+        self.coherency_list = None

@@ -7,9 +7,6 @@ import xarray as xr
 from sparse import COO, save_npz, load_npz, stack
 from solcore.absorption_calculator import OptiStack
 
-degree = np.pi / 180
-
-
 def TMM(layers, incidence, transmission, surf_name, options,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
     """
@@ -21,12 +18,12 @@ def TMM(layers, incidence, transmission, surf_name, options,
     :param surf_name: name of the surface (to save the matrices generated.
     :param options: a list of options
     :param coherent: whether or not the layer stack is coherent. If None, it is assumed to be fully coherent
-    :param coherency: a list with the same number of entries as the layers, either 'c' for a coherent layer or \
-    'i' for an incoherent layer
-    :param prof_layers: layers for which the absorption profile should be calculated \
-    (if None, do not calculate absorption profile at all)
-    :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence \
-    medium, or rear incidence on the stack, from the transmission medium.
+    :param coherency: a list with the same number of entries as the layers, either 'c' for a coherent layer or
+            'i' for an incoherent layer
+    :param prof_layers: layers for which the absorption profile should be calculated
+            (if None, do not calculate absorption profile at all)
+    :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
+            medium, or rear incidence on the stack, from the transmission medium.
 
     :return: R and T redistribution matrix fullmat, matrix describing absorption per layer
     """
@@ -104,7 +101,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
     else:
 
-        wavelengths = options['wavelengths']*1e9 # convert to nm
+        wavelengths = options['wavelengths']
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'], options['c_azimuth'])
         angles_in = angle_vector[:int(len(angle_vector) / 2), :]
@@ -185,13 +182,22 @@ def TMM(layers, incidence, transmission, surf_name, options,
         if profile:
             Aprof_loop = np.empty((n_angles, len(wavelengths), len(dist)))
 
-        tmm_struct = tmm_structure(optlayers, coherent=coherent, coherency_list=coherency_list, no_back_reflection=False)
+        tmm_struct = tmm_structure(optlayers, incidence, transmission, False)
+
+        pass_options = {}
+        pass_options['coherent'] = coherent
+        pass_options['coherency_list'] = coherency_list
+        pass_options['wavelengths'] = wavelengths
+        pass_options['depth_spacing'] =  options['depth_spacing']
 
         for i2, pol in enumerate(pols):
 
             for i3, theta in enumerate(thetas):
 
-                res = tmm_struct.calculate(wavelengths, angle=theta, pol=pol, profile=profile, layers=prof_layers, depth_spacing = options['depth_spacing'])
+                pass_options['pol'] = pol
+                pass_options['theta_in'] = theta
+
+                res = tmm_struct.calculate(pass_options, profile=profile, layers=prof_layers)
 
                 R_loop[:, i3] = np.real(res['R'])
                 T_loop[:, i3] = np.real(res['T'])
@@ -268,75 +274,165 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
 
 class tmm_structure:
+    """ Set up structure for TMM calculations.
 
-    def __init__(self, stack, coherent=True, coherency_list=None, no_back_reflection=False):
+    :param stack: an OptiStack or SolarCell object.
+    :param incidence: incidence medium (Solcore material)
+    :param transmission: transmission medium/substrate (Solcore material)
+    :param no_back_reflection: whether to suppress reflections at the interface between the final material
+            in the stack and the substrate (default False)
+    """
 
-        """ Set up structure for TMM calculations
-
-        :param stack: an OptiStack object.
-        :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
-        :param angle: Angle (in radians) of the incident light. Default: 0 (normal incidence).
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-        :param coherent: If the light is coherent or not. If not, a coherency list must be added.
-        :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which \
-        incoherent ('i'). It needs as many elements as layers in the structure.
-        :param profile: whether or not to calculate the absorption profile
-        :param layers: indices of the layers in which to calculate the absorption profile. Layer 0 is the incidence medium.
-        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
-        """
+    def __init__(self, stack, incidence=None, transmission=None, no_back_reflection=False):
 
         if 'OptiStack' in str(type(stack)):
             stack.no_back_reflection = no_back_reflection
         else:
-            if hasattr(stack, 'substrate'):
-                substrate = stack.substrate
-            else:
-                substrate = None
             stack = OptiStack(stack, no_back_reflection=no_back_reflection,
-                              substrate=substrate)
+                              substrate=transmission, incidence=incidence)
 
-        if not coherent:
-            if coherency_list is not None:
-                assert len(coherency_list) == stack.num_layers, \
-                    'Error: The coherency list must have as many elements (now {}) as the ' \
-                    'number of layers (now {}).'.format(len(coherency_list), stack.num_layers)
-
-                if stack.no_back_reflection:
-                    coherency_list = ['i'] + coherency_list + ['i', 'i']
-                else:
-                    coherency_list = ['i'] + coherency_list + ['i']
-
-            else:
-                raise Exception('Error: For incoherent or partly incoherent calculations you must supply the '
-                                'coherency_list parameter with as many elements as the number of layers in the '
-                                'structure')
 
         self.stack = stack
-        self.coherent = coherent
-        self.coherency_list = coherency_list
+        self.no_back_reflection = no_back_reflection
 
 
-
-    def calculate(self, wavelength, angle=0, pol='u', profile=False, layers=None, depth_spacing = 1):
+    def calculate(self, options, profile=False, layers=None):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
 
-        :param stack: an OptiStack object.
-        :param wavelength: Wavelengths (in nm) in which calculate the data. An array.
-        :param angle: Angle (in radians) of the incident light. Default: 0 (normal incidence).
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-        :param coherent: If the light is coherent or not. If not, a coherency list must be added.
-        :param coherency_list: A list indicating in which layers light should be treated as coeherent ('c') and in which \
-        incoherent ('i'). It needs as many elements as layers in the structure.
+        :param options: options for the calculation. The key entries are:
+
+            - wavelength: Wavelengths (in m) in which calculate the data. An array.
+            - theta_in: Angle (in radians) of the incident light.
+            - pol: Polarisation of the light: 's', 'p' or 'u'.
+            - coherent: If the light is coherent or not. If not, a coherency list must be added.
+            - coherency_list: A list indicating in which layers light should be treated as coherent ('c') and in which \
+                incoherent ('i'). It needs as many elements as layers in the structure.
+
         :param profile: whether or not to calculate the absorption profile
-        :param layers: indices of the layers in which to calculate the absorption profile. Layer 0 is the incidence medium.
+        :param layers: indices of the layers in which to calculate the absorption profile.
+            Layer 0 is the incidence medium.
 
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
+        def calculate_profile(layers):
+            # layer indices: 0 is incidence, n is transmission medium
+            if layers is None:
+                layers = np.arange(1, stack.num_layers + 1)
+
+            depth_spacing = options['depth_spacing'] * 1e9  # convert from m to nm
+
+            z_limit = np.sum(np.array(stack.widths))
+            full_dist = np.arange(0, z_limit, depth_spacing)
+            layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)
+            layer_end = np.cumsum(np.insert(stack.widths, 0, 0))
+
+            dist = []
+
+            for l in layers:
+                dist = np.hstack((dist, full_dist[np.all((full_dist >= layer_start[l], full_dist < layer_end[l]), 0)]))
+
+            if pol in 'sp':
+
+                if coherent:
+                    fn = tmm.absorp_analytic_fn().fill_in(out, layers)
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                    data = tmm.position_resolved(layer, d_in_layer, out)
+                    output['profile'] = data['absor']
+
+                else:
+                    fraction_reaching = 1 - np.cumsum(A_per_layer, axis=0)
+                    fn = tmm.absorp_analytic_fn()
+                    fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty(
+                        (0, num_wl)), \
+                                                        np.empty((0, num_wl)), np.empty((0, num_wl))
+
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                    data = tmm.inc_position_resolved(layer, d_in_layer, out, coherency_list,
+                                                     4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
+                    output['profile'] = data
+
+                    for l in layers:
+
+                        if coherency_list[l] == 'c':
+                            fn_l = tmm.inc_find_absorp_analytic_fn(l, out)
+                            fn.a1 = np.vstack((fn.a1, fn_l.a1))
+                            fn.a3 = np.vstack((fn.a3, fn_l.a3))
+                            fn.A1 = np.vstack((fn.A1, fn_l.A1))
+                            fn.A2 = np.vstack((fn.A2, fn_l.A2))
+                            fn.A3 = np.vstack((fn.A3, fn_l.A3))
+
+                        else:
+                            alpha = np.imag(stack.get_indices(wavelength)[l]) * 4 * np.pi / wavelength
+                            fn.a1 = np.vstack((fn.a1, alpha))
+                            fn.A2 = np.vstack((fn.A2, alpha * fraction_reaching[l - 1]))
+                            fn.a3 = np.vstack((fn.a3, np.zeros((1, num_wl))))
+                            fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
+                            fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
+
+            else:
+                if coherent:
+                    fn_s = tmm.absorp_analytic_fn().fill_in(out_s, layers)
+                    fn_p = tmm.absorp_analytic_fn().fill_in(out_p, layers)
+                    fn = fn_s.add(fn_p).scale(0.5)
+
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                    data_s = tmm.position_resolved(layer, d_in_layer, out_s)
+                    data_p = tmm.position_resolved(layer, d_in_layer, out_p)
+
+                    output['profile'] = 0.5 * (data_s['absor'] + data_p['absor'])
+
+                else:
+                    fraction_reaching_s = 1 - np.cumsum(A_per_layer_s, axis=0)
+                    fraction_reaching_p = 1 - np.cumsum(A_per_layer_s, axis=0)
+                    fraction_reaching = 0.5 * (fraction_reaching_s + fraction_reaching_p)
+                    fn = tmm.absorp_analytic_fn()
+                    fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty(
+                        (0, num_wl)), \
+                                                        np.empty((0, num_wl)), np.empty((0, num_wl))
+
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
+                    data_s = tmm.inc_position_resolved(layer, d_in_layer, out_s, coherency_list,
+                                                       4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
+                    data_p = tmm.inc_position_resolved(layer, d_in_layer, out_p, coherency_list,
+                                                       4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
+
+                    output['profile'] = 0.5 * (data_s + data_p)
+
+                    for i1, l in enumerate(layers):
+                        if coherency_list[l] == 'c':
+                            fn_s = tmm.inc_find_absorp_analytic_fn(l, out_s)
+                            fn_p = tmm.inc_find_absorp_analytic_fn(l, out_s)
+                            fn_l = fn_s.add(fn_p).scale(0.5)
+                            fn.a1 = np.vstack((fn.a1, fn_l.a1))
+                            fn.a3 = np.vstack((fn.a3, fn_l.a3))
+                            fn.A1 = np.vstack((fn.A1, fn_l.A1))
+                            fn.A2 = np.vstack((fn.A2, fn_l.A2))
+                            fn.A3 = np.vstack((fn.A3, fn_l.A3))
+
+
+                        else:
+                            alpha = np.imag(stack.get_indices(wavelength)[l]) * 4 * np.pi / wavelength
+                            fn.a1 = np.vstack((fn.a1, alpha))
+                            fn.A2 = np.vstack((fn.A2, alpha * fraction_reaching[l - 1]))
+                            fn.a3 = np.vstack((fn.a3, np.zeros((1, num_wl))))
+                            fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
+                            fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
+
+                output['profile_coeff'] = np.stack(
+                    (fn.A1, fn.A2, np.real(fn.A3), np.imag(fn.A3), fn.a1, fn.a3))  # shape is (5, n_layers, num_wl)
+
+        wavelength = options['wavelengths']*1e9
+        pol =  options['pol']
+        angle = options['theta_in']
+
+        coherent = options['coherent'] if 'coherent' in options.keys() else True
+
         stack = self.stack
-        coherency_list = self.coherency_list
-        coherent = self.coherent
+
+        if not coherent:
+            coherency_list = self.build_coh_list(options)
 
         num_wl = len(wavelength)
         output = {'R': np.zeros(num_wl), 'A': np.zeros(num_wl), 'T': np.zeros(num_wl), 'all_p': [], 'all_s': []}
@@ -381,113 +477,18 @@ class tmm_structure:
                 output['all_s'] = out_s['power_entering_list']
                 output['A_per_layer'] = 0.5*(A_per_layer_p[1:-1] + A_per_layer_s[1:-1])
 
-
-        # if requested, calculate absorption profile as well
-
-        # layer indices: 0 is incidence, n is transmission medium
-        if profile:
-
-            z_limit = np.sum(np.array(stack.widths))
-            full_dist = np.arange(0, z_limit, depth_spacing)
-            layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)
-            layer_end = np.cumsum(np.insert(stack.widths, 0, 0))
-
-            dist = []
-
-            for l in layers:
-                dist = np.hstack((dist, full_dist[np.all((full_dist >= layer_start[l], full_dist < layer_end[l]), 0)]))
-
-            if pol in 'sp':
-
-                if coherent:
-                    fn = tmm.absorp_analytic_fn().fill_in(out, layers)
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
-                    data = tmm.position_resolved(layer, d_in_layer, out)
-                    output['profile'] = data['absor']
-
-                else:
-                    fraction_reaching = 1 - np.cumsum(A_per_layer, axis=0)
-                    fn = tmm.absorp_analytic_fn()
-                    fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty((0, num_wl)), \
-                                                        np.empty((0, num_wl)), np.empty((0, num_wl))
-
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
-                    data = tmm.inc_position_resolved(layer, d_in_layer, out, coherency_list,
-                                                     4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
-                    output['profile'] = data
-
-
-                    for l in layers:
-
-                        if coherency_list[l] == 'c':
-                            fn_l = tmm.inc_find_absorp_analytic_fn(l, out)
-                            fn.a1 = np.vstack((fn.a1, fn_l.a1))
-                            fn.a3 = np.vstack((fn.a3, fn_l.a3))
-                            fn.A1 = np.vstack((fn.A1, fn_l.A1))
-                            fn.A2 = np.vstack((fn.A2, fn_l.A2))
-                            fn.A3 = np.vstack((fn.A3, fn_l.A3))
-
-                        else:
-                            # DO NOT KNOW IF UNITS ARE CORRECT
-                            alpha = np.imag(stack.get_indices(wavelength)[l])*4*np.pi/wavelength
-                            fn.a1 = np.vstack((fn.a1, alpha))
-                            fn.A2 = np.vstack((fn.A2, alpha*fraction_reaching[l-1]))
-                            fn.a3 = np.vstack((fn.a3, np.zeros((1, num_wl))))
-                            fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
-                            fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
-
-            else:
-                if coherent:
-                    fn_s = tmm.absorp_analytic_fn().fill_in(out_s, layers)
-                    fn_p = tmm.absorp_analytic_fn().fill_in(out_p, layers)
-                    fn = fn_s.add(fn_p).scale(0.5)
-
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
-                    data_s = tmm.position_resolved(layer, d_in_layer, out_s)
-                    data_p = tmm.position_resolved(layer, d_in_layer, out_p)
-
-                    output['profile'] = 0.5 * (data_s['absor'] + data_p['absor'])
-
-                else:
-                    fraction_reaching_s = 1 - np.cumsum(A_per_layer_s, axis=0)
-                    fraction_reaching_p = 1 - np.cumsum(A_per_layer_s, axis=0)
-                    fraction_reaching = 0.5*(fraction_reaching_s + fraction_reaching_p)
-                    fn = tmm.absorp_analytic_fn()
-                    fn.a1, fn.a3, fn.A1, fn.A2, fn.A3 = np.empty((0, num_wl)), np.empty((0, num_wl)), np.empty((0, num_wl)), \
-                                                        np.empty((0, num_wl)), np.empty((0, num_wl))
-
-                    layer, d_in_layer = tmm.find_in_structure_with_inf(stack.get_widths(), dist)
-                    data_s = tmm.inc_position_resolved(layer, d_in_layer, out_s, coherency_list,
-                                                       4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
-                    data_p = tmm.inc_position_resolved(layer, d_in_layer, out_p, coherency_list,
-                                                       4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength)
-
-                    output['profile'] = 0.5 * (data_s + data_p)
-
-                    for i1, l in enumerate(layers):
-                        if coherency_list[l] == 'c':
-                            fn_s = tmm.inc_find_absorp_analytic_fn(l, out_s)
-                            fn_p = tmm.inc_find_absorp_analytic_fn(l, out_s)
-                            fn_l = fn_s.add(fn_p).scale(0.5)
-                            fn.a1 = np.vstack((fn.a1, fn_l.a1))
-                            fn.a3 = np.vstack((fn.a3, fn_l.a3))
-                            fn.A1 = np.vstack((fn.A1, fn_l.A1))
-                            fn.A2 = np.vstack((fn.A2, fn_l.A2))
-                            fn.A3 = np.vstack((fn.A3, fn_l.A3))
-
-
-                        else:
-                            # DO NOT KNOW IF UNITS ARE CORRECT
-                            alpha = np.imag(stack.get_indices(wavelength)[l]) * 4 * np.pi / wavelength
-                            fn.a1 = np.vstack((fn.a1, alpha))
-                            fn.A2 = np.vstack((fn.A2, alpha * fraction_reaching[l - 1]))
-                            fn.a3 = np.vstack((fn.a3, np.zeros((1, num_wl))))
-                            fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
-                            fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
-            output['profile_coeff'] = np.stack((fn.A1, fn.A2, np.real(fn.A3), np.imag(fn.A3), fn.a1, fn.a3)) # shape is (5, n_layers, num_wl)
-
         output['A_per_layer'] = output['A_per_layer'].T
+
+        if profile:
+            calculate_profile(layers)
+
         return output
+
+
+    def calculate_profile(self, options, layers=None):
+
+        prof = self.calculate(options, profile=True, layers=layers)['profile']
+        return prof
 
 
     def set_widths(self, new_widths):
@@ -495,4 +496,23 @@ class tmm_structure:
         self.stack.set_widths(new_widths)
 
 
+    def build_coh_list(self, options):
+
+        coherency_list = options['coherency_list'] if 'coherency_list' in options.keys() else None
+        if coherency_list is not None:
+            assert len(coherency_list) == self.stack.num_layers, \
+                'Error: The coherency list (passed in the options) must have as many elements (now {}) as the ' \
+                'number of layers (now {}).'.format(len(coherency_list), stack.num_layers)
+
+            if self.no_back_reflection:
+                coherency_list = ['i'] + coherency_list + ['i', 'i']
+            else:
+                coherency_list = ['i'] + coherency_list + ['i']
+
+            return coherency_list
+
+        else:
+            raise Exception('Error: For incoherent or partly incoherent calculations you must supply the '
+                            'coherency_list parameter with as many elements as the number of layers in the '
+                            'structure')
 
