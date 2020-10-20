@@ -462,7 +462,7 @@ def test_absorption_profile_coh_angles():
 
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
-def rcwa_tmm_profiles_coh():
+def test_rcwa_tmm_profiles_coh():
     from rayflare.options import default_options
     from solcore import material
     from solcore import si
