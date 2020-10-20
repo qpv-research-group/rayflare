@@ -394,15 +394,16 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         return out_mat, A_mat
 
 class rt_structure:
-    def __init__(self, textures, materials, widths, incidence, transmission):
-        """
+    """
 
-        :param textures:
-        :param materials:
-        :param widths:
-        :param incidence:
-        :param transmission:
-        """
+    :param textures:
+    :param materials:
+    :param widths:
+    :param incidence:
+    :param transmission:
+    """
+
+    def __init__(self, textures, materials, widths, incidence, transmission):
 
         self.textures = textures
         self.widths = widths
@@ -430,6 +431,11 @@ class rt_structure:
         self.cum_width = cum_width
 
     def calculate(self, options):
+        """
+
+        :param options:
+        :return:
+        """
 
         wavelengths = options['wavelengths']
         theta = options['theta_in']

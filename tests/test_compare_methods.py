@@ -370,7 +370,7 @@ def test_absorption_profile_incoh_angles():
     rt_profile_s = result_rt_s['profile'][output_s['profile'] > 1e-7]
 
     assert output_s['profile'].shape == result_rt_s['profile'].shape
-    assert rt_profile_s == approx(tmm_profile_s, rel=0.1)
+    assert rt_profile_s == approx(tmm_profile_s, rel=0.2)
 
     options.pol = 'p'
 
@@ -381,7 +381,7 @@ def test_absorption_profile_incoh_angles():
     rt_profile_p = result_rt_p['profile'][output_p['profile'] > 1e-7]
 
     assert output_p['profile'].shape == result_rt_p['profile'].shape
-    assert rt_profile_p == approx(tmm_profile_p, rel=0.1)
+    assert rt_profile_p == approx(tmm_profile_p, rel=0.2)
 
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")

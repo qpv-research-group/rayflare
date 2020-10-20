@@ -18,12 +18,12 @@ def TMM(layers, incidence, transmission, surf_name, options,
     :param surf_name: name of the surface (to save the matrices generated.
     :param options: a list of options
     :param coherent: whether or not the layer stack is coherent. If None, it is assumed to be fully coherent
-    :param coherency: a list with the same number of entries as the layers, either 'c' for a coherent layer or \
-    'i' for an incoherent layer
-    :param prof_layers: layers for which the absorption profile should be calculated \
-    (if None, do not calculate absorption profile at all)
-    :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence \
-    medium, or rear incidence on the stack, from the transmission medium.
+    :param coherency: a list with the same number of entries as the layers, either 'c' for a coherent layer or
+            'i' for an incoherent layer
+    :param prof_layers: layers for which the absorption profile should be calculated
+            (if None, do not calculate absorption profile at all)
+    :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
+            medium, or rear incidence on the stack, from the transmission medium.
 
     :return: R and T redistribution matrix fullmat, matrix describing absorption per layer
     """
@@ -274,17 +274,16 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
 
 class tmm_structure:
+    """ Set up structure for TMM calculations.
+
+    :param stack: an OptiStack or SolarCell object.
+    :param incidence: incidence medium (Solcore material)
+    :param transmission: transmission medium/substrate (Solcore material)
+    :param no_back_reflection: whether to suppress reflections at the interface between the final material
+            in the stack and the substrate (default False)
+    """
 
     def __init__(self, stack, incidence=None, transmission=None, no_back_reflection=False):
-
-        """ Set up structure for TMM calculations
-
-        :param stack: an OptiStack or SolarCell object.
-        :param incidence: incidence medium (Solcore material)
-        :param transmission: transmission medium/substrate (Solcore material)
-        :param no_back_reflection: whether to suppress reflections at the interface between the final material \
-                in the stack and the substrate (default False)
-        """
 
         if 'OptiStack' in str(type(stack)):
             stack.no_back_reflection = no_back_reflection
@@ -301,15 +300,18 @@ class tmm_structure:
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
 
-        :param options: options for the calculation. The key entries are: \
-                    - wavelength: Wavelengths (in m) in which calculate the data. An array.
-                    - theta_in: Angle (in radians) of the incident light.
-                    - pol: Polarisation of the light: 's', 'p' or 'u'.
-                    - coherent: If the light is coherent or not. If not, a coherency list must be added.
-                    - coherency_list: A list indicating in which layers light should be treated as coherent ('c') and in which \
-                        incoherent ('i'). It needs as many elements as layers in the structure.
+        :param options: options for the calculation. The key entries are:
+
+            - wavelength: Wavelengths (in m) in which calculate the data. An array.
+            - theta_in: Angle (in radians) of the incident light.
+            - pol: Polarisation of the light: 's', 'p' or 'u'.
+            - coherent: If the light is coherent or not. If not, a coherency list must be added.
+            - coherency_list: A list indicating in which layers light should be treated as coherent ('c') and in which \
+                incoherent ('i'). It needs as many elements as layers in the structure.
+
         :param profile: whether or not to calculate the absorption profile
-        :param layers: indices of the layers in which to calculate the absorption profile. Layer 0 is the incidence medium.
+        :param layers: indices of the layers in which to calculate the absorption profile.
+            Layer 0 is the incidence medium.
 
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
