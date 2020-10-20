@@ -60,6 +60,7 @@ you can again use homebrew:
 
     brew install fftw suite-sparse openblas lapack
 
+If these packages are installed in the default directory
 
 Installing S4
 ---------------
@@ -69,7 +70,6 @@ Install some packages we will need:
 .. code-block:: console
 
     pip install numpy setuptools
-
 
 Downloading and installing S4 (start from the directory in which you want to download the S4 folder):
 
@@ -94,7 +94,6 @@ Installing RayFlare
     git clone https://github.com/qpv-research-group/rayflare.git
     cd rayflare
     pip install -e .[dev]
-
 
 This install RayFlare in development mode, as discussed above. Alternatively, do a normal installation with
 :literal:`pip install .`.

@@ -24,14 +24,12 @@ def test_parallel():
     options.pol = 'p'
     options.n_rays = 3000
     options.depth_spacing = 1e-6
-
+    options.parallel = True
 
     rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                         materials = [GaAs, Si, Ge],
                         widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)
     result_new = rtstr.calculate(options)
-
-    options.parallel = False
 
     rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                         materials = [GaAs, Si, Ge],
