@@ -58,10 +58,10 @@ wavelengths = np.linspace(300, 1200, 50)*1e-9
 options = default_options()
 options.wavelengths = wavelengths
 options.project_name = 'perovskite_Si_example'
-options.n_rays = 24000
+options.n_rays = 2000
 options.n_theta_bins = 30
-options.nx = 10
-options.ny = 10
+options.nx = 2
+options.ny = 2
 
 Si = material('Si')()
 Air = material('Air')()
