@@ -579,6 +579,11 @@ class rt_structure:
                     'thetas': thetas, 'phis': phis, 'R0': R0, 'n_passes': n_passes, 'n_interactions': n_interactions}
 
 
+    def calculate_profile(self, options):
+        prof = self.calculate(options)['profile']
+        return prof
+
+
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize):
     #print(widths)
     # thetas and phis divided into

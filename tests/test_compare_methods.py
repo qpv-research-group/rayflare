@@ -275,7 +275,6 @@ def test_planar_structure_45deg():
     # plt.show()
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_absorption_profile():
     from rayflare.ray_tracing.rt import rt_structure
     from rayflare.textures import planar_surface
@@ -322,7 +321,6 @@ def test_absorption_profile():
     assert rt_profile == approx(tmm_profile, rel=0.3)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_absorption_profile_incoh_angles():
     from rayflare.ray_tracing.rt import rt_structure
     from rayflare.textures import planar_surface
@@ -342,7 +340,6 @@ def test_absorption_profile_incoh_angles():
     options = default_options()
 
     options.wavelengths = np.linspace(700, 1400, 4)*1e-9
-    options.theta_in = 45*np.pi/180
     options.nx = 5
     options.ny = 5
     options.n_rays = 2000
@@ -384,7 +381,6 @@ def test_absorption_profile_incoh_angles():
     assert rt_profile_p == approx(tmm_profile_p, rel=0.2)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_absorption_profile_coh_angles():
     from rayflare.ray_tracing.rt import rt_structure
     from rayflare.textures import planar_surface
@@ -404,7 +400,6 @@ def test_absorption_profile_coh_angles():
     options = default_options()
 
     options.wavelengths = np.linspace(700, 1400, 4)*1e-9
-    options.theta_in = 45*np.pi/180
     options.nx = 5
     options.ny = 5
     options.n_rays = 2000
@@ -443,3 +438,89 @@ def test_absorption_profile_coh_angles():
     assert output_p['profile'].shape == result_rt_p['profile'].shape
     assert rt_profile_p == approx(tmm_profile_p, rel=0.3)
 
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def all_profiles():
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from solcore.structure import Layer
+
+    Air = material('Air')()
+    Si = material('Si')()
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1400, 4)*1e-9
+
+    options.depth_spacing = 10e-9
+    options.theta_in = np.pi/3
+    options.phi_in = np.pi/4
+    options.pol = 's'
+
+    stack = [Layer(si('500nm'), GaAs), Layer(si('1.1um'), Si), Layer(si('0.834um'), Ge)]
+
+    strt = tmm_structure(stack, incidence=Air, transmission=Air,
+                         no_back_reflection=False)
+
+    strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
+    strt_rcwa.calculate(options)
+    output_rcwa_s = strt_rcwa.calculate_profile(options)
+
+    output_s = strt.calculate_profile(options)
+
+    tmm_profile_s = output_s[output_s > 1e-7]
+    rcwa_profile_s = output_rcwa_s[output_s > 1e-7]
+
+    # import matplotlib.pyplot as plt
+    #
+    # plt.figure()
+    # plt.plot(output_s[2], '--')
+    # plt.plot(output_rcwa_s[2], '-.')
+    # plt.plot()
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.show()
+
+    assert rcwa_profile_s == approx(tmm_profile_s, rel=0.02)
+
+    options.pol = 'p'
+
+    stack = [Layer(si('500nm'), GaAs), Layer(si('1.1um'), Si), Layer(si('0.834um'), Ge)]
+
+    strt = tmm_structure(stack, incidence=Air, transmission=Air,
+                         no_back_reflection=False)
+
+    strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
+    strt_rcwa.calculate(options)
+    output_rcwa_p = strt_rcwa.calculate_profile(options)
+
+    output_p = strt.calculate_profile(options)
+
+    tmm_profile_p = output_p[output_p > 1e-7]
+    rcwa_profile_p = output_rcwa_p[output_p > 1e-7]
+
+    assert rcwa_profile_p == approx(tmm_profile_p, rel=0.02)
+
+    options.pol = 'u'
+
+    stack = [Layer(si('500nm'), GaAs), Layer(si('1.1um'), Si), Layer(si('0.834um'), Ge)]
+
+    strt = tmm_structure(stack, incidence=Air, transmission=Air,
+                         no_back_reflection=False)
+
+    strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
+    strt_rcwa.calculate(options)
+    output_rcwa_u = strt_rcwa.calculate_profile(options)
+
+    output_u = strt.calculate_profile(options)
+
+    tmm_profile_u = output_u[output_u > 1e-7]
+    rcwa_profile_u = output_rcwa_u[output_u > 1e-7]
+
+    assert rcwa_profile_u == approx(tmm_profile_u, rel=0.02)

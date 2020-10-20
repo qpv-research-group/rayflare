@@ -703,6 +703,58 @@ class rcwa_structure:
 
             return {'R': R, 'T': T, 'A_per_layer': A_mat}
 
+
+    def calculate_profile(self, options):
+        """ It calculates the absorbed energy density within the material.
+
+        In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
+        density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
+
+        """
+
+        wl = options['wavelengths'] * 1e9
+        dist = options['z_points'] if 'z_points' in options.keys() else None
+        z_limit = options['z_limit'] if 'z_limit' in options.keys() else None
+
+        step_size = options['depth_spacing']*1e9
+
+        if dist is None:
+            if z_limit is None:
+                z_limit = np.sum(self.widths[1:-1])
+            dist = np.arange(0, z_limit, step_size)
+
+        self.dist = dist
+
+        if options['parallel']:
+            allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl_prof)
+                                                             (wl[i1], self.rat_output_A[i1],
+                                                              dist,
+                                                              self.geom_list,
+                                                              self.layers_oc[i1], self.shapes_oc[i1],
+                                                              self.shapes_names, options['pol'],
+                                                              options['theta_in'] * 180 / np.pi,
+                                                              options['phi_in'] * 180 / np.pi,
+                                                              self.widths, self.size,
+                                                              options['orders'], options['S4_options'])
+                                                             for i1 in range(len(wl)))
+
+        else:
+            allres = [
+                RCWA_wl_prof(wl[i1], self.rat_output_A[i1],
+                                                              dist,
+                                                              self.geom_list,
+                                                              self.layers_oc[i1], self.shapes_oc[i1],
+                                                              self.shapes_names, options['pol'],
+                                                              options['theta_in'] * 180 / np.pi,
+                                                              options['phi_in'] * 180 / np.pi,
+                                                              self.widths, self.size,
+                                                              options['orders'], options['S4_options'])
+                for i1 in range(len(wl))]
+
+        output = np.stack(allres)
+
+        return output
+
     def save_layer_postscript(self, layer_index, filename):
         # layer_index: layer 0 is the incidence medium
         S = initialise_S(self.size, 1, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
@@ -963,72 +1015,6 @@ class rcwa_structure:
 
         self.geom_list[layer_index][geom_index].update(geom_entry)
 
-    def calculate_profile(self, z_limit=None, step_size=2, dist=None):
-        """ It calculates the absorbed energy density within the material. From the documentation:
-
-        'In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
-        density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
-
-        Integrating this absorption profile in the whole stack gives the same result that the absorption obtained with
-        calculate_rat as long as the spacial mesh (controlled by steps_thinest_layer) is fine enough. If the structure is
-        very thick and the mesh not thin enough, the calculation might diverege at short wavelengths.
-
-        For now, it only works for normal incident, coherent light.
-
-        :param structure: A solcore structure with layers and materials.
-        :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-        :param orders: number of orders to retain in the RCWA calculations.
-        :param wavelength: Wavelengths (in nm) in which calculate the data.
-        :param rat_output: output from calculate_rat_rcwa
-        :param z_limit: Maximum value in the z direction at which to calculate depth-dependent absorption (nm)
-        :param steps_size: if the dist is not specified, the step size in nm to use in the depth-dependent calculation
-        :param dist: the positions (in nm) at which to calculate depth-dependent absorption
-        :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
-        :param phi: azimuthal incidence angle in degrees. Default: 0
-        :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-        :param substrate: semi-infinite transmission medium
-
-        :return: A dictionary containing the positions (in nm) and a 2D array with the absorption in the structure as a \
-        function of the position and the wavelength.
-        """
-
-
-        if dist is None:
-            if z_limit is None:
-                z_limit = np.sum(self.widths[1:-1])
-            dist = np.arange(0, z_limit, step_size)
-
-        self.dist = dist
-
-
-        if self.options['parallel']:
-            allres = Parallel(n_jobs=self.options['n_jobs'])(delayed(RCWA_wl_prof)
-                                                             (self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
-                                                              dist,
-                                                              self.geom_list,
-                                                              self.layers_oc[i1], self.shapes_oc[i1],
-                                                              self.shapes_names, self.options['pol'],
-                                                              self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi,
-                                                              self.widths, self.size,
-                                                              self.orders, self.S4_options)
-                                                             for i1 in range(len(self.wavelengths)))
-
-        else:
-            allres = [
-                RCWA_wl_prof(self.wavelengths[i1] * 1e9, self.rat_output_A[i1],
-                                                              dist,
-                                                              self.geom_list,
-                                                              self.layers_oc[i1], self.shapes_oc[i1],
-                                                              self.shapes_names, self.options['pol'],
-                                                              self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi,
-                                                              self.widths, self.size,
-                                                              self.orders, self.S4_options)
-                for i1 in range(len(self.wavelengths))]
-
-        output = np.stack(allres)
-
-        return output
-
 
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
@@ -1092,7 +1078,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
             layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                d)  # don't need to change this
             layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
             profile_data[j] = data
 
 
@@ -1114,7 +1100,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
                 profile_data[j] = data
 
         else:
@@ -1128,9 +1114,9 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
                 S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
                 profile_data[j] = 0.5*(data_s + data_p)
 
     return profile_data

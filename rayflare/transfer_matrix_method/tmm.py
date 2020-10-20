@@ -320,6 +320,7 @@ class tmm_structure:
             # layer indices: 0 is incidence, n is transmission medium
             if layers is None:
                 layers = np.arange(1, stack.num_layers + 1)
+
             depth_spacing = options['depth_spacing'] * 1e9  # convert from m to nm
 
             z_limit = np.sum(np.array(stack.widths))
@@ -482,7 +483,12 @@ class tmm_structure:
             calculate_profile(layers)
 
         return output
-        # if requested, calculate absorption profile as well
+
+
+    def calculate_profile(self, options, layers=None):
+
+        prof = self.calculate(options, profile=True, layers=layers)['profile']
+        return prof
 
 
     def set_widths(self, new_widths):
