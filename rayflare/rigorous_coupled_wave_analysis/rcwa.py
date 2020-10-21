@@ -718,11 +718,14 @@ class rcwa_structure:
             basis_set = S_for_orders.GetBasisSet()
             f_mat = S_for_orders.GetReciprocalLattice()
 
-            return {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
+            results = {'R': R, 'T': T, 'A_per_layer': A_mat, 'A_layer_order': A_order, 'basis_set': basis_set, 'reciprocal': f_mat}
+            self.results = results
+            return results
 
         else:
-
-            return {'R': R, 'T': T, 'A_per_layer': A_mat}
+            results = {'R': R, 'T': T, 'A_per_layer': A_mat}
+            self.results = results
+            return results
 
 
     def calculate_profile(self, options):
@@ -784,7 +787,10 @@ class rcwa_structure:
 
         output = np.stack(allres)
 
-        return output
+        to_return = self.results
+        to_return['profile'] = output
+
+        return to_return
 
     def save_layer_postscript(self, layer_index, filename):
         # layer_index: layer 0 is the incidence medium

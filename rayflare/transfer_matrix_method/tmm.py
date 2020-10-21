@@ -487,7 +487,7 @@ class tmm_structure:
 
     def calculate_profile(self, options, layers=None):
 
-        prof = self.calculate(options, profile=True, layers=layers)['profile']
+        prof = self.calculate(options, profile=True, layers=layers)
         return prof
 
 

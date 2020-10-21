@@ -596,7 +596,7 @@ class rt_structure:
 
 
     def calculate_profile(self, options):
-        prof = self.calculate(options)['profile']
+        prof_results = self.calculate(options)
         return prof
 
 
