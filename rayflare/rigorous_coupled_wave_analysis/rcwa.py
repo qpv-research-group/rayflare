@@ -575,7 +575,11 @@ class rcwa_structure:
 
     def __init__(self, structure, size, options, incidence, transmission):
 
+        self.transmission = transmission
+        self.incidence = incidence
+
         wavelengths = options['wavelengths']
+
         geom_list = []
         list_for_OS = []
 
@@ -596,28 +600,14 @@ class rcwa_structure:
         geom_list.insert(0, {})  # incidence medium
         geom_list.append({})  # transmission medium
 
+        self.list_for_OS = list_for_OS
+
         ## Materials for the shapes need to be defined before you can do .SetRegion
         shape_mats, geom_list_str = necessary_materials(geom_list)
 
-        shapes_oc = np.zeros((len(wavelengths), len(shape_mats)), dtype=complex)
+        self.shape_mats = shape_mats
 
-        for i1, x in enumerate(shape_mats):
-            if isinstance(x, list):
-                if len(x) == 3:
-                    shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
-
-                if len(x) == 4:
-                    shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
-
-            else:
-                shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
-
-        # prepare to pass to OptiStack.
-
-        stack_OS = OptiStack(list_for_OS, no_back_reflection=False, substrate=transmission, incidence=incidence)
-        widths = stack_OS.get_widths()
-
-        layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
+        self.update_oc(wavelengths)
 
         shapes_names = [str(x) for x in shape_mats]
 
@@ -638,11 +628,37 @@ class rcwa_structure:
         S4_options.update(user_options)
 
         self.geom_list = geom_list_str
-        self.shapes_oc = shapes_oc
         self.shapes_names = shapes_names
-        self.widths = widths
         self.size = size
+
+
+    def update_oc(self, wavelengths):
+        # wavelength in m
+        shapes_oc = np.zeros((len(wavelengths), len(self.shape_mats)), dtype=complex)
+
+        for i1, x in enumerate(self.shape_mats):
+            if isinstance(x, list):
+                if len(x) == 3:
+                    shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
+
+                if len(x) == 4:
+                    shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
+
+            else:
+                shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
+
+        # prepare to pass to OptiStack.
+
+        stack_OS = OptiStack(self.list_for_OS, no_back_reflection=False,
+                             substrate=self.transmission, incidence=self.incidence)
+
+        layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
+        widths = stack_OS.get_widths()
+
+        self.widths = widths
+        self.shapes_oc = shapes_oc
         self.layers_oc = layers_oc
+        self.current_wavelengths = wavelengths
 
 
     def calculate(self, options):
@@ -663,7 +679,12 @@ class rcwa_structure:
 
              :return: A dictionary with the R, A and T at the specified wavelengths and angle.
              """
+
         wl = options['wavelengths']*1e9
+
+        if not np.all(options['wavelengths'] == self.current_wavelengths):
+            # need to update list of optical constants for correct wavelengths
+            self.update_oc(options['wavelengths'])
 
         if options['parallel']:
             allres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_structure_wl)
@@ -713,6 +734,16 @@ class rcwa_structure:
         """
 
         wl = options['wavelengths'] * 1e9
+
+        if not np.all(options['wavelengths'] == self.current_wavelengths):
+            self.update_oc(options['wavelengths'])
+            # if total R, A, T have already been calculated, it was for the wrong wavelengths
+            self.calculate(options)
+
+        if not hasattr(self, 'rat_output_A'):
+            # Need to calculate R, A, T first
+            self.calculate(options)
+
         dist = options['z_points'] if 'z_points' in options.keys() else None
         z_limit = options['z_limit'] if 'z_limit' in options.keys() else None
 
