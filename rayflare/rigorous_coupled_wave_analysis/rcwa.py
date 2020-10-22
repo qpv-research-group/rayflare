@@ -379,30 +379,20 @@ def fold_phi(phis, phi_sym):
 
 
 def rcwa_rat(S, n_layers, det_l=False):
+    # TODO: check normalization of pfbo values. Also, theta correction should happen inside here rather than externally
     below = 'layer_' + str(n_layers)  # identify which layer is the transmission medium
 
-    #print('sum', np.sum(R_pfbo))
 
-    # power flux by order backwards in layer_1: if incidence medium has n=1, this gives a (real part of) sum equal to R calculated through 1-sum(S.GetPowerFlux('layer_2')
-    # not so if incidence medium has different n
+    # power flux by order backwards in layer_1: if incidence medium has n=1, this gives a (real part of) sum equal to R
 
     # transmission power flux by order always sums to T, regardless of optical constants of transmission/incidence medium
-    R = 1 - sum(S.GetPowerFlux('layer_2'))  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+    R = -np.real(S.GetPowerFlux('layer_1')[1])  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
     # this should be correct answer in 'far field': anythng that doesn't go into the surface must be reflected. but if n_incidence != 1
     # can get odd effects.
-
-    # what about backwards power flow into layer_1?
-    # forward into layer 2 = S.GetPowerFlux('layer_2')[0]
-    #print(R, S.GetPowerFlux('layer_1')[1])
-    #R = -np.real(S.GetPowerFlux('layer_1')[1])/np.real(S.GetPowerFlux('layer_2'))[0]
 
     R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow
     Nrm = np.real(np.sum(R_pfbo))
     R_pfbo = np.real((R/Nrm)*R_pfbo)
-
-    #R_pfbo_2 = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1]
-    #Nrm = np.real(np.sum(R_pfbo_2))
-    #R_pfbo_2 = (R/Nrm)*R_pfbo_2
 
     if det_l:
         layer_name = 'layer_' + str(det_l + 2)
@@ -411,12 +401,11 @@ def rcwa_rat(S, n_layers, det_l=False):
 
     else:
         R_pfbo_int = 0
-    #print('R', R)
-    # layer_2 is the top layer of the structure (layer_1 is incidence medium)
+
     T = sum(S.GetPowerFlux(below))
 
     T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1))
-    return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo, R_pfbo_int#, R_pfbo_2
+    return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo, R_pfbo_int
 
 
 def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths, options):
@@ -1023,8 +1012,8 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)
         out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
-        R = out['R']
-        T = out['T']
+        R = out['R']/np.cos(theta*np.pi/180)
+        T = out['T']/np.cos(theta*np.pi/180)
         A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
         if A_per_order:
             A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
@@ -1033,7 +1022,6 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
             return R, T, A_layer
 
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
-
 
     if len(pol) == 2:
 

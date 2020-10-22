@@ -3,6 +3,60 @@ import numpy as np
 import sys
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_tmm_rcwa_structure_comparison():
+    import numpy as np
+    from solcore import si, material
+    from solcore.structure import Layer
+    from solcore.solar_cell import SolarCell
+
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from rayflare.transfer_matrix_method import tmm_structure
+    from rayflare.options import default_options
+
+    InGaP = material('GaInP')(In=0.5)
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+    Ag = material('Ag')()
+    Air = material('Air')()
+
+    Al2O3 = material('Al2O3')()
+
+    wavelengths = np.linspace(250, 1900, 500) * 1e-9
+
+    options = default_options()
+
+    options.wavelengths = wavelengths
+    options.orders = 2
+
+    size = ((100, 0), (0, 100))
+
+    # anti-reflection coating
+    ARC = [Layer(si('80nm'), Al2O3)]
+
+    solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
+                                  Layer(material=GaAs, width=si('4000nm')),
+                                  Layer(material=Ge, width=si('3000nm'))], substrate=Ag)
+
+    rcwa_setup = rcwa_structure(solar_cell, size=size, options=options, incidence=Air, transmission=Ag)
+    tmm_setup = tmm_structure(solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False)
+
+    for pol in ['s', 'p', 'u']:
+        for angle in [0, np.pi / 3]:
+            options['pol'] = pol
+            options['theta_in'] = angle
+
+            rcwa_result = rcwa_setup.calculate(options)
+            tmm_result = tmm_setup.calculate(options)
+
+            assert tmm_result['A_per_layer'] == approx(rcwa_result['A_per_layer'])
+            assert tmm_result['R'] == approx(rcwa_result['R'])
+            assert tmm_result['T'] == approx(rcwa_result['T'])
+
+            assert np.sum(tmm_result['A_per_layer'], 1) + tmm_result['R'] + tmm_result['T'] == approx(1)
+            assert np.sum(rcwa_result['A_per_layer'], 1) + rcwa_result['R'] + rcwa_result['T'] == approx(1)
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_planar_structure():
 
     # solcore imports
