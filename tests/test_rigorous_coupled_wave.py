@@ -90,3 +90,157 @@ def test_RAT():
 
     assert RAT['reciprocal'] == ((0.002, -0.0011547005383792516), (-0.0, 0.002309401076758503))
 
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_RAT_angle_pol():
+
+    from solcore import si, material
+    from solcore.structure import Layer
+    from rayflare.rigorous_coupled_wave_analysis.rcwa import rcwa_structure
+
+    from solcore.solar_cell import SolarCell
+    from rayflare.options import default_options
+
+    InAlP_hole_barrier = material('AlInP')(Al=0.5)
+    GaAs_pn_junction = material('GaAs')()
+    InGaP_e_barrier = material('GaInP')(In=0.5)
+    Air = material('Air')()
+    Ag = material('Ag')()
+
+    wavelengths = np.linspace(303, 1000, 10) * 1e-9
+
+    # define the problem
+
+    x = 500
+
+    size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
+
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.orders = 2
+
+    ropt = dict(LatticeTruncation='Circular',
+                DiscretizedEpsilon=False,
+                DiscretizationResolution=8,
+                PolarizationDecomposition=False,
+                PolarizationBasis='Default',
+                LanczosSmoothing=True,
+                SubpixelSmoothing=True,
+                ConserveMemory=False,
+                WeismannFormulation=True)
+
+    options.S4_options = ropt
+
+
+    SiN = material('Si3N4')()
+
+    grating1 = [Layer(si(20, 'nm'), SiN)]
+    grating2 = [Layer(si(80, 'nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                      'radius': 115, 'angle': 0}])]
+
+    solar_cell = SolarCell([Layer(material=InGaP_e_barrier, width=si('19nm')),
+                            Layer(material=GaAs_pn_junction, width=si('85nm')),
+                            Layer(material=InAlP_hole_barrier, width=si('19nm'))] + grating1 + grating2,
+                           substrate=Ag)
+
+
+    S4_setup = rcwa_structure(solar_cell, size, options, Air, Ag)
+
+    angles = [0, np.pi/5, np.pi/3]
+    pols = ['s', 'p', 'u']
+
+
+    for angle in angles:
+        for pol in pols:
+            options.pol = pol
+            options.theta_in = angle
+            options.phi_in = angle
+            RAT = S4_setup.calculate(options)
+
+            assert RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1) == approx(1)
+
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_RAT_angle_pol_ninc():
+
+    from solcore import si, material
+    from solcore.structure import Layer
+    from rayflare.rigorous_coupled_wave_analysis.rcwa import rcwa_structure
+
+    from solcore.solar_cell import SolarCell
+    from rayflare.options import default_options
+
+    InAlP_hole_barrier = material('AlInP')(Al=0.5)
+    GaAs_pn_junction = material('GaAs')()
+    InGaP_e_barrier = material('GaInP')(In=0.5)
+    Ag = material('Ag')()
+
+    wavelengths = np.linspace(303, 1000, 10) * 1e-9
+
+    # define the problem
+
+    x = 500
+
+    size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
+
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.orders = 2
+
+    ropt = dict(LatticeTruncation='Circular',
+                DiscretizedEpsilon=False,
+                DiscretizationResolution=8,
+                PolarizationDecomposition=False,
+                PolarizationBasis='Default',
+                LanczosSmoothing=True,
+                SubpixelSmoothing=True,
+                ConserveMemory=False,
+                WeismannFormulation=True)
+
+    options.S4_options = ropt
+
+
+    SiN = material('Si3N4')()
+
+    grating1 = [Layer(si(20, 'nm'), SiN)]
+    grating2 = [Layer(si(80, 'nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                      'radius': 115, 'angle': 0}])]
+
+    solar_cell = SolarCell([Layer(material=InGaP_e_barrier, width=si('19nm')),
+                            Layer(material=GaAs_pn_junction, width=si('85nm')),
+                            Layer(material=InAlP_hole_barrier, width=si('19nm'))] + grating1 + grating2,
+                           substrate=Ag)
+
+
+    S4_setup = rcwa_structure(solar_cell, size, options, SiN, Ag)
+
+    angles = [0, np.pi/5, np.pi/3]
+    pols = ['s', 'p', 'u']
+
+    import matplotlib.pyplot as plt
+    for angle in angles:
+        for pol in pols:
+            options.pol = pol
+            options.theta_in = angle
+            options.phi_in = angle
+            RAT = S4_setup.calculate(options)
+
+            # plt.figure()
+            # plt.plot(wavelengths*1e9, RAT['R'], label='R')
+            # plt.plot(wavelengths * 1e9, RAT['T'], label='T')
+            # plt.plot(wavelengths * 1e9,RAT['A_per_layer'], label=['barrier', 'pn', 'holeb', 'grating1', 'grating2'])
+            # plt.plot(wavelengths*1e9, RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1), '--')
+            # plt.legend()
+            # plt.show()
+
+            assert RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1) == approx(1)
+
+
+
+
+
+
+
+
