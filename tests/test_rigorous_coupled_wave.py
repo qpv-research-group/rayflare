@@ -219,7 +219,7 @@ def test_RAT_angle_pol_ninc():
     angles = [0, np.pi/5, np.pi/3]
     pols = ['s', 'p', 'u']
 
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
     for angle in angles:
         for pol in pols:
             options.pol = pol

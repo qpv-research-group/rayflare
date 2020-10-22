@@ -969,9 +969,9 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)
-        out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths), theta, np.sqrt(layers_oc[0]))
-        R = out['R']
-        T = out['T']
+        out = rcwa_rat(S, len(widths), theta, np.sqrt(layers_oc[0]))
+        R = out[0]['R']
+        T = out[0]['T']
         A_layer = rcwa_absorption_per_layer(S, len(widths), theta, np.sqrt(layers_oc[0]))
         if A_per_order:
             A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), theta, np.sqrt(layers_oc[0]))
