@@ -232,61 +232,45 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
             S.SetExcitationPlanewave((th, ph), s, p, 0)
             S.SetFrequency(1 / wl)
-            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths), layer_details)
-            R_pfbo = R_pfbo # this will not be normalized correctly! fix this outside if/else
-            T_pfbo = n_inc*T_pfbo/np.cos(th*np.pi/180)
-            #R[in_bin[i1]] = out['R']/np.cos(th*np.pi/180)
-            T[in_bin[i1]] = n_inc*out['T']/np.cos(th*np.pi/180)
-            A_layer[in_bin[i1]] = n_inc*rcwa_absorption_per_layer(S, len(widths))/np.cos(th*np.pi/180)
-            #A_layer[in_bin[i1]] = rcwa_absorption_per_layer_lossfunc(S, len(widths), freq, imag_e)
+            out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths), th, n_inc, layer_details)
+            T[in_bin[i1]] = out['T']
+            A_layer[in_bin[i1]] = rcwa_absorption_per_layer(S, len(widths), th, n_inc)
 
         else:
 
             #print(th)
             S.SetFrequency(1 / wl)
             S.SetExcitationPlanewave((th, ph), 0, 1, 0)  # p-polarization
-            out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths), layer_details)
-            Ap = rcwa_absorption_per_layer(S, len(widths))
-            #Ap = rcwa_absorption_per_layer_lossfunc(S, len(widths), freq, imag_e)
+            out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths), th, n_inc, layer_details)
+            Ap = rcwa_absorption_per_layer(S, len(widths), th, n_inc)
+
             S.SetExcitationPlanewave((th, ph), 1, 0, 0)  # s-polarization
-            out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths), layer_details)
-            As = rcwa_absorption_per_layer(S, len(widths))
-            #As = rcwa_absorption_per_layer_lossfunc(S, len(widths), freq, imag_e)
+            out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths), th, n_inc, layer_details)
+            As = rcwa_absorption_per_layer(S, len(widths), th, n_inc)
 
             # by definition, should have R = 1-T-A_total.
 
-            R_pfbo = (R_pfbo_s + R_pfbo_p) # this will not be normalized correctly! fix this outside if/else
-            T_pfbo = n_inc*(T_pfbo_s + T_pfbo_p)/(2*np.cos(th*np.pi/180))
+            R_pfbo = 0.5*(R_pfbo_s + R_pfbo_p) # this will not be normalized correctly! fix this outside if/else
+            T_pfbo = 0.5*(T_pfbo_s + T_pfbo_p)
 
-                #R_pfbo_2 = (R_pfbo_2s + R_pfbo_2p)/2
 
-            #R[in_bin[i1]] = 0.5 * (out_p['R'] + out_s['R'])/np.cos(th*np.pi/180)# average
-            T[in_bin[i1]] = n_inc*0.5 * (out_p['T'] + out_s['T'])/np.cos(th*np.pi/180)
-                # output['all_p'].append(out_p['power_entering_list'])
-                # output['all_s'].append(out_s['power_entering_list'])
-            #A_layer[in_bin[i1]] = rcwa_absorption_per_layer(S, len(widths))
-            A_layer[in_bin[i1]] = n_inc*0.5*(Ap+As)/np.cos(th*np.pi/180)
+            T[in_bin[i1]] = 0.5 * (out_p['T'] + out_s['T'])
+            A_layer[in_bin[i1]] = 0.5*(Ap+As)
 
 
         R[in_bin[i1]] = 1 - T[in_bin[i1]] - np.sum(A_layer[in_bin[i1]])
 
-                #fi_z = (l_oc[0] / wl) * np.cos(th * np.pi / 180)
         fi_x = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) *
                        np.sin(ph * np.pi / 180))
         fi_y = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) *
                        np.cos(ph * np.pi / 180))
 
-            #print('inc', fi_x, fi_y)
-
         fr_x = fi_x + G_basis[:,0]*fg_1x + G_basis[:,1]*fg_2x
         fr_y = fi_y + G_basis[:,0]*fg_1y + G_basis[:,1]*fg_2y
 
-        #print('eps/lambda', l_oc[0]/(wl**2))
         fr_z = np.sqrt((l_oc[0]/(wl**2))-fr_x**2 - fr_y**2)
-
         ft_z = np.sqrt((l_oc[-1]/(wl**2))-fr_x**2 - fr_y**2)
 
-            #print('ref', fr_x, fr_y, fr_z)
 
         phi_rt = np.nan_to_num(np.arctan(fr_x/fr_y))
         phi_rt = fold_phi(phi_rt, phi_sym)
@@ -321,7 +305,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
         for i2 in np.nonzero(R_pfbo)[0]:
             phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_r_bin[i2]], right=True) - 1
             bini = np.argmin(abs(angle_vector_0 -theta_r_bin[i2])) + phi_ind
-            #print(R_pfbo[i2], phi_rt[i2], bini, i1, phi_ind, np.argmin(abs(angle_vector_0 -theta_r_bin[i2])))
             mat_RT[bini, in_bin[i1]] = mat_RT[bini, i1] + R_pfbo[i2]
 
         for i2 in np.nonzero(T_pfbo)[0]:
@@ -335,29 +318,19 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
                 R_pfbo_int = (R_pfbo_int_p + R_pfbo_int_s)/2
             f_z = np.sqrt((l_oc[layer_details] / (wl ** 2)) - fr_x ** 2 - fr_y ** 2)
 
-            #print('fz', wl, f_z)
-            #print('fy', wl, fr_y)
-            #print('fx', wl, fr_x)
             theta_l = np.real(np.arccos(f_z / np.sqrt(fr_x ** 2 + fr_y ** 2 + f_z ** 2)))
-            #print(l_oc[layer_details])
-            #print('theta_l',theta_l)
+
             theta_l[theta_l == 0] = 1e-10
-            #print('R_pfbo', R_pfbo_int)
 
             np_l = theta_l == np.pi / 2  # non-propagating reflected orders
 
             R_pfbo_int[np_l] = 0
 
             R_pfbo_int[np.abs(R_pfbo_int < 1e-16)] = 0  # sometimes get very small negative valyes
-            #print(theta_l)
             theta_l_bin = np.digitize(theta_l, theta_intv, right=True) - 1
-            #print(theta_l_bin)
             for i2 in np.nonzero(R_pfbo_int)[0]:
                 phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_l_bin[i2]], right=True) - 1
                 bini = np.argmin(abs(angle_vector_0 - theta_l_bin[i2])) + phi_ind
-                #print(bini)
-                #print(R_pfbo_int[i2], phi_rt[i2], bini, i1, phi_ind,
-                #      np.argmin(abs(angle_vector_0 - theta_l_bin[i2])))
                 mat_int[bini, i1] = mat_int[bini, i1] + R_pfbo_int[i2]
 
 
@@ -378,21 +351,20 @@ def fold_phi(phis, phi_sym):
     return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
 
 
-def rcwa_rat(S, n_layers, det_l=False):
+def rcwa_rat(S, n_layers, theta, n_inc, det_l=False):
     # TODO: check normalization of pfbo values. Also, theta correction should happen inside here rather than externally
     below = 'layer_' + str(n_layers)  # identify which layer is the transmission medium
-
 
     # power flux by order backwards in layer_1: if incidence medium has n=1, this gives a (real part of) sum equal to R
 
     # transmission power flux by order always sums to T, regardless of optical constants of transmission/incidence medium
-    R = -np.real(S.GetPowerFlux('layer_1')[1])  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+    R = -n_inc*np.real(S.GetPowerFlux('layer_1')[1])/np.cos(theta*np.pi/180)  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
     # this should be correct answer in 'far field': anythng that doesn't go into the surface must be reflected. but if n_incidence != 1
     # can get odd effects.
 
-    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow
-    Nrm = np.real(np.sum(R_pfbo))
-    R_pfbo = np.real((R/Nrm)*R_pfbo)
+    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow. Not normalised correctly.
+    # Nrm = np.real(np.sum(R_pfbo))
+    # R_pfbo = np.real((R/Nrm)*R_pfbo)
 
     if det_l:
         layer_name = 'layer_' + str(det_l + 2)
@@ -402,9 +374,9 @@ def rcwa_rat(S, n_layers, det_l=False):
     else:
         R_pfbo_int = 0
 
-    T = sum(S.GetPowerFlux(below))
+    T = n_inc*sum(S.GetPowerFlux(below))/np.cos(theta*np.pi/180)
 
-    T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1))
+    T_pfbo = n_inc*np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1))/np.cos(theta*np.pi/180)
     return {'R': np.real(R), 'T': np.real(T)}, R_pfbo, T_pfbo, R_pfbo_int
 
 
@@ -495,26 +467,27 @@ def update_epsilon(S, stack_OS, shape_mats_OS, wl):
     return S
 
 
-def rcwa_position_resolved(S, layer, depth, A):
+def rcwa_position_resolved(S, layer, depth, A, theta, n_inc):
     if A > 0:
         delta = 1e-9
         power_difference = np.real(
             sum(S.GetPowerFlux(layer, depth - delta)) - sum(S.GetPowerFlux(layer, depth + delta)))
-        return power_difference / (2 * delta)  # absorbed energy density normalised to total absorption
+        return n_inc * power_difference / (2 * delta * np.cos(theta*np.pi/180))  # absorbed energy density normalised to total absorption
     else:
         return 0
 
-def rcwa_absorption_per_layer(S, n_layers):
+def rcwa_absorption_per_layer(S, n_layers, theta, n_inc):
     # layer 1 is incidence medium, layer n is the transmission medium
     A = np.empty(n_layers-2)
     for i1, layer in enumerate(np.arange(n_layers-2)+2):
         A[i1] = np.real(sum(S.GetPowerFlux('layer_' + str(layer))) -
                         sum(S.GetPowerFlux('layer_' + str(layer+1))))
-    A = np.array([x if x > 0 else 0 for x in A])
+
+    A = n_inc*np.array([x if x > 0 else 0 for x in A])/np.cos(theta*np.pi/180)
 
     return A
 
-def rcwa_absorption_per_layer_order(S, n_layers):
+def rcwa_absorption_per_layer_order(S, n_layers, theta, n_inc):
     # layer 1 is incidence medium, layer n is the transmission medium
     n_orders =  len(S.GetBasisSet())
     A_per_order = np.empty((n_layers-2, n_orders))
@@ -523,29 +496,14 @@ def rcwa_absorption_per_layer_order(S, n_layers):
         per_order_top = np.sum(np.array(S.GetPowerFluxByOrder('layer_' + str(layer))), 1)
         per_order_bottom = np.sum(np.array(S.GetPowerFluxByOrder('layer_' + str(layer+1))), 1)
 
-        A_per_order[i1,:] = np.real(per_order_top - per_order_bottom)
+        A_per_order[i1,:] = n_inc*np.real(per_order_top - per_order_bottom)/np.cos(theta*np.pi/180)
 
     return A_per_order
 
-def rcwa_absorption_per_layer_lossfunc(S, n_layers, freq, imag_e):
-    # layer 1 is incidence medium, layer n is the transmission medium
-    A = np.empty(n_layers-2)
-    for i1, layer in enumerate(np.arange(n_layers-2)+2):
-        # A[i1] = np.real(sum(S.GetPowerFlux('layer_' + str(layer))) - sum(S.GetPowerFlux('layer_' + str(layer+1))))
-        I = np.real(S.GetLayerVolumeIntegral(Layer='layer_' + str(layer), Quantity='U'))
-        A[i1] = 0.5*freq*I*imag_e[i1+1]
-        # print('layer_' + str(layer), imag_e[i1+1], I)
-        # print(A[i1])
-
-    A = np.array([x if x > 0 else 0 for x in A])
-
-    return A
 
 def get_reciprocal_lattice(size, orders):
 
     S = S4.New(size, orders)
-
-
     f_mat = S.GetReciprocalLattice()
 
     return f_mat
@@ -1011,12 +969,12 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)
-        out, R_pfbo, T_pfbo, R_pfbo_int = rcwa_rat(S, len(widths))
-        R = out['R']/np.cos(theta*np.pi/180)
-        T = out['T']/np.cos(theta*np.pi/180)
-        A_layer = rcwa_absorption_per_layer(S, len(widths))/np.cos(theta*np.pi/180)
+        out = rcwa_rat(S, len(widths), theta, np.sqrt(layers_oc[0]))
+        R = out[0]['R']
+        T = out[0]['T']
+        A_layer = rcwa_absorption_per_layer(S, len(widths), theta, np.sqrt(layers_oc[0]))
         if A_per_order:
-            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths))/np.cos(theta*np.pi/180)
+            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), theta, np.sqrt(layers_oc[0]))
             return R, T, A_layer, A_per_layer_order
         else:
             return R, T, A_layer
@@ -1066,7 +1024,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
             layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                d)  # don't need to change this
             layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-            data = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
             profile_data[j] = data
 
 
@@ -1088,7 +1046,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                data = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
+                data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
                 profile_data[j] = data
 
         else:
@@ -1102,9 +1060,9 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
                 S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A)/np.cos(theta*np.pi/180)
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
                 profile_data[j] = 0.5*(data_s + data_p)
 
     return profile_data
