@@ -3,6 +3,60 @@ import numpy as np
 import sys
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_tmm_rcwa_structure_comparison():
+    import numpy as np
+    from solcore import si, material
+    from solcore.structure import Layer
+    from solcore.solar_cell import SolarCell
+
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from rayflare.transfer_matrix_method import tmm_structure
+    from rayflare.options import default_options
+
+    InGaP = material('GaInP')(In=0.5)
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+    Ag = material('Ag')()
+    Air = material('Air')()
+
+    Al2O3 = material('Al2O3')()
+
+    wavelengths = np.linspace(250, 1900, 500) * 1e-9
+
+    options = default_options()
+
+    options.wavelengths = wavelengths
+    options.orders = 2
+
+    size = ((100, 0), (0, 100))
+
+    # anti-reflection coating
+    ARC = [Layer(si('80nm'), Al2O3)]
+
+    solar_cell = SolarCell(ARC + [Layer(material=InGaP, width=si('400nm')),
+                                  Layer(material=GaAs, width=si('4000nm')),
+                                  Layer(material=Ge, width=si('3000nm'))], substrate=Ag)
+
+    rcwa_setup = rcwa_structure(solar_cell, size=size, options=options, incidence=Air, transmission=Ag)
+    tmm_setup = tmm_structure(solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False)
+
+    for pol in ['s', 'p', 'u']:
+        for angle in [0, np.pi / 3]:
+            options['pol'] = pol
+            options['theta_in'] = angle
+
+            rcwa_result = rcwa_setup.calculate(options)
+            tmm_result = tmm_setup.calculate(options)
+
+            assert tmm_result['A_per_layer'] == approx(rcwa_result['A_per_layer'])
+            assert tmm_result['R'] == approx(rcwa_result['R'])
+            assert tmm_result['T'] == approx(rcwa_result['T'])
+
+            assert np.sum(tmm_result['A_per_layer'], 1) + tmm_result['R'] + tmm_result['T'] == approx(1)
+            assert np.sum(rcwa_result['A_per_layer'], 1) + rcwa_result['R'] + rcwa_result['T'] == approx(1)
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_planar_structure():
 
     # solcore imports
@@ -31,6 +85,7 @@ def test_planar_structure():
     options.lookuptable_angles = 100
     options.parallel = True
     options.c_azimuth = 0.001
+    options.I_thresh = 1e-8
 
     # set up Solcore materials
     Ge = material('Ge')()
@@ -122,9 +177,16 @@ def test_planar_structure():
     RCWA_matrix = np.hstack((results_per_layer_front_RCWA, results_RCWA_Matrix[0].A_bulk[0].data[:, None]))
     RT_matrix = np.hstack((results_per_layer_front_RT, results_RT[0].A_bulk[0].data[:, None]))
 
-    assert TMM_reference == approx(TMM_matrix, abs=0.01)
-    assert TMM_reference == approx(RCWA_matrix, abs=0.01)
+    assert TMM_reference == approx(TMM_matrix, abs=0.02)
+    assert TMM_reference == approx(RCWA_matrix, abs=0.02)
     assert TMM_reference == approx(RT_matrix, abs=0.2)
+
+    # check normalization
+
+    assert (results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + np.sum(results_per_layer_front_TMM_matrix, 1) + results_TMM_Matrix[0].A_bulk[0]).data == approx(1)
+    assert (results_RCWA_Matrix[0].R[0] + results_RCWA_Matrix[0].T[0] + np.sum(results_per_layer_front_RCWA, 1) + results_RCWA_Matrix[0].A_bulk[0]).data == approx(1)
+    assert (results_RT[0].R[0] + results_RT[0].T[0] + np.sum(results_per_layer_front_RT, 1) +
+            results_RT[0].A_bulk[0]).data == approx(1)
 
     # import matplotlib.pyplot as plt
     # import seaborn as sns
@@ -132,6 +194,7 @@ def test_planar_structure():
     # plt.figure()
     # plt.plot(wavelengths, TMM_matrix, color=cols[0])
     # plt.plot(wavelengths, RCWA_matrix, color=cols[1])
+    # plt.plot(wavelengths, TMM_reference, '--', color=cols[2])
     # plt.plot(wavelengths, RT_matrix, color=cols[2])
     # plt.show()
 
@@ -168,7 +231,7 @@ def test_planar_structure_45deg():
     options.theta_in = 0.6*np.pi/2
     options.nx = 1
     options.ny = 1
-    options.pol = 's'
+    options.I_thresh = 1e-8
 
     # set up Solcore materials
     Ge = material('Ge')()
@@ -264,6 +327,12 @@ def test_planar_structure_45deg():
     assert TMM_reference == approx(RCWA_matrix, abs=0.05)
     assert TMM_reference == approx(RT_matrix, abs=0.3)
 
+    assert (results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + np.sum(results_per_layer_front_TMM_matrix, 1) + results_TMM_Matrix[0].A_bulk[0]).data == approx(1)
+    assert (results_RCWA_Matrix[0].R[0] + results_RCWA_Matrix[0].T[0] + np.sum(results_per_layer_front_RCWA, 1) + results_RCWA_Matrix[0].A_bulk[0]).data == approx(1)
+    assert (results_RT[0].R[0] + results_RT[0].T[0] + np.sum(results_per_layer_front_RT, 1) +
+            results_RT[0].A_bulk[0]).data == approx(1)
+
+
     # import matplotlib.pyplot as plt
     # import seaborn as sns
     # cols = sns.cubehelix_palette(4)
@@ -273,6 +342,123 @@ def test_planar_structure_45deg():
     # plt.plot(wavelengths, RCWA_matrix, color=cols[2])
     # plt.plot(wavelengths, RT_matrix, color=cols[3])
     # plt.show()
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_tmm_rcwa_pol_angle():
+    # solcore imports
+    from solcore.structure import Layer
+    from solcore import material
+    from solcore.absorption_calculator import calculate_rat, OptiStack
+
+    # rayflare imports
+    from rayflare.structure import Interface, BulkLayer, Structure
+    from rayflare.matrix_formalism.process_structure import process_structure
+    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.options import default_options
+
+    # Thickness of bottom Ge layer
+    bulkthick = 300e-6
+
+    wavelengths = np.linspace(300, 1850, 30) * 1e-9
+
+    # set options
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.project_name = 'method_comparison_test_angle_pol'
+    options.n_theta_bins = 50
+    options.lookuptable_angles = 100
+    options.parallel = True
+    options.c_azimuth = 0.001
+    options.I_thresh = 1e-8
+    options.only_incidence_angle = False
+
+    # set up Solcore materials
+    Ge = material('Ge')()
+    GaAs = material('GaAs')()
+    GaInP = material('GaInP')(In=0.5)
+    Ag = material('Ag')()
+    SiN = material('Si3N4')()
+    Air = material('Air')()
+    Ta2O5 = material('TaOx1')()  # Ta2O5 (SOPRA database)
+    MgF2 = material('MgF2')()  # MgF2 (SOPRA database)
+
+    front_materials = [Layer(120e-9, MgF2), Layer(74e-9, Ta2O5), Layer(464e-9, GaInP),
+                       Layer(1682e-9, GaAs)]
+    back_materials = [Layer(100E-9, SiN)]
+
+    angles = [0, np.pi/5, np.pi/3]
+    pols = ['s', 'p', 'u']
+    # TMM, matrix framework
+
+    for angle in angles:
+        for pol in pols:
+
+            options.pol = pol
+            options.theta_in = angle
+            options.phi_in = angle
+
+            front_surf = Interface('TMM', layers=front_materials, name='GaInP_GaAs_TMM'+str(pol),
+                                   coherent=True)
+            back_surf = Interface('TMM', layers=back_materials, name='SiN_Ag_TMM'+str(pol),
+                                  coherent=True)
+
+            bulk_Ge = BulkLayer(bulkthick, Ge, name='Ge_bulk')  # bulk thickness in m
+
+            SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
+
+            process_structure(SC, options)
+
+            results_TMM_Matrix = calculate_RAT(SC, options)
+
+            results_per_pass_TMM_matrix = results_TMM_Matrix[1]
+
+            results_per_layer_front_TMM_matrix = np.sum(results_per_pass_TMM_matrix['a'][0], 0)
+
+
+            ## RCWA
+
+            front_surf = Interface('RCWA', layers=front_materials, name='GaInP_GaAs_RCWA'+str(pol),
+                                   coherent=True, d_vectors=((500, 0), (0, 500)), rcwa_orders=2)
+            back_surf = Interface('RCWA', layers=back_materials, name='SiN_Ag_RCWA'+str(pol),
+                                  coherent=True, d_vectors=((500, 0), (0, 500)), rcwa_orders=2)
+
+            SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
+
+            process_structure(SC, options)
+
+            results_RCWA_Matrix = calculate_RAT(SC, options)
+
+            results_per_pass_RCWA = results_RCWA_Matrix[1]
+
+            # only select absorbing layers, sum over passes
+            results_per_layer_front_RCWA = np.sum(results_per_pass_RCWA['a'][0], 0)
+
+            ## pure TMM (from Solcore)
+            all_layers = front_materials + [Layer(bulkthick, Ge)] + back_materials
+
+            coh_list = len(front_materials) * ['c'] + ['i'] + ['c']
+
+            OS_layers = OptiStack(all_layers, substrate=Ag, no_back_reflection=False)
+
+            TMM_res = calculate_rat(OS_layers, wavelength=wavelengths * 1e9,
+                                    no_back_reflection=False, angle=options.theta_in * 180 / np.pi, coherent=False,
+                                    coherency_list=coh_list, pol=options.pol)
+
+            # stack results for comparison
+            TMM_reference = TMM_res['A_per_layer'][1:-2].T
+            TMM_matrix = np.hstack((results_per_layer_front_TMM_matrix, results_TMM_Matrix[0].A_bulk[0].data[:, None]))
+            RCWA_matrix = np.hstack((results_per_layer_front_RCWA, results_RCWA_Matrix[0].A_bulk[0].data[:, None]))
+
+            print(pol, angle)
+
+            assert TMM_reference == approx(TMM_matrix, abs=0.05)
+            assert TMM_reference == approx(RCWA_matrix, abs=0.05)
+
+            assert (results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + np.sum(results_per_layer_front_TMM_matrix, 1) +
+                    results_TMM_Matrix[0].A_bulk[0]).data == approx(1)
+            assert (results_RCWA_Matrix[0].R[0] + results_RCWA_Matrix[0].T[0] + np.sum(results_per_layer_front_RCWA, 1) +
+                    results_RCWA_Matrix[0].A_bulk[0]).data == approx(1)
+
 
 
 def test_absorption_profile():
