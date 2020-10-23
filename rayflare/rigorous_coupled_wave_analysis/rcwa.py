@@ -745,7 +745,7 @@ class rcwa_structure:
         S.OutputLayerPatternPostscript(Layer='layer_' + str(layer_index + 1), Filename=filename + '.ps')
 
 
-    def get_fourier_epsilon(self, layer_index, wavelength, extent=None, n_points=200, plot=True):
+    def get_fourier_epsilon(self, layer_index, wavelength, options, extent=None, n_points=200, plot=True):
         """
         Get the Fourier-decomposed epsilon scanning across x-y points for some layer in the structure for the number
         of order specified in the options for the structure. Can also plot this automatically.
@@ -760,7 +760,7 @@ class rcwa_structure:
         :return: xs, ys, a_r, a_i. The x points, y points, and the real and imaginary parts of the dielectric function.
         """
 
-        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+        wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
 
         if extent is None:
             xdim = np.max(abs(np.array(self.size)[:, 0]))
@@ -776,16 +776,14 @@ class rcwa_structure:
 
         a_r = np.zeros(len(xs) * len(ys))
         a_i = np.zeros(len(xs) * len(ys))
-        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind], self.shapes_oc[wl_ind], self.shapes_names,
-                         self.widths, self.S4_options)
+        S = initialise_S(self.size, options.orders, self.geom_list, self.layers_oc[wl_ind], self.shapes_oc[wl_ind], self.shapes_names,
+                         self.widths, options.S4_options)
 
         if layer_index > 0:
             depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + 1e-10
 
         else:
             depth = -1
-
-
 
         for i, (xi, yi) in enumerate(zip(xys[0].flatten(), xys[1].flatten())):
             calc = S.GetEpsilon(xi, yi, depth)
@@ -811,7 +809,7 @@ class rcwa_structure:
             plt.show()
         return xs, ys, a_r, a_i
 
-    def get_fields(self, layer_index, wavelength, pol='s', extent=None, depth=1e-10, n_points=200, plot=True):
+    def get_fields(self, layer_index, wavelength, options, extent=None, depth=1e-10, n_points=200, plot=True):
         """
         Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
         automatically. Uses the S4 function GetFields().
@@ -830,23 +828,23 @@ class rcwa_structure:
         """
 
         def vs_pol(s, p):
-            S.SetExcitationPlanewave((self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi), s, p, 0)
+            S.SetExcitationPlanewave((options['theta_in']*180/np.pi, options['phi_in']*180/np.pi), s, p, 0)
             S.SetFrequency(1 / wavelength)
 
-        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+        wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
 
-        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind],
+        S = initialise_S(self.size, options.orders, self.geom_list, self.layers_oc[wl_ind],
                          self.shapes_oc[wl_ind],
                          self.shapes_names,
-                         self.widths, self.S4_options)
+                         self.widths, options.S4_options)
 
-        if len(pol) == 2:
+        if len(options['pol']) == 2:
 
-            vs_pol(pol[0], pol[1])
+            vs_pol(options['pol'][0], options['pol'][1])
 
         else:
-            if pol in 'sp':
-                vs_pol(int(pol == "s"), int(pol == "p"))
+            if options['pol'] in 'sp':
+                vs_pol(int(options['pol'] == "s"), int(options['pol'] == "p"))
 
         if layer_index > 0:
             depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
@@ -901,7 +899,7 @@ class rcwa_structure:
         return xs, ys, E, H, E_mag, H_mag
 
 
-    def get_fields_z_integral(self, layer_index, wavelength, pol='s', extent=None, n_points=200, plot=True):
+    def get_fields_z_integral(self, layer_index, wavelength, options, extent=None, n_points=200, plot=True):
         """
         Get the magnitude of the E and H fields integrated over z in a layer, over a range of x/y points. Can also plot results
         automatically.
@@ -920,23 +918,23 @@ class rcwa_structure:
         """
 
         def vs_pol(s, p):
-            S.SetExcitationPlanewave((self.options['theta_in']*180/np.pi, self.options['phi_in']*180/np.pi), s, p, 0)
+            S.SetExcitationPlanewave((options['theta_in']*180/np.pi, options['phi_in']*180/np.pi), s, p, 0)
             S.SetFrequency(1 / wavelength)
 
-        wl_ind = np.argmin(np.abs(self.wavelengths * 1e9 - wavelength))
+        wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
 
-        S = initialise_S(self.size, self.orders, self.geom_list, self.layers_oc[wl_ind],
+        S = initialise_S(self.size, options.orders, self.geom_list, self.layers_oc[wl_ind],
                          self.shapes_oc[wl_ind],
                          self.shapes_names,
-                         self.widths, self.S4_options)
+                         self.widths, options.S4_options)
 
-        if len(pol) == 2:
+        if len(options['pol']) == 2:
 
-            vs_pol(pol[0], pol[1])
+            vs_pol(options['pol'][0], options['pol'][1])
 
         else:
-            if pol in 'sp':
-                vs_pol(int(pol == "s"), int(pol == "p"))
+            if options['pol'] in 'sp':
+                vs_pol(int(options['pol'] == "s"), int(options['pol'] == "p"))
 
         if extent is None:
             xdim = np.max(abs(np.array(self.size)[:, 0]))
