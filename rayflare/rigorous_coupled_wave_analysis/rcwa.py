@@ -649,15 +649,15 @@ class rcwa_structure:
                                                          options['orders'], options['A_per_order'], options['S4_options'])
                 for i1 in range(len(wl))]
 
-        R = np.stack([item[0] for item in allres])
-        T = np.stack([item[1] for item in allres])
-        A_mat = np.stack([item[2] for item in allres])
+        R = np.real(np.stack([item[0] for item in allres]))
+        T = np.real(np.stack([item[1] for item in allres]))
+        A_mat = np.real(np.stack([item[2] for item in allres]))
 
         self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
 
         if options['A_per_order']:
 
-            A_order = np.stack([item[3] for item in allres])
+            A_order = np.real(np.stack([item[3] for item in allres]))
 
             S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, self.layers_oc[0],
                              self.shapes_oc[0], self.shapes_names, self.widths, options['S4_options'])
@@ -732,7 +732,7 @@ class rcwa_structure:
                                                               options['orders'], options['S4_options'])
                 for i1 in range(len(wl))]
 
-        output = np.stack(allres)
+        output = np.real(np.stack(allres))
 
         to_return = self.results
         to_return['profile'] = output
