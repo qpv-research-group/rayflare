@@ -677,9 +677,9 @@ def test_rcwa_tmm_profiles_coh():
 
     strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
     strt_rcwa.calculate(options)
-    output_rcwa_s = strt_rcwa.calculate_profile(options)
+    output_rcwa_s = strt_rcwa.calculate_profile(options)['profile']
 
-    output_s = strt.calculate_profile(options)
+    output_s = strt.calculate_profile(options)['profile']
 
     tmm_profile_s = output_s[output_s > 1e-7]
     rcwa_profile_s = output_rcwa_s[output_s > 1e-7]
@@ -706,9 +706,9 @@ def test_rcwa_tmm_profiles_coh():
 
     strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
     strt_rcwa.calculate(options)
-    output_rcwa_p = strt_rcwa.calculate_profile(options)
+    output_rcwa_p = strt_rcwa.calculate_profile(options)['profile']
 
-    output_p = strt.calculate_profile(options)
+    output_p = strt.calculate_profile(options)['profile']
 
     tmm_profile_p = output_p[output_p > 1e-7]
     rcwa_profile_p = output_rcwa_p[output_p > 1e-7]
@@ -724,9 +724,9 @@ def test_rcwa_tmm_profiles_coh():
 
     strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
     strt_rcwa.calculate(options)
-    output_rcwa_u = strt_rcwa.calculate_profile(options)
+    output_rcwa_u = strt_rcwa.calculate_profile(options)['profile']
 
-    output_u = strt.calculate_profile(options)
+    output_u = strt.calculate_profile(options)['profile']
 
     tmm_profile_u = output_u[output_u > 1e-7]
     rcwa_profile_u = output_rcwa_u[output_u > 1e-7]

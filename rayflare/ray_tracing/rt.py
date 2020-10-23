@@ -596,8 +596,8 @@ class rt_structure:
 
 
     def calculate_profile(self, options):
-        prof = self.calculate(options)['profile']
-        return prof
+        prof_results = self.calculate(options)
+        return prof_results
 
 
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize):
