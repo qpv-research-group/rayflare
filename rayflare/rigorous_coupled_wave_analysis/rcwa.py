@@ -394,7 +394,8 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
         LanczosSmoothing = options['LanczosSmoothing'],
         SubpixelSmoothing = options['SubpixelSmoothing'],
         ConserveMemory = options['ConserveMemory'],
-        WeismannFormulation = options['WeismannFormulation']
+        WeismannFormulation = options['WeismannFormulation'],
+        Verbosity = options['Verbosity']
     )
 
 
@@ -816,7 +817,6 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param pol: polarization of the incident light, 's', 'p' or a tuple
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
         :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
@@ -878,8 +878,8 @@ class rcwa_structure:
             E[ind_0[x_i], ind_1[y_i]] = calc[0]
             H[ind_0[x_i], ind_1[y_i]]  = calc[1]
 
-        E_mag = np.sqrt(np.abs(np.sum(E ** 2, 2)))
-        H_mag = np.sqrt(np.abs(np.sum(H ** 2, 2)))
+        E_mag = np.real(np.sqrt(np.sum(np.abs(E) ** 2, 2)))
+        H_mag = np.real(np.sqrt(np.sum(np.abs(H) ** 2, 2)))
 
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
@@ -898,6 +898,47 @@ class rcwa_structure:
 
         return xs, ys, E, H, E_mag, H_mag
 
+    def get_fields_unit_cell(self, layer_index, wavelength, options, depth=1e-10, n_points=200):
+        """
+        Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
+        automatically. Uses the S4 function GetFields().
+
+        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
+        :param wavelength: wavelength (in nm) at which to get epsilon
+        :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
+        :param n_points: number of points to scan across in the x and y directions
+
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the complex (x, y, z) components of the E field, the complex (x, y, z) components of the H field,
+                    the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
+        """
+
+        def vs_pol(s, p):
+            S.SetExcitationPlanewave((options['theta_in']*180/np.pi, options['phi_in']*180/np.pi), s, p, 0)
+            S.SetFrequency(1 / wavelength)
+
+        wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
+
+        S = initialise_S(self.size, options.orders, self.geom_list, self.layers_oc[wl_ind],
+                         self.shapes_oc[wl_ind],
+                         self.shapes_names,
+                         self.widths, options.S4_options)
+
+        if len(options['pol']) == 2:
+
+            vs_pol(options['pol'][0], options['pol'][1])
+
+        else:
+            if options['pol'] in 'sp':
+                vs_pol(int(options['pol'] == "s"), int(options['pol'] == "p"))
+
+        if layer_index > 0:
+            depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
+
+        S.GetFieldsOnGrid(z=0.2, NumSamples=(100, 100), Format='Array')
+        E, H = S.GetFieldsOnGrid(z=depth, NumSamples=(n_points, n_points), Format='Array')
+
+
+        return E, H
 
     def get_fields_z_integral(self, layer_index, wavelength, options, extent=None, n_points=200, plot=True):
         """
@@ -966,8 +1007,8 @@ class rcwa_structure:
             E[ind_0[x_i], ind_1[y_i]] = calc[0]
             H[ind_0[x_i], ind_1[y_i]]  = calc[1]
 
-        E_mag = np.real(np.sqrt(np.sum(E, 2)))
-        H_mag = np.real(np.sqrt(np.sum(H, 2)))
+        E_mag = np.real(np.sqrt(np.sum(np.abs(E) ** 2, 2)))
+        H_mag = np.real(np.sqrt(np.sum(np.abs(H) ** 2, 2)))
 
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
@@ -1000,6 +1041,8 @@ class rcwa_structure:
 
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
+    
+    # print(wl)
 
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
