@@ -934,7 +934,6 @@ class rcwa_structure:
         if layer_index > 0:
             depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
 
-        S.GetFieldsOnGrid(z=0.2, NumSamples=(100, 100), Format='Array')
         E, H = S.GetFieldsOnGrid(z=depth, NumSamples=(n_points, n_points), Format='Array')
 
 
@@ -1041,8 +1040,6 @@ class rcwa_structure:
 
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
-    
-    # print(wl)
 
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
