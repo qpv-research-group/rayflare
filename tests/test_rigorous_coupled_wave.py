@@ -48,7 +48,8 @@ def test_RAT():
                 LanczosSmoothing=True,
                 SubpixelSmoothing=True,
                 ConserveMemory=False,
-                WeismannFormulation=True)
+                WeismannFormulation=True,
+                Verbosity=0)
 
     options['S4_options'] = ropt
 
@@ -128,7 +129,8 @@ def test_RAT_angle_pol():
                 LanczosSmoothing=True,
                 SubpixelSmoothing=True,
                 ConserveMemory=False,
-                WeismannFormulation=True)
+                WeismannFormulation=True,
+                Verbosity=0)
 
     options.S4_options = ropt
 
@@ -197,7 +199,8 @@ def test_RAT_angle_pol_ninc():
                 LanczosSmoothing=True,
                 SubpixelSmoothing=True,
                 ConserveMemory=False,
-                WeismannFormulation=True)
+                WeismannFormulation=True,
+                Verbosity=0)
 
     options.S4_options = ropt
 

@@ -29,7 +29,8 @@ class default_options(State):
                                 LanczosSmoothing=False,
                                 SubpixelSmoothing=False,
                                 ConserveMemory=False,
-                                WeismannFormulation=False)
+                                WeismannFormulation=False,
+                                Verbosity=0)
         self.orders = 10
         
         # Ray-tracing options
