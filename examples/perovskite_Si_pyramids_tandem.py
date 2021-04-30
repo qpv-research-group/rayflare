@@ -35,8 +35,10 @@ params = {'legend.fontsize': 'small',
 
 plt.rcParams.update(params)
 
-# cur_path = os.path.dirname(os.path.abspath(__file__))
-# # new materials from data
+cur_path = os.path.dirname(os.path.abspath(__file__))
+# new materials from data (only need to add once, uncomment following lines to do so:
+
+# from solcore.material_system import create_new_material
 # create_new_material('Perovskite_CsBr_1p6eV', os.path.join(cur_path, 'data/CsBr10p_1to2_n_shifted.txt'), os.path.join(cur_path, 'data/CsBr10p_1to2_k_shifted.txt'))
 # create_new_material('ITO_lowdoping', os.path.join(cur_path, 'data/model_back_ito_n.txt'), os.path.join(cur_path, 'data/model_back_ito_k.txt'))
 # create_new_material('Ag_Jiang', os.path.join(cur_path, 'data/Ag_UNSW_n.txt'), os.path.join(cur_path, 'data/Ag_UNSW_k.txt'))
@@ -46,11 +48,7 @@ plt.rcParams.update(params)
 # create_new_material('MgF2_RdeM', os.path.join(cur_path, 'data/MgF2_RdeM_n.txt'), os.path.join(cur_path, 'data/MgF2_RdeM_k.txt'))
 # create_new_material('C60', os.path.join(cur_path, 'data/C60_Ren_n.txt'), os.path.join(cur_path, 'data/C60_Ren_k.txt'))
 # create_new_material('IZO', os.path.join(cur_path, 'data/IZO_Ballif_rO2_10pcnt_n.txt'), os.path.join(cur_path, 'data/IZO_Ballif_rO2_10pcnt_k.txt'))
-#
 
-#font = {'family' : 'Lato Medium',
-#        'size'   : 14}
-#matplotlib.rc('font', **font)
 
 # matrix multiplication
 wavelengths = np.linspace(300, 1200, 50)*1e-9
@@ -62,6 +60,7 @@ options.n_rays = 2000
 options.n_theta_bins = 30
 options.nx = 2
 options.ny = 2
+options.depth_spacing = 5e-9
 
 Si = material('Si')()
 Air = material('Air')()
@@ -100,6 +99,13 @@ surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
 front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_widthcorr',
                        coherent=True, prof_layers=np.arange(1, 10))
+# NOTE: depending on your computer, calculation the absorption profiles in the front surface may cause
+# memory-related errors as it uses extremely large matrices. Hopefully this can be resolved in the future but if this is
+# an issue, replace the above definition of the front surface so that the profiles aren't calculated:
+
+# front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_widthcorr',
+#                        coherent=True)
+
 back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'aSi_ITO_2',
                       coherent=True)
 

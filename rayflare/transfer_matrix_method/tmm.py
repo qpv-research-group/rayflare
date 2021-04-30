@@ -420,7 +420,7 @@ class tmm_structure:
                             fn.A1 = np.vstack((fn.A1, np.zeros((1, num_wl))))
                             fn.A3 = np.vstack((fn.A3, np.zeros((1, num_wl))))
 
-                output['profile_coeff'] = np.stack(
+            output['profile_coeff'] = np.stack(
                     (fn.A1, fn.A2, np.real(fn.A3), np.imag(fn.A3), fn.a1, fn.a3))  # shape is (5, n_layers, num_wl)
 
         wavelength = options['wavelengths']*1e9

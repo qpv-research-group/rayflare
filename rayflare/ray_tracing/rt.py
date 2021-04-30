@@ -30,7 +30,7 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
     :param n_absorbing_layers: for a structure with multiple interface layers, where a TMM lookuptable is used, the number of layers in \
     the interface
     :param calc_profile: whether to save the relevant information to calculate the depth-dependent absorption \
-    profile
+    profile. List of layers where the profile should be calculated, or otherwise None
     :param only_incidence_angle: if True, the ray-tracing will only be performed for the incidence theta and phi \
     specified in the options.
 
@@ -371,8 +371,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
         local_angle_mat = np.divide(local_angle_mat, np.sum(local_angle_mat, 0), where=np.sum(local_angle_mat, 0)!=0)
         local_angle_mat[np.isnan(local_angle_mat)] = 0
         local_angle_mat = COO(local_angle_mat)
-
-        #print(calc_profile)
 
         if calc_profile is not None:
             n_a_in = int(len(angle_vector)/2)
