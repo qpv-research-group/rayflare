@@ -60,7 +60,7 @@ options.n_rays = 2000
 options.n_theta_bins = 30
 options.nx = 2
 options.ny = 2
-options.depth_spacing = 5e-9
+options.depth_spacing = 1e-9
 
 Si = material('Si')()
 Air = material('Air')()
