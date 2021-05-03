@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 # provide x, y and z coordinates of points in the unit cell to make a V-groove texture
 
-x = [0, 0, 1, 1, 0.5, 0.5]
-y = [0, 1, 0, 1, 0 , 1]
-z = [0, 0, 0, 0, 1, 1]
+x = np.array([0, 0, 1, 1, 0.5, 0.5])
+y = np.array([0, 1, 0, 1, 0, 1])
+z = np.array([0, 0, 0, 0, 1, 1])
 
 [front, back] =  xyz_texture(x, y, z)
 

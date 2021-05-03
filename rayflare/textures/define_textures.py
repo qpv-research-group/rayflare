@@ -5,9 +5,9 @@ import numpy as np
 def xyz_texture(x, y, z):
     """
 
-    :param x: list of x (in-plane) coordinates of points on the surface texture (list or 1D numpy array)
-    :param y: list of y (in-plane) coordinates of points on the surface texture (list or 1D numpy array)
-    :param z: list of z (height) coordinates of points on the surface texture (list or 1D numpy array)
+    :param x: list of x (in-plane) coordinates of points on the surface texture (1D numpy array)
+    :param y: list of y (in-plane) coordinates of points on the surface texture (1D numpy array)
+    :param z: list of z (height) coordinates of points on the surface texture (1D numpy array)
     :return:
 
     """
