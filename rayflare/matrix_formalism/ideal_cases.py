@@ -4,7 +4,8 @@ from rayflare.config import results_path
 from sparse import COO, load_npz, save_npz
 from rayflare.angles import fold_phi
 
-def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rear='front', save=True):
+def lambertian_matrix(angle_vector, theta_intv, surf_name, structpath,
+                      front_or_rear='front', save=True):
     """
     Generates a redistribution matrix for perfect Lambertian reflection.
 
@@ -19,11 +20,6 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rea
     """
 
     if save:
-        structpath = os.path.join(results_path, options['project_name'])  # also need this to get lookup table
-
-        if not os.path.isdir(structpath):
-            os.mkdir(structpath)
-
         savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
         savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
 
@@ -72,7 +68,8 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, options, front_or_rea
     return allArray
 
 
-def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, front_or_rear='front', save=True):
+def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, structpath,
+                  front_or_rear='front', save=True):
     """
     Generates a redistribution matrix for a perfect mirror (100% reflection).
 
@@ -87,11 +84,6 @@ def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, front_
     :return: the redistribution matrix in sparse COO format.
     """
     if save:
-        structpath = os.path.join(results_path, options['project_name'])  # also need this to get lookup table
-
-        if not os.path.isdir(structpath):
-            os.mkdir(structpath)
-
         savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
         savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
 

@@ -15,8 +15,9 @@ from copy import deepcopy
 from warnings import warn
 
 
-def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_or_rear = 'front',
-       n_absorbing_layers=0, calc_profile=None, only_incidence_angle=False, widths=None, save=True):
+def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM = 0,
+       front_or_rear = 'front', n_absorbing_layers=0, calc_profile=None,
+       only_incidence_angle=False, widths=None, save=True):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
 
@@ -40,17 +41,11 @@ def RT(group, incidence, transmission, surf_name, options, Fr_or_TMM = 0, front_
     This is used to calculate absorption profiles using TMM.
     """
 
-    if Fr_or_TMM > 0 or save:
-        structpath = os.path.join(results_path, options['project_name']) # also need this to get lookup table
     if save:
-
-        if not os.path.isdir(structpath):
-            os.mkdir(structpath)
 
         savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
         savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-        prof_mat_path = os.path.join(results_path, options['project_name'],
-                                     surf_name + front_or_rear + 'profmat.nc')
+        prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
 
         if Fr_or_TMM > 0:
             savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')

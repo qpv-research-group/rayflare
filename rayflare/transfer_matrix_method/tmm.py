@@ -7,7 +7,7 @@ import xarray as xr
 from sparse import COO, save_npz, load_npz, stack
 from solcore.absorption_calculator import OptiStack
 
-def TMM(layers, incidence, transmission, surf_name, options,
+def TMM(layers, incidence, transmission, surf_name, options, structpath,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
     """
     Function which takes a layer stack and creates an angular redistribution matrix.
@@ -81,14 +81,9 @@ def TMM(layers, incidence, transmission, surf_name, options,
         A_mat = COO(A_mat)
         return fullmat, A_mat
 
-    structpath = os.path.join(results_path, options['project_name'])
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
-
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    prof_mat_path = os.path.join(results_path, options['project_name'],
-                                 surf_name + front_or_rear + 'profmat.nc')
+    prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')

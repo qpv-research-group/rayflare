@@ -15,7 +15,7 @@ except Exception as err:
     print('WARNING: The RCWA solver will not be available because an S4 installation has not been found.')
 
 
-def RCWA(structure, size, orders, options, incidence, transmission, only_incidence_angle=False,
+def RCWA(structure, size, orders, options, structpath, incidence, transmission, only_incidence_angle=False,
                        front_or_rear='front', surf_name='', detail_layer=False, save=True):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
@@ -36,14 +36,9 @@ def RCWA(structure, size, orders, options, incidence, transmission, only_inciden
     # or if internally it will still do s & p separately
     # TODO: if incidence angle is zero, s and p polarization are the same so no need to do both
 
-    structpath = os.path.join(results_path, options['project_name'])
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
-
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    # prof_mat_path = os.path.join(results_path, options['project_name'],
-    #                              surf_name + front_or_rear + 'profmat.nc')
+
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')

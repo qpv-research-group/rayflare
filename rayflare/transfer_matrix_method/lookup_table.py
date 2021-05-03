@@ -6,7 +6,7 @@ from rayflare.config import results_path
 from solcore.absorption_calculator import OptiStack
 
 
-def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
+def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options, structpath,
                          coherent=True, coherency_list=None, prof_layers=None, sides=None):
     """
     Takes a layer stack and calculates and stores lookup tables for use with the ray-tracer.
@@ -24,7 +24,8 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
     :param prof_layers: Indices of the layers in which the parameters relating to the absorption profile should be \
     calculated and stored. Layer 0 is the incidence medium.
     :param sides: List of which sides of incidence should all parameters be calculated for; 1 indicates incidence from \
-    the front and -1 is rear incidence. Default = [1, -1]
+    the front and -1 is rea    if not os.path.isdir(structpath):
+        os.mkdir(structpath)r incidence. Default = [1, -1]
     :return: xarray Dataset with the R, A, T and (if relevant) absorption profile coefficients for each \
     wavelength, angle, polarization, side of incidence.
     """
@@ -32,9 +33,6 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options,
     if sides is None:
         sides = [1, -1]
 
-    structpath = os.path.join(results_path, options['project_name'])
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
     savepath = os.path.join(structpath, surf_name + '.nc')
     if os.path.isfile(savepath):
         print('Existing lookup table found')

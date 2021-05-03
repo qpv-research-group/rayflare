@@ -1,13 +1,13 @@
 import numpy as np
 from sparse import load_npz, dot, COO, stack
-from rayflare.config import results_path
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
 from rayflare.structure import Interface, BulkLayer
+from rayflare.matrix_formalism.process_structure import get_savepath
 
 
-def calculate_RAT(SC, options):
+def calculate_RAT(SC, options, save_location='default'):
     """
     After the list of Interface and BulkLayers has been processed by process_structure,
     this function calculates the R, A and T by calling matrix_multiplication.
@@ -36,7 +36,7 @@ def calculate_RAT(SC, options):
 
 
 
-    results = matrix_multiplication(bulk_mats, bulk_widths, options, layer_names, calc_prof_list)
+    results = matrix_multiplication(bulk_mats, bulk_widths, options, layer_names, calc_prof_list, save_location)
 
     return results
 
@@ -144,7 +144,10 @@ def bulk_profile(x, ths):
     return np.exp(-x/ths)
 
 
-def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list):
+def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list, save_location):
+
+    results_path = get_savepath(save_location, options['project_name'])
+
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
@@ -179,8 +182,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     If = []
 
     for i1 in range(n_interfaces):
-        mat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontRT.npz')
-        absmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontA.npz')
+        mat_path = os.path.join(results_path, layer_names[i1] + 'frontRT.npz')
+        absmat_path = os.path.join(results_path, layer_names[i1] + 'frontA.npz')
 
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
@@ -200,7 +203,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         if calc_prof_list[i1] is not None:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
-            profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontprofmat.nc')
+            profmat_path = os.path.join(results_path, layer_names[i1] + 'frontprofmat.nc')
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']
             intgr = prof_int['intgr']
@@ -220,8 +223,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     Ib = []
 
     for i1 in range(n_interfaces-1):
-        mat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearRT.npz')
-        absmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearA.npz')
+        mat_path = os.path.join(results_path, layer_names[i1] + 'rearRT.npz')
+        absmat_path = os.path.join(results_path, layer_names[i1] + 'rearA.npz')
 
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
@@ -240,7 +243,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         if calc_prof_list[i1] is not None:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
-            profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearprofmat.nc')
+            profmat_path = os.path.join(results_path, layer_names[i1] + 'rearprofmat.nc')
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']
             intgr = prof_int['intgr']
