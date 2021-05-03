@@ -3,7 +3,7 @@ Options
 
 The function default_options is provided so not every
 value has to be set manually by the user each time. All the user options, and their meanings, are listed below. As a general
-rule, values with units of distance (wavelength, depth spacing) are in m while values in degrees are in radians.
+rule, values with units of distance (wavelength, depth spacing) are in m while angles are in radians.
 
 General options/options for matrix framework
 ---------------------------------------------
