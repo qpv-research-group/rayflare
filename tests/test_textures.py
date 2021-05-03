@@ -86,8 +86,11 @@ def test_xyz_texture():
 def test_heights_texture():
     from rayflare.textures.define_textures import heights_texture
     from rayflare.ray_tracing.rt import RTSurface
+    import os
 
-    AFM_data = np.loadtxt('data/pyramids.csv', delimiter=',')
+    cur_path = os.path.dirname(os.path.abspath(__file__))
+
+    AFM_data = np.loadtxt(os.path.join(cur_path, 'data/pyramids.csv'), delimiter=',')
     # AFM scan data: grid of heights (z coordinates), x and y dimensions are 20 x 20 um
 
     [front, back] =  heights_texture(AFM_data, 20, 20)
