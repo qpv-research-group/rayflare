@@ -33,7 +33,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1):
 
     return [surf_fi, surf_ri]
 
-def planar_surface(size = 1):
+def planar_surface(size=1):
     """
 
     :param size:
