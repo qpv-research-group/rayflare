@@ -75,7 +75,7 @@ LiF = material('LiF')()
 IZO = material('IZO')()
 C60 = material('C60')()
 
-# materials with constant n, zero k
+# materials with constant n, zero k. Layer width is in nm.
 Spiro = [12, np.array([0,1]), np.array([1.65, 1.65]), np.array([0,0])]
 SnO2 = [10, np.array([0,1]), np.array([2, 2]), np.array([0,0])]
 

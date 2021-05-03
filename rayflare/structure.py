@@ -74,23 +74,15 @@ class Interface:
         self.widths = []
         self.coherent = coherent
 
-        cum_width = 0
-
         if layers is not None:
             for element in layers:
                 if isinstance(element, Layer):
-                    cum_width = cum_width + element.width*1e6
                     self.materials.append(element.material)
-                #self.n_depths.append(element.n_depths)
                     self.widths.append(element.width)
-                else:
-                    self.widths.append(element[0])
-                    self.materials.append(element[1:3])
 
-        #if texture is not None:
-        #    Points = texture.Points
-        #    Points[:, 2] = Points[:, 2] - cum_width
-        #    self.texture = RTSurface(Points)
+                else:
+                    self.widths.append(element[0]*1e-9)
+                    self.materials.append(element[1:3])
 
 
 class Texture:
