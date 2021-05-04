@@ -53,7 +53,7 @@ back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_
 surf = regular_pyramids(elevation_angle=55, upright=True)
 surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
-front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'HIT_front',
+front_surf = Interface('TMM', texture = surf, layers=front_materials, name = 'HIT_front_TMM',
                        coherent=True, prof_layers=[1,2,3])
 back_surf = Interface('RT_TMM', texture = surf_back, layers=back_materials, name = 'HIT_back',
                       coherent=True, prof_layers=[1,2,3])
@@ -158,7 +158,7 @@ for pathl in ['current']:
 
     if back_surf.prof_layers is not None:
         profile = results[2]
-        bpf = results[3]  # bulk profule
+        bpf = results[3]  # bulk profile
 
         prof_plot = profile[1]
 

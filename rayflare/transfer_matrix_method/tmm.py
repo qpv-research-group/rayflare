@@ -35,7 +35,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
         for i1, cur_theta in enumerate(theta_bins_in):
 
-            theta = theta_lookup[i1]#angle_vector[i1, 1]
+            theta = theta_lookup[i1] # angle_vector[i1, 1]
 
             data = allres.loc[dict(angle=theta, wl=wl)]
 
@@ -81,19 +81,39 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         A_mat = COO(A_mat)
         return fullmat, A_mat
 
+    def make_prof_matrix_wl(wl):
+        print(dist)
+        print(theta_bins_in)
+
+        prof_wl = xr.DataArray(np.empty((len(dist), len(theta_bins_in))),
+                               dims=['depth', 'global_index'],
+                               coords={'depth': dist, 'global_index': np.arange(0, len(theta_bins_in))})
+
+        for i1, cur_theta in enumerate(theta_bins_in):
+
+            theta = theta_lookup[i1]
+
+            data = allres.loc[dict(angle=theta, wl=wl)]
+
+            prof_depth = np.real(data['Aprof'].data[0])
+
+            prof_wl[:, i1] = prof_depth
+
+        return prof_wl
+
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    # prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
-    # print(prof_mat_path)
+    prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')
         fullmat = load_npz(savepath_RT)
         A_mat = load_npz(savepath_A)
 
-        # if prof_layers is not None:
-        #     profile = xr.load_dataarray(prof_mat_path)
-        #     return fullmat, A_mat, profile
+        if prof_layers is not None:
+            profile = xr.load_dataset(prof_mat_path)
+            return fullmat, A_mat, profile
 
     else:
 
@@ -116,12 +136,13 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
             optlayers = OptiStack(layers[::-1], substrate=incidence, incidence=transmission)
             trns = incidence
             inc = transmission
-
+            if prof_layers is not None:
+                prof_layers = np.sort(len(layers) - np.array(prof_layers) + 1).tolist()
 
         if prof_layers is not None:
             profile = True
             z_limit = np.sum(np.array(optlayers.widths))
-            print(optlayers.widths)
+            # print(optlayers.widths)
             full_dist = np.arange(0, z_limit, options['depth_spacing']*1e9)
             layer_start = np.insert(np.cumsum(np.insert(optlayers.widths, 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(optlayers.widths, 0, 0))
@@ -149,14 +170,12 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
                          coords={'pol': pols, 'wl': wavelengths, 'angle': thetas},
                          name='T')
 
-
         Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
                               dims=['pol', 'angle', 'wl', 'layer'],
                               coords={'pol': pols,
                                       'wl': wavelengths,
                                       'angle': thetas,
                                       'layer': range(1, n_layers + 1)}, name='Alayer')
-
 
         theta_t = xr.DataArray(np.empty((len(pols), len(wavelengths), n_angles)),
                                dims=['pol', 'wl', 'angle'],
@@ -231,7 +250,6 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         if options['pol'] == 'u':
             allres = allres.reduce(np.mean, 'pol').assign_coords(pol='u').expand_dims('pol')
 
-
         # populate matrices
 
         if front_or_rear == "front":
@@ -260,6 +278,19 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
         fullmat = stack([item[0] for item in mats])
         A_mat = stack([item[1] for item in mats])
+
+        if profile:
+            prof_mat = [make_prof_matrix_wl(wl) for wl in wavelengths]
+
+            profile = xr.concat(prof_mat, 'wl')
+            intgr = xr.DataArray(np.sum(A_mat.todense(), 1), dims=['wl', 'global_index'],
+                                 coords={'wl': wavelengths, 'global_index': np.arange(0, len(theta_bins_in))})
+            intgr.name = 'intgr'
+            profile.name = 'profile'
+            allres = xr.merge([intgr, profile])
+
+            if save:
+                allres.to_netcdf(prof_mat_path)
 
         if save:
             save_npz(savepath_RT, fullmat)

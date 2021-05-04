@@ -253,6 +253,10 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     len_calcs = np.array([len(x) if x is not None else 0 for x in calc_prof_list])
     #print(len_calcs)
     #print(np.any(len_calcs > 0))
+    # print('Pf', [mat.shape for mat in Pf])
+    # print('If', [mat.shape for mat in If])
+    # print('Pb', [mat.shape for mat in Pb])
+    # print('Ib', [mat.shape for mat in Ib])
 
     if np.any(len_calcs > 0):
         #print('a')
@@ -352,7 +356,11 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         vt = [np.array(item) for item in vt]
         a = [np.array(item) for item in a]
         A = [np.array(item) for item in A]
+
+        print('a_prof shape', a_prof[0][0].shape)
+        print('a_prof shape', a_prof[0][1].shape)
         a_prof = [np.array(item) for item in a_prof]
+
 
         results_per_pass = {'r': vr, 't': vt, 'a': a, 'A': A, 'a_prof': a_prof}
 

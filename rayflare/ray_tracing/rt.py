@@ -54,18 +54,12 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
         print('Existing angular redistribution matrices found')
         allArrays = load_npz(savepath_RT)
         absArrays = load_npz(savepath_A)
-        if Fr_or_TMM > 0 and os.path.isfile(savepath_prof):
-            local_angles = load_npz(savepath_prof)
+        if Fr_or_TMM > 0 and os.path.isfile(prof_mat_path):
 
-            if os.path.isfile(prof_mat_path):
-                prof_int = xr.load_dataset(prof_mat_path)
-                profile = prof_int['profile']
-                intgr = prof_int['intgr']
-                return allArrays, absArrays, local_angles, profile, intgr
-
-            else:
-                return allArrays, absArrays, local_angles
-
+            prof_int = xr.load_dataset(prof_mat_path)
+            profile = prof_int['profile']
+            intgr = prof_int['intgr']
+            return allArrays, absArrays, profile, intgr
 
         else:
             return allArrays, absArrays
@@ -207,28 +201,18 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
             save_npz(savepath_RT, allArrays)
             save_npz(savepath_A, absArrays)
 
-        if Fr_or_TMM > 0:
-            local_angles = stack([item[2] for item in allres])
-            # if save:
-            #     save_npz(savepath_prof, local_angles)
-            #make_profile_data(options, np.unique(angle_vector[:,1]), int(len(angle_vector) / 2),
-            #                  front_or_rear, surf_name, n_absorbing_layers, widths)
+        if Fr_or_TMM > 0 and calc_profile is not None:
+            profile = xr.concat([item[3] for item in allres], 'wl')
+            intgr = xr.concat([item[4] for item in allres], 'wl')
+            intgr.name = 'intgr'
+            profile.name = 'profile'
+            allres = xr.merge([intgr, profile])
 
-            if calc_profile is not None:
-                profile = xr.concat([item[3] for item in allres], 'wl')
-                intgr = xr.concat([item[4] for item in allres], 'wl')
-                intgr.name = 'intgr'
-                profile.name = 'profile'
-                allres = xr.merge([intgr, profile])
+            if save:
+                allres.to_netcdf(prof_mat_path)
 
-                if save:
-                    allres.to_netcdf(prof_mat_path)
-                    # save_npz(savepath_prof, local_angles)
+            return allArrays, absArrays, profile, intgr
 
-                return allArrays, absArrays, local_angles, profile, intgr
-
-            else:
-                return allArrays, absArrays, local_angles
 
         else:
             return allArrays, absArrays
@@ -338,13 +322,10 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
             if binned_theta_out[l1, l2] <= (n_thetas-1):
                 # reflected or transmitted
                 out_mat[bin_out[l1, l2], bin_in[l1]-offset] += 1
-                #print('RT bin in-offset', bin_in[l1]-offset)
-                #print(thetas_in[l1], binned_theta_out[l1, l2])
 
             else:
                 # absorbed in one of the surface layers
                 n_rays_in_bin_abs[bin_in[l1]-offset] += 1
-                #print('A bin in', bin_in[l1]-offset, l1, l2)
                 per_layer = A_surface_layers[l1, l2]
                 A_mat[:, bin_in[l1]-offset] += per_layer
                 local_angle_mat[binned_local_angles[l1, l2], bin_in[l1]-offset] += 1
