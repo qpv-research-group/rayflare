@@ -177,7 +177,9 @@ def get_savepath(save_location, project_name):
             os.mkdir(os.path.join(home, "RayFlare_results"))
 
     else:
-        structpath = save_location
+        structpath = os.path.join(save_location, project_name)
+        if not os.path.isdir(save_location):
+            os.mkdir(save_location)
 
     if not os.path.isdir(structpath):
         os.mkdir(structpath)

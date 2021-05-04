@@ -83,16 +83,17 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+    # prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+    # print(prof_mat_path)
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')
         fullmat = load_npz(savepath_RT)
         A_mat = load_npz(savepath_A)
 
-        if prof_layers is not None:
-            profile = xr.load_dataarray(prof_mat_path)
-            return fullmat, A_mat, profile
+        # if prof_layers is not None:
+        #     profile = xr.load_dataarray(prof_mat_path)
+        #     return fullmat, A_mat, profile
 
     else:
 
@@ -120,7 +121,8 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         if prof_layers is not None:
             profile = True
             z_limit = np.sum(np.array(optlayers.widths))
-            full_dist = np.arange(0, z_limit, options['depth_spacing'])
+            print(optlayers.widths)
+            full_dist = np.arange(0, z_limit, options['depth_spacing']*1e9)
             layer_start = np.insert(np.cumsum(np.insert(optlayers.widths, 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(optlayers.widths, 0, 0))
 
@@ -255,7 +257,6 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
         theta_bins_in = np.digitize(angle_vector_th, theta_intv, right=True) -1
 
-        #print(theta_bins_in)
         mats = [make_matrix_wl(wl) for wl in wavelengths]
 
         fullmat = stack([item[0] for item in mats])

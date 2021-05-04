@@ -19,7 +19,6 @@ def calculate_RAT(SC, options, save_location='default'):
     bulk_mats = []
     bulk_widths = []
     layer_widths = []
-    n_layers = []
     layer_names = []
     calc_prof_list = []
 
@@ -27,10 +26,9 @@ def calculate_RAT(SC, options, save_location='default'):
         if isinstance(struct, BulkLayer):
             bulk_mats.append(struct.material)
             bulk_widths.append(struct.width)
+
         if isinstance(struct, Interface):
             layer_names.append(struct.name)
-
-            n_layers.append(len(struct.layers))
             layer_widths.append((np.array(struct.widths)*1e9).tolist())
             calc_prof_list.append(struct.prof_layers)
 
@@ -204,6 +202,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, layer_names[i1] + 'frontprofmat.nc')
+            print(profmat_path)
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']
             intgr = prof_int['intgr']
