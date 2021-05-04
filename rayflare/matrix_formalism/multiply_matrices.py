@@ -202,7 +202,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, layer_names[i1] + 'frontprofmat.nc')
-            print(profmat_path)
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']
             intgr = prof_int['intgr']
@@ -240,8 +239,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
 
         if calc_prof_list[i1] is not None:
-            #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
-            #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
             profmat_path = os.path.join(results_path, layer_names[i1] + 'rearprofmat.nc')
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']

@@ -210,7 +210,6 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
             if front_or_rear == 'rear':
                 Alayer_loop = np.flip(Alayer_loop, axis=2)
-                #print('flipping')
 
             R.loc[dict(pol=pol)] = R_loop
             T.loc[dict(pol=pol)] = T_loop

@@ -47,8 +47,8 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
         savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
         prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
 
-        if Fr_or_TMM > 0:
-            savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')
+        # if Fr_or_TMM > 0:
+        #     savepath_prof = os.path.join(structpath, surf_name + front_or_rear + 'Aprof.npz')
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')
@@ -209,8 +209,8 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
 
         if Fr_or_TMM > 0:
             local_angles = stack([item[2] for item in allres])
-            if save:
-                save_npz(savepath_prof, local_angles)
+            # if save:
+            #     save_npz(savepath_prof, local_angles)
             #make_profile_data(options, np.unique(angle_vector[:,1]), int(len(angle_vector) / 2),
             #                  front_or_rear, surf_name, n_absorbing_layers, widths)
 
@@ -223,7 +223,7 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
 
                 if save:
                     allres.to_netcdf(prof_mat_path)
-                    save_npz(savepath_prof, local_angles)
+                    # save_npz(savepath_prof, local_angles)
 
                 return allArrays, absArrays, local_angles, profile, intgr
 
