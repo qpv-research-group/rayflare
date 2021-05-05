@@ -85,7 +85,7 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
 
         shapes_names = [str(x) for x in shape_mats]
 
-        #depth_spacing = options['depth_spacing']
+        depth_spacing = options['depth_spacing']
         phi_sym = options['phi_symmetry']
         n_theta_bins = options['n_theta_bins']
         c_az = options['c_azimuth']
@@ -142,6 +142,32 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
                               angle_vector_0, S4_options, detail_layer, side)
                       for i1 in range(len(wavelengths))]
 
+        if options['parallel']:
+            dist = np.arange(0, z_limit, step_size)
+
+            profres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl_prof)
+                                                        (wavelengths[i1]*1e9, rat_output_A[i1],
+                                                         dist,
+                                                         geom_list_str,
+                                                         layers_oc[i1], pol,
+                                                         thetas_in,
+                                                         phis_in,
+                                                         widths, size, orders)
+                                                        for i1 in range(len(wavelengths)))
+
+        else:
+            profres = [
+                RCWA_wl_prof(wl[i1], self.rat_output_A[i1],
+                             dist,
+                             self.geom_list,
+                             self.layers_oc[i1], self.shapes_oc[i1],
+                             self.shapes_names, options['pol'],
+                             options['theta_in'] * 180 / np.pi,
+                             options['phi_in'] * 180 / np.pi,
+                             self.widths, self.size,
+                             options['orders'], options['S4_options'])
+                for i1 in range(len(wl))]
+
         #R = np.stack([item[0] for item in allres])
         #T = np.stack([item[1] for item in allres])
         A_mat = np.stack([item[2] for item in allres])
@@ -170,7 +196,7 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
 
 
 def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym,
-            theta_intv, phi_intv, angle_vector_0, S4_options, layer_details = False, side=1):
+            theta_intv, phi_intv, angle_vector_0, S4_options, layer_details = False, side=1, prof_layers=None):
 
     S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, S4_options)
 
