@@ -16,7 +16,7 @@ except Exception as err:
 
 
 def RCWA(structure, size, orders, options, structpath, incidence, transmission, only_incidence_angle=False,
-                       front_or_rear='front', surf_name='', detail_layer=False, save=True):
+                       prof_layers=None, front_or_rear='front', surf_name='', detail_layer=False, save=True):
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
 
@@ -39,15 +39,21 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
 
+    if prof_layers is not None:
+        prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')
         full_mat = load_npz(savepath_RT)
         A_mat = load_npz(savepath_A)
 
+        if prof_layers is not None:
+            prof_dataset = xr.load_dataset(prof_mat_path)
+            return full_mat, A_mat, prof_dataset
+
 
     else:
-
         wavelengths = options['wavelengths']
 
         if front_or_rear == 'front':
@@ -59,6 +65,8 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
             layers = structure[::-1]
             trns = incidence
             inc = transmission
+            if prof_layers is not None:
+                prof_layers = np.sort(len(layers) - np.array(prof_layers) + 1).tolist()
 
         # write a separate function that makes the OptiStack structure into an S4 object, defined materials etc.
         geom_list = [layer.geometry for layer in structure]
@@ -76,6 +84,23 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
         stack_OS = OptiStack(layers, no_back_reflection=False)
         widths = stack_OS.get_widths()
         layers_oc = np.zeros((len(wavelengths), len(structure)+2), dtype=complex)
+
+        if prof_layers is not None:
+
+            z_limit = np.sum(np.array(widths[1:-1]))
+            print('zlimit', widths, z_limit, options['depth_spacing'])
+            full_dist = np.arange(0, z_limit, options['depth_spacing'] * 1e9)
+            layer_start = np.insert(np.cumsum(np.insert(widths[1:-1], 0, 0)), 0, 0)
+            layer_end = np.cumsum(np.insert(widths[1:-1], 0, 0))
+
+            dist = []
+
+            for l in prof_layers:
+                dist = np.hstack((dist, full_dist[np.all((full_dist >= layer_start[l], full_dist < layer_end[l]), 0)]))
+
+        else:
+            dist = None
+
 
         layers_oc[:, 0] = (inc.n(wavelengths))**2#+ 1j*inc.k(wavelengths))**2
         layers_oc[:, -1] = (trns.n(wavelengths) + 1j*trns.k(wavelengths))**2
@@ -100,7 +125,8 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
                             LanczosSmoothing=False,
                             SubpixelSmoothing=False,
                             ConserveMemory=False,
-                            WeismannFormulation=False)
+                            WeismannFormulation=False,
+                            Verbosity=0)
 
         user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
         S4_options.update(user_options)
@@ -133,70 +159,60 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
                                                         (wavelengths[i1]*1e9, geom_list_str, layers_oc[i1], shapes_oc[i1], shapes_names,
                                                          pol, thetas_in, phis_in, widths, size,
                                                          orders, phi_sym, theta_intv, phi_intv,
-                                                         angle_vector_0, S4_options, detail_layer, side)
+                                                         angle_vector_0, S4_options, detail_layer, side, dist)
                                                         for i1 in range(len(wavelengths)))
 
         else:
             allres = [RCWA_wl(wavelengths[i1]*1e9, geom_list_str, layers_oc[i1], shapes_oc[i1], shapes_names,
                               pol, thetas_in, phis_in, widths, size, orders, phi_sym, theta_intv, phi_intv,
-                              angle_vector_0, S4_options, detail_layer, side)
+                              angle_vector_0, S4_options, detail_layer, side, dist)
                       for i1 in range(len(wavelengths))]
 
-        if options['parallel']:
-            dist = np.arange(0, z_limit, step_size)
 
-            profres = Parallel(n_jobs=options['n_jobs'])(delayed(RCWA_wl_prof)
-                                                        (wavelengths[i1]*1e9, rat_output_A[i1],
-                                                         dist,
-                                                         geom_list_str,
-                                                         layers_oc[i1], pol,
-                                                         thetas_in,
-                                                         phis_in,
-                                                         widths, size, orders)
-                                                        for i1 in range(len(wavelengths)))
-
-        else:
-            profres = [
-                RCWA_wl_prof(wl[i1], self.rat_output_A[i1],
-                             dist,
-                             self.geom_list,
-                             self.layers_oc[i1], self.shapes_oc[i1],
-                             self.shapes_names, options['pol'],
-                             options['theta_in'] * 180 / np.pi,
-                             options['phi_in'] * 180 / np.pi,
-                             self.widths, self.size,
-                             options['orders'], options['S4_options'])
-                for i1 in range(len(wl))]
-
-        #R = np.stack([item[0] for item in allres])
-        #T = np.stack([item[1] for item in allres])
         A_mat = np.stack([item[2] for item in allres])
         full_mat = stack([item[3] for item in allres])
-        #int_mat = stack([item[4] for item in allres])
-        #T_mat = np.stack([item[4] for item in allres])
 
-        #full_mat = np.hstack((R_mat, T_mat))
-        #full_mat = COO(full_mat)
         A_mat = COO(A_mat)
+
+        if prof_layers is not None:
+            prof_mat = np.stack([item[5] for item in allres])
+            intgr_mat = np.stack([item[6] for item in allres])
+
+            print('profmatshape', prof_mat.shape, intgr_mat.shape)
+            profile = xr.DataArray(prof_mat,
+                                    dims=['wl', 'z', 'global_index'],
+                                    coords={'wl': wavelengths, 'z': dist,
+                                            'global_index': np.arange(0, prof_mat.shape[2])})
+
+            profile.transpose('wl', 'global_index', 'z')
+
+            intgr = xr.DataArray(intgr_mat,
+                                 dims=['wl', 'global_index'],
+                                 coords={'wl': wavelengths,
+                                         'global_index': np.arange(0, prof_mat.shape[2])})
+
+            intgr.name = 'intgr'
+            profile.name = 'profile'
+            prof_dataset = xr.merge([intgr, profile])
+
+            if save:
+                prof_dataset.to_netcdf(prof_mat_path)
+
 
         if save:
             save_npz(savepath_RT, full_mat)
             save_npz(savepath_A, A_mat)
 
-        #R_pfbo = np.stack([item[3] for item in allres])
-        #T_pfbo = np.stack([item[4] for item in allres])
-        #phi_rt = np.stack([item[5] for item in allres])
-        #theta_r = np.stack([item[6] for item in allres])
-        #theta_t = np.stack([item[7] for item in allres])
-        #R_pfbo_2 = np.stack([item[8] for item in allres])
 
+    if prof_layers is not None:
+        return full_mat, A_mat, prof_dataset
 
-    #return {'R': R, 'T':T, 'A_layer': A_mat, 'full_mat': full_mat, 'int_mat': int_mat}#'R_pfbo': R_pfbo, 'T_pfbo': T_pfbo, 'phi_rt': phi_rt, 'theta_r': theta_r, 'theta_t': theta_t}#, 'R_pfbo_2': R_pfbo_2}
-    return full_mat, A_mat # , R, T
+    else:
+        return full_mat, A_mat
 
 
 def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym,
-            theta_intv, phi_intv, angle_vector_0, S4_options, layer_details = False, side=1, prof_layers=None):
+            theta_intv, phi_intv, angle_vector_0, S4_options, layer_details = False, side=1, dist=None):
 
     S = initialise_S(size, orders, geom_list, l_oc, s_oc, s_names, widths, S4_options)
 
@@ -219,6 +235,10 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     T = np.zeros((len(theta)))
     A_layer = np.zeros((len(theta), len(widths)-2))
 
+    if dist is not None:
+        mat_prof = np.zeros((len(dist), int(len(angle_vector_0)/2)))
+        mat_intgr = np.zeros(int(len(angle_vector_0)/2))
+
     mat_RT = np.zeros((len(angle_vector_0), int(len(angle_vector_0)/2)))
     mat_int = np.zeros((len(angle_vector_0), int(len(angle_vector_0)/2)))
 
@@ -240,7 +260,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
     #imag_e = np.imag(l_oc)
     print(wl)
-    #freq = 1/wl
 
     for i1, (th, ph) in enumerate(zip(theta, phi)):
         if pol in 'sp':
@@ -259,7 +278,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
         else:
 
-            #print(th)
             S.SetFrequency(1 / wl)
             S.SetExcitationPlanewave((th, ph), 0, 1, 0)  # p-polarization
             out_p, R_pfbo_p, T_pfbo_p, R_pfbo_int_p = rcwa_rat(S, len(widths), th, n_inc, layer_details)
@@ -274,9 +292,64 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             R_pfbo = 0.5*(R_pfbo_s + R_pfbo_p) # this will not be normalized correctly! fix this outside if/else
             T_pfbo = 0.5*(T_pfbo_s + T_pfbo_p)
 
-
             T[in_bin[i1]] = 0.5 * (out_p['T'] + out_s['T'])
             A_layer[in_bin[i1]] = 0.5*(Ap+As)
+
+
+        if dist is not None:
+
+            A = np.sum(A_layer[in_bin[i1]])
+            if len(pol) == 2:
+
+                S.SetExcitationPlanewave((th, ph), pol[0], pol[1], 0)
+                S.SetFrequency(1 / wl)
+
+                for j, d in enumerate(dist):
+                    layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                       d)  # don't need to change this
+                    layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                    data = rcwa_position_resolved(S, layer_name, d_in_layer, A, th, np.sqrt(l_oc[0]))
+                    mat_prof[j, in_bin[i1]] = data
+
+                mat_intgr[in_bin[i1]] =  A
+
+
+            else:
+                if pol in 'sp':
+                    if pol == 's':
+                        s = 1
+                        p = 0
+                    elif pol == 'p':
+                        s = 0
+                        p = 1
+
+                    S.SetExcitationPlanewave((th, ph), s, p, 0)
+
+                    S.SetFrequency(1 / wl)
+
+                    for j, d in enumerate(dist):
+                        layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
+                                                                           d)  # don't need to change this
+                        layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                        data = rcwa_position_resolved(S, layer_name, d_in_layer, A, th, np.sqrt(l_oc[0]))
+                        mat_prof[j, in_bin[i1]] = data
+
+                    mat_intgr[in_bin[i1]] = A
+
+                else:
+
+                    S.SetFrequency(1 / wl)
+
+                    for j, d in enumerate(dist):
+                        layer, d_in_layer = tmm.find_in_structure_with_inf(widths, d)
+                        layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
+                        S.SetExcitationPlanewave((th, ph), 0, 1, 0)  # p-polarization
+                        data_p = rcwa_position_resolved(S, layer_name, d_in_layer, np.sum(Ap), th, np.sqrt(l_oc[0]))
+                        S.SetExcitationPlanewave((th, ph), 1, 0, 0)  # p-polarization
+                        data_s = rcwa_position_resolved(S, layer_name, d_in_layer, np.sum(As), th, np.sqrt(l_oc[0]))
+                        mat_prof[j, in_bin[i1]] = 0.5 * (data_s + data_p)
+
+                    mat_intgr[in_bin[i1]] = 0.5 * (np.sum(Ap) + np.sum(As))
 
 
         R[in_bin[i1]] = 1 - T[in_bin[i1]] - np.sum(A_layer[in_bin[i1]])
@@ -366,7 +439,15 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
     if side == -1:
         A_layer = np.flip(A_layer, 1)
 
-    return R, T, A_layer.T, mat_RT, mat_int#, mat_T
+        if dist is not None:
+            mat_prof = np.flip(mat_prof, 0)
+
+    if dist is not None:
+        return R, T, A_layer.T, mat_RT, mat_int, mat_prof, mat_intgr
+
+    else:
+        return R, T, A_layer.T, mat_RT, mat_int#, mat_T
+
 
 def fold_phi(phis, phi_sym):
     return (abs(phis//np.pi)*2*np.pi + phis) % phi_sym
@@ -457,8 +538,6 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
                     S.SetRegionRectangle(layer_name, mat_name, shape['center'], shape['angle'], shape['halfwidths'])
                 elif shape['type'] == 'polygon':
                     S.SetRegionPolygon(layer_name, mat_name, shape['center'], shape['angle'], shape['vertices'])
-
-
 
     return S
 
@@ -591,7 +670,8 @@ class rcwa_structure:
                             LanczosSmoothing=False,
                             SubpixelSmoothing=False,
                             ConserveMemory=False,
-                            WeismannFormulation=False)
+                            WeismannFormulation=False,
+                            Verbosity=0)
 
         user_options = options['S4_options'] if 'S4_options' in options.keys() else {}
         S4_options.update(user_options)
@@ -1109,7 +1189,6 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
     profile_data = np.zeros(len(dist))
 
-    
     A = rat_output_A
 
     if len(pol) == 2:

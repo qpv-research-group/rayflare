@@ -96,8 +96,14 @@ def process_structure(SC, options, save_location='default'):
                 prof_layers = struct.prof_layers
 
                 for side in which_sides:
+                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
+                        only_incidence_angle = True
+                    else:
+                        only_incidence_angle = False
+
                     TMM(struct.layers, incidence, substrate, struct.name, options, structpath,
-                               coherent=coherent, coherency_list=coherency_list, prof_layers=prof_layers, front_or_rear=side, save=True)
+                               coherent=coherent, coherency_list=coherency_list, prof_layers=prof_layers,
+                        front_or_rear=side, save=True)
 
 
             if struct.method == 'RT_TMM':
@@ -144,7 +150,13 @@ def process_structure(SC, options, save_location='default'):
 
                 group = RTgroup(textures=[struct.texture])
                 for side in which_sides:
-                    RT(group, incidence, substrate, struct.name, options, structpath, 0, side, 0, False, save=True)
+                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
+                        only_incidence_angle = True
+                    else:
+                        only_incidence_angle = False
+
+                    RT(group, incidence, substrate, struct.name, options, structpath, 0, side, 0, False,
+                       only_incidence_angle=only_incidence_angle,save=True)
 
             if struct.method == 'RCWA':
                 print('RCWA calculation for element ' + str(i1) + ' in structure')
@@ -159,10 +171,20 @@ def process_structure(SC, options, save_location='default'):
                 else:
                     substrate = SC[i1+1].material # bulk material below
                     which_sides = ['front', 'rear']
+
+                prof = struct.prof_layers
+
                 for side in which_sides:
+                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
+                        only_incidence_angle = True
+                    else:
+                        only_incidence_angle = False
+
                     RCWA(struct.layers, struct.d_vectors, struct.rcwa_orders, options, structpath,
-                         incidence, substrate, only_incidence_angle=False,
+                         incidence, substrate, only_incidence_angle=False, prof_layers=prof,
                          front_or_rear=side, surf_name=struct.name, save=True)
+
+
 
 
 def get_savepath(save_location, project_name):
