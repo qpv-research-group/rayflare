@@ -88,7 +88,6 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
         if prof_layers is not None:
 
             z_limit = np.sum(np.array(widths[1:-1]))
-            print('zlimit', widths, z_limit, options['depth_spacing'])
             full_dist = np.arange(0, z_limit, options['depth_spacing'] * 1e9)
             layer_start = np.insert(np.cumsum(np.insert(widths[1:-1], 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(widths[1:-1], 0, 0))
@@ -180,7 +179,6 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
 
             prof_mat[prof_mat < 0] = 0
 
-            print('profmatshape', prof_mat.shape, intgr_mat.shape)
             profile = xr.DataArray(prof_mat,
                                     dims=['wl', 'z', 'global_index'],
                                     coords={'wl': wavelengths, 'z': dist,

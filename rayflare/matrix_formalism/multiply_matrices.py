@@ -258,6 +258,12 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     # print('Pb', [mat.shape for mat in Pb])
     # print('Ib', [mat.shape for mat in Ib])
 
+    # for j1, thing in enumerate(Rf):
+    #     print('Rf', j1, thing.todense())
+    #
+    # for j1, thing in enumerate(Rb):
+    #     print('Rb', j1, thing.todense())
+
     if np.any(len_calcs > 0):
         #print('a')
         a = [[] for _ in range(n_interfaces)]
@@ -280,7 +286,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
             vf_1[i1] = dot_wl(Tf[i1], v0) # pass through front surface
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
             a[i1].append(dot_wl(Af[i1], v0)) # absorbed in front surface at first interaction
-            #print(v0)
+            # print(v0)
             # print([Tf[i1][3].todense()])
 
             #print(If[i1])
@@ -308,6 +314,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
                 # vb_1 already an incoming ray
+                # print('vf_1', vf_1[i1])
 
                 if len(If[i1+1]) > 0:
 
@@ -348,7 +355,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                     scale = ((np.sum(Ab[i1], 1) * vf_2[i1]) / Ib[i1]).fillna(0)
                     scaled_prof = scale * Pb[i1]
 
-                    print(v_xr)
                     # a_prof[i1].append((xr.dot(v_xr, Pb[i1], dims='global_index')).data)
                     a_prof[i1].append(np.sum(scaled_prof, 1))
 
@@ -374,8 +380,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         a = [np.array(item) for item in a]
         A = [np.array(item) for item in A]
 
-        print('a_prof shape', a_prof[0][0].shape)
-        print('a_prof shape', a_prof[0][1].shape)
         a_prof = [np.array(item) for item in a_prof]
 
 

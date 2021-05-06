@@ -279,8 +279,6 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     binned_theta_in = np.digitize(thetas_in, theta_intv, right=True) - 1
 
     binned_theta_out = np.digitize(theta_out, theta_intv, right=True) - 1
-    #print(binned_theta_out, theta_out, theta_intv)
-
 
     #print(binned_theta_in)
     #print(binned_theta_out)
@@ -334,7 +332,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
     out_mat = np.divide(out_mat, n_rays_in_bin, where=n_rays_in_bin!=0)
     overall_abs_frac = np.divide(n_rays_in_bin_abs, n_rays_in_bin, where=n_rays_in_bin!=0)
     abs_scale = np.divide(overall_abs_frac, np.sum(A_mat, 0), where=np.sum(A_mat, 0)!=0)
-    #print('A_mat', np.sum(A_mat, 0)/n_rays_in_bin_abs)
+
     intgr = np.divide(np.sum(A_mat, 0), n_rays_in_bin_abs, where=n_rays_in_bin_abs!=0)
     A_mat = abs_scale*A_mat
     out_mat[np.isnan(out_mat)] = 0
@@ -673,7 +671,6 @@ def make_profiles_wl(unique_thetas, n_a_in, side, widths,
     scale_res = pr.groupby('global_index').map(scale_func, scale_params=s_params)
     const_res = pr.groupby('global_index').map(select_func, const_params=c_params)
 
-
     params = xr.concat((scale_res, const_res), dim='coeff').assign_coords(layer=np.arange(1, len(widths)+1))
     params = params.transpose('local_theta', 'global_index', 'layer', 'coeff')
 
@@ -1002,7 +999,8 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
         # for now, ignore effect of k on refraction
 
         # tr_par = ((np.real(n0) / np.real(n1)) ** side) * (d - np.dot(d, N) * N)
-        tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
+        # tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
+        tr_par = (n0 / n1) * (d - np.dot(d, N) * N)
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
 
         side = -side
