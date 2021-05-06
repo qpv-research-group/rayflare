@@ -297,7 +297,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                                                              'global_index': np.arange(0, n_a_in)})
                 # scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
 
-                scale = ((np.sum(Af[i1], 1)*v0)/If[i1]).fillna(0)
+                scale = ((np.sum(Af[i1].todense(), 1)*v0)/If[i1]).fillna(0)
                 scaled_prof = scale*Pf[i1]
 
                 # a_prof[i1].append((xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
@@ -324,7 +324,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                     int_power = xr.dot(v_xr, If[i1+1], dims='global_index')
                     # scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
 
-                    scale = ((np.sum(Af[i1+1], 1) * vb_1[i1]) / If[i1+1]).fillna(0)
+                    scale = ((np.sum(Af[i1+1].todense(), 1) * vb_1[i1]) / If[i1+1]).fillna(0)
                     scaled_prof = scale * Pf[i1+1]
 
                     # a_prof[i1+1].append((xr.dot(v_xr, Pf[i1+1], dims = 'global_index')).data)
@@ -348,11 +348,11 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                                                 'global_index': np.arange(0, n_a_in)})
 
                     int_power = xr.dot(v_xr, Ib[i1], dims='global_index')
-                    scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
+                    # scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
                     # a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
 
                     # print(np.sum(Ab[i1], 1) * vf_2[i1])
-                    scale = ((np.sum(Ab[i1], 1) * vf_2[i1]) / Ib[i1]).fillna(0)
+                    scale = ((np.sum(Ab[i1].todense(), 1) * vf_2[i1]) / Ib[i1]).fillna(0)
                     scaled_prof = scale * Pb[i1]
 
                     # a_prof[i1].append((xr.dot(v_xr, Pb[i1], dims='global_index')).data)
