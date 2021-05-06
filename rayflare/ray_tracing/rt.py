@@ -353,6 +353,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
             thetas = angle_vector[:n_a_in, 1]
             unique_thetas = np.unique(thetas)
 
+
             profile = make_profiles_wl(unique_thetas, n_a_in, side, widths,
                          local_angle_mat, wl, lookuptable, pol, depth_spacing, calc_profile)
 
@@ -661,7 +662,7 @@ def make_profiles_wl(unique_thetas, n_a_in, side, widths,
     pr = xr.DataArray(angle_distmat.todense(), dims=['local_theta', 'global_index'],
                       coords={'local_theta': unique_thetas, 'global_index': np.arange(0, n_a_in)})
     #lookuptable layers are 1-indexed
-    data = lookuptable.loc[dict(side=side, pol=pol)].interp(angle=pr.coords['local_theta'], wl = wl*1e9)
+    data = lookuptable.loc[dict(side=1, pol=pol)].interp(angle=pr.coords['local_theta'], wl = wl*1e9)
 
     params = data['Aprof'].drop(['layer', 'side', 'angle', 'pol']).transpose('local_theta', 'layer', 'coeff')
 
@@ -691,33 +692,9 @@ def make_profiles_wl(unique_thetas, n_a_in, side, widths,
                                                                             z=z_list, offset=offsets, side=side, nz=nz).drop('coeff')
     ans = ans.fillna(0)
 
-    #print('Took ' + str(time() - start) + ' seconds')
 
     profile = ans.reduce(np.sum, 'layer')
-    # start = time()
-    # # there is no reason to do this again; this should be the same as the absorption per
-    # # layer before scaling (currently not saved)
-    # intgr = xr.DataArray(np.zeros((len(widths), len(params.global_index))),
-    #                      dims=['layer', 'global_index'],
-    #                      coords={'global_index': params.global_index})
-    #
-    # for i2, width in enumerate(widths):
-    #     A1 = params.loc[dict(coeff='A1', layer=i2+1)]
-    #     A2 = params.loc[dict(coeff='A2', layer=i2+1)]
-    #     A3_r = params.loc[dict(coeff='A3_r', layer=i2+1)]
-    #     A3_i = params.loc[dict(coeff='A3_i', layer=i2+1)]
-    #     a1 = params.loc[dict(coeff='a1', layer=i2+1)]
-    #     a3 = params.loc[dict(coeff='a3', layer=i2+1)]
-    #
-    #     intgr_width = ((A1 / a1) * (np.exp(a1 * width) - 1) - (A2 / a1) * (np.exp(-a1 * width) - 1) - \
-    #                    1j * ((A3_r + 1j * A3_i) / a3) * (np.exp(1j * a3 * width) - 1) + 1j * (
-    #                            (A3_r - 1j * A3_i) / a3) * (
-    #                            np.exp(-1j * a3 * width) - 1)).fillna(0)
-    #
-    #     intgr[i2] = intgr_width.reduce(np.sum, 'local_theta')
-    #
-    # intgr = intgr.reduce(np.sum, 'layer')
-    # print('Took ' + str(time() - start) + ' seconds')
+
 
     return profile
 
@@ -916,12 +893,10 @@ def single_ray_interface(x, y,  nks, r_a_0, theta, phi, surfaces, pol, wl, Fr_or
     stop = False
     I = 1
 
-
     # could be done before to avoid recalculating every time
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array([x, y, 0])           # set r_a and r_b so that ray has correct angle & intersects with first surface
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a) # direction (unit vector) of ray
-
 
     while not stop:
 

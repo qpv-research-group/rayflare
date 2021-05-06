@@ -281,16 +281,21 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
             a[i1].append(dot_wl(Af[i1], v0)) # absorbed in front surface at first interaction
             #print(v0)
+            # print([Tf[i1][3].todense()])
+
             #print(If[i1])
 
             if len(If[i1] > 0):
                 v_xr = xr.DataArray(v0, dims = ['wl', 'global_index'],
                                                    coords = {'wl': If[i1].coords['wl'],
                                                              'global_index': np.arange(0, n_a_in)})
-                int_power = xr.dot(v_xr, If[i1], dims = 'global_index')
-                scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
+                # scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
 
-                a_prof[i1].append((scale*xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
+                scale = ((np.sum(Af[i1], 1)*v0)/If[i1]).fillna(0)
+                scaled_prof = scale*Pf[i1]
+
+                # a_prof[i1].append((xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
+                a_prof[i1].append(np.sum(scaled_prof, 1))
 
             power = np.sum(vf_1[i1], axis=1)
 
@@ -304,42 +309,54 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
                 # vb_1 already an incoming ray
 
-
                 if len(If[i1+1]) > 0:
 
                     v_xr = xr.DataArray(vb_1[i1], dims=['wl', 'global_index'],
                                         coords={'wl': If[i1+1].coords['wl'],
                                                 'global_index': np.arange(0, n_a_in)})
                     int_power = xr.dot(v_xr, If[i1+1], dims='global_index')
-                    scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
-                    #('front profile')
+                    # scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
 
+                    scale = ((np.sum(Af[i1+1], 1) * vb_1[i1]) / If[i1+1]).fillna(0)
+                    scaled_prof = scale * Pf[i1+1]
 
-                    a_prof[i1+1].append((scale * xr.dot(v_xr, Pf[i1+1], dims='global_index')).data)
+                    # a_prof[i1+1].append((xr.dot(v_xr, Pf[i1+1], dims = 'global_index')).data)
+                    a_prof[i1+1].append(np.sum(scaled_prof, 1))
 
                 #remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
                 # nz_thetas = vf_1[i1] != 0
-
                 vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface. incoming -> up
+                # print([Tf[i1+1][3].todense()])
 
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
+
+                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
 
                 #print('rear profile')
                 if len(Ib[i1]) > 0:
                     v_xr = xr.DataArray(vf_2[i1], dims=['wl', 'global_index'],
                                         coords={'wl': Ib[i1].coords['wl'],
                                                 'global_index': np.arange(0, n_a_in)})
+
                     int_power = xr.dot(v_xr, Ib[i1], dims='global_index')
                     scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
-                    a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+                    # a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+
+                    # print(np.sum(Ab[i1], 1) * vf_2[i1])
+                    scale = ((np.sum(Ab[i1], 1) * vf_2[i1]) / Ib[i1]).fillna(0)
+                    scaled_prof = scale * Pb[i1]
+
+                    print(v_xr)
+                    # a_prof[i1].append((xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+                    a_prof[i1].append(np.sum(scaled_prof, 1))
 
                 #remaining_power.append(np.sum(vf_2, axis=1))
 
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
 
-                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1]) # prepare for rear incidence
+
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
                 power = np.sum(vf_1[i1], axis=1)
 

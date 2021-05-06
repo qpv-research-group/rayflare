@@ -10,6 +10,8 @@ from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism.process_structure import process_structure
 from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
 from rayflare.options import default_options
+from rayflare.transfer_matrix_method import tmm_structure
+from rayflare.angles import make_angle_vector
 
 # plotting imports
 import matplotlib.pyplot as plt
@@ -30,22 +32,26 @@ plt.rcParams.update(params)
 bulkthick = 30e-9
 
 
-wavelengths = np.linspace(400, 800, 20)*1e-9
+wavelengths = np.linspace(620, 850, 10)*1e-9
 
 pal2 = sns.cubehelix_palette(len(wavelengths), start=.5, rot=-.9)
 
 # set options
 options = default_options()
 options.wavelengths = wavelengths
-options.project_name = 'back_incidence_alllayers'
-options.n_rays = 2500
-options.n_theta_bins = 3
+options.project_name = 'back_incidence_smallth_longwl'
+options.n_rays = 10000
+options.n_theta_bins = 15
 options.lookuptable_angles = 100
 options.parallel = True
-options.c_azimuth = 0.001
+options.c_azimuth = 0.25
 options.theta_in = 0
-options.pol = 's'
+options.pol = 'u'
 options.depth_spacing = 1e-9
+options.only_incidence_angle = False
+
+_, _, angle_vector = make_angle_vector(options.n_theta_bins,
+                                       options.phi_symmetry, options.c_azimuth)
 
 # set up Solcore materials
 Ge = material('Ge')()
@@ -74,6 +80,32 @@ ax6 = axes2[0,1]
 ax7 = axes2[1,0]
 ax8 = axes2[1,1]
 
+## pure TMM (from Solcore)
+all_layers = front_materials + [Layer(bulkthick, SiN)] + back_materials
+
+coh_list = len(front_materials)*['c'] + ['i'] + ['c']
+
+options.coherent = False
+options.coherency_list = coh_list
+options.theta_in = angle_vector[0,1]
+
+OS_layers = tmm_structure(all_layers, incidence=Air,
+                          transmission=Ag, no_back_reflection=False)
+
+TMM_res = OS_layers.calculate(options, profile=True, layers=[1,2,3,4,5,6])
+
+options.coherent = True
+OS_front = tmm_structure(front_materials, incidence=Air, transmission=SiN,
+                         no_back_reflection=False)
+TMM_res_front = OS_front.calculate(options, profile=True, layers=[1,2,3,4])
+OS_back = tmm_structure(front_materials[::-1], incidence=SiN, transmission=Air,
+                        no_back_reflection=False)
+TMM_res_back = OS_back.calculate(options, profile=True, layers=[1,2,3,4])
+
+plt.figure()
+plt.plot()
+
+options.theta_in = 0
 # TMM, matrix framework
 
 front_surf = Interface('TMM', layers=front_materials, name = 'absorbing_front',
@@ -82,7 +114,7 @@ back_surf = Interface('TMM', layers=back_materials, name = 'absorbing_back',
                       coherent=True, prof_layers=[1])
 
 
-bulk_Ge = BulkLayer(bulkthick, Ge, name = 'SiN_bulk') # bulk thickness in m
+bulk_Ge = BulkLayer(bulkthick, SiN, name = 'SiN_bulk') # bulk thickness in m
 
 SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
 
@@ -130,12 +162,54 @@ prof_dataset = xr.load_dataset(profdatapath)
 prof_dataset_r = xr.load_dataset(profdatapath_r)
 
 intgr = prof_dataset['intgr']
+prof = prof_dataset['profile']
 intgr_r = prof_dataset_r['intgr']
+prof_r = prof_dataset_r['profile']
 
-ax1.plot(options['wavelengths']*1e9, intgr[:,0], '--r')
-ax1.plot(options['wavelengths']*1e9, intgr_r[:,0], '--r')
+
+plt.figure()
+plt.subplot(121)
+prof[:,:,0].plot(vmin=0)
+plt.subplot(122)
+prof_r[:,:,0].plot(vmin=0)
+plt.title('TMM')
+plt.show()
+
+
+integrated_prof = np.trapz(prof.data, depths, axis=1)
+integrated_prof_r = np.trapz(prof_r.data, depths, axis=1)
+
+wl_ind = -1
+plt.figure()
+plt.plot(depths, TMM_res['profile'][wl_ind, :len(depths)], '--r', label='TMM')
+plt.plot(depths, prof_plot[wl_ind, :], '-k', label='RCWA total')
+plt.plot(depths, results_per_pass['a_prof'][0][0,wl_ind,:], label='0')
+plt.plot(depths, results_per_pass['a_prof'][0][1,wl_ind,:], label='1')
+plt.plot(depths, results_per_pass['a_prof'][0][2,wl_ind,:])
+plt.plot(depths, results_per_pass['a_prof'][0][3,wl_ind,:])
+plt.legend()
+plt.show()
+
+
+plt.figure()
+plt.plot(intgr)
+plt.plot(integrated_prof, '--')
+plt.title('Matrix_TMM')
+plt.show()
+
+plt.figure()
+plt.plot(intgr_r)
+plt.plot(integrated_prof_r, '--')
+plt.title('Matrix_TMM')
+plt.ylim(0,1)
+plt.show()
+
+ax1.plot(options['wavelengths']*1e9, intgr[:,0], '--r', label='front int')
+ax1.plot(options['wavelengths']*1e9, intgr_r[:,0], '--y', label='rear int')
 
 integrated_A_TMM = np.trapz(prof_plot, depths, axis=1)
+
+
 
 ## RT with TMM lookup tables
 
@@ -191,10 +265,30 @@ prof_dataset = xr.load_dataset(profdatapath)
 prof_dataset_r = xr.load_dataset(profdatapath_r)
 
 intgr = prof_dataset['intgr']
+prof = prof_dataset['profile']
 intgr_r = prof_dataset_r['intgr']
+prof_r = prof_dataset_r['profile']
 
-ax2.plot(options['wavelengths']*1e9, intgr[:,0], '--r')
-ax2.plot(options['wavelengths']*1e9, intgr_r[:,0], '--r')
+integrated_prof = np.trapz(prof.data, depths, axis=2)
+integrated_prof_r = np.trapz(prof_r.data, depths, axis=2)
+
+plt.figure()
+plt.subplot(121)
+prof[:,0,:].plot(vmin=0)
+plt.subplot(122)
+prof_r[:,0,:].plot(vmin=0)
+plt.title('RT_TMM')
+plt.show()
+
+plt.figure()
+plt.plot(intgr_r)
+plt.plot(integrated_prof_r, '--')
+plt.title('RT_TMM')
+plt.ylim(0,1)
+plt.show()
+
+ax2.plot(options['wavelengths']*1e9, intgr[:,0], '--r', label='front int')
+ax2.plot(options['wavelengths']*1e9, intgr_r[:,0], '--y', label='rear int')
 
 integrated_A_RT = np.trapz(prof_plot, depths, axis=1)
 
@@ -225,7 +319,7 @@ ax3.plot(options['wavelengths']*1e9, results_RCWA_Matrix[0].R[0], label='R')
 ax3.plot(options['wavelengths']*1e9, results_per_layer_front[:,0] + results_per_layer_front[:,1], label='ARC/InGaP')
 ax3.plot(options['wavelengths']*1e9, results_per_layer_front[:,2], label='Ta2O5')
 ax3.plot(options['wavelengths']*1e9, results_per_layer_front[:,3], label='GaAs')
-ax3.plot(options['wavelengths']*1e9, results_RT[0].A_bulk[0], label='SiN')
+ax3.plot(options['wavelengths']*1e9, results_RCWA_Matrix[0].A_bulk[0], label='SiN')
 ax3.plot(options['wavelengths']*1e9, results_per_layer_back[:,0], label='InGaP')
 ax3.plot(options['wavelengths']*1e9, results_RCWA_Matrix[0].T[0], label='T')
 ax3.plot(options['wavelengths']*1e9, np.sum(results_per_layer_front, 1), '-b', label='total')
@@ -254,27 +348,32 @@ prof_dataset = xr.load_dataset(profdatapath)
 prof_dataset_r = xr.load_dataset(profdatapath_r)
 
 intgr = prof_dataset['intgr']
+prof = prof_dataset['profile']
 intgr_r = prof_dataset_r['intgr']
+prof_r = prof_dataset_r['profile']
 
-ax3.plot(options['wavelengths']*1e9, intgr[:,0], '--r')
-ax3.plot(options['wavelengths']*1e9, intgr_r[:,0], '--r')
+integrated_prof = np.trapz(prof.data, depths, axis=1)
+
+plt.figure()
+plt.subplot(121)
+prof[:,:,0].plot(vmin=0)
+plt.subplot(122)
+prof_r[:,:,0].plot(vmin=0)
+plt.title('RCWA')
+plt.show()
+
+plt.figure()
+plt.plot(intgr)
+plt.plot(integrated_prof, '--')
+plt.title('RCWA')
+plt.show()
+
+ax3.plot(options['wavelengths']*1e9, intgr[:,0], '--r', label='front int')
+ax3.plot(options['wavelengths']*1e9, intgr_r[:,0], '--y', label='rear int')
+
 
 integrated_A_RCWA = np.trapz(prof_plot, depths, axis=1)
 
-from rayflare.transfer_matrix_method import tmm_structure
-
-
-## pure TMM (from Solcore)
-all_layers = front_materials + [Layer(bulkthick, Ge)] + back_materials
-
-coh_list = len(front_materials)*['c'] + ['i'] + ['i']
-
-options.coherent = False
-options.coherency_list = coh_list
-
-OS_layers = tmm_structure(all_layers, incidence=Air, transmission=Ag, no_back_reflection=False)
-
-TMM_res = OS_layers.calculate(options, profile=True, layers=[1,2,3,4,5,6])
 
 ax4.plot(options['wavelengths']*1e9, TMM_res['R'], label='R')
 
@@ -318,7 +417,34 @@ plt.figure()
 plt.plot(options['wavelengths']*1e9, integrated_A_TMM, label='TMM')
 plt.plot(options['wavelengths']*1e9, integrated_A_RT, label='RT')
 plt.plot(options['wavelengths']*1e9, integrated_A_RCWA, label='RCWA')
-plt.plot(options['wavelengths']*1e9, integrated_A_TMMstruct, label='TMM struct')
+plt.plot(options['wavelengths']*1e9, integrated_A_TMMstruct, '-k', label='TMM struct')
 plt.legend()
 plt.show()
+
+
+pal2 = sns.cubehelix_palette(5, start=.5, rot=-.9, reverse=True)
+
+cols = cycler('color', pal2)
+
+params  = {'axes.prop_cycle': cols}
+
+plt.rcParams.update(params)
+
+
+
+# plt.figure()
+# plt.plot(wavelengths*1e9, np.sum(results_per_pass['a'][0],2).T)
+# plt.plot(wavelengths*1e9, np.sum(results_per_pass['a'][0],(0,2)), '-k')
+# plt.plot(wavelengths*1e9, np.sum(results_per_layer_front, 1), '--r', label='total')
+# plt.plot(wavelengths*1e9, np.sum(TMM_res['A_per_layer'][:,:4], 1), 'o', label='total')
+# plt.show()
+
+int_per_pass = np.trapz(results_per_pass['a_prof'][0], depths, 2)
+
+plt.figure()
+plt.plot(wavelengths*1e9, np.sum(results_per_pass['a'][0],2).T)
+plt.plot(wavelengths*1e9, int_per_pass.T, '--')
+plt.show()
+
+
 

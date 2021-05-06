@@ -178,6 +178,8 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
             prof_mat = np.stack([item[5] for item in allres])
             intgr_mat = np.stack([item[6] for item in allres])
 
+            prof_mat[prof_mat < 0] = 0
+
             print('profmatshape', prof_mat.shape, intgr_mat.shape)
             profile = xr.DataArray(prof_mat,
                                     dims=['wl', 'z', 'global_index'],

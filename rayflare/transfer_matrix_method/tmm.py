@@ -226,6 +226,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
             R_loop[R_loop < 0] = 0
             T_loop[T_loop < 0] = 0
             Alayer_loop[Alayer_loop < 0] = 0
+            Aprof_loop[Aprof_loop < 0] = 0
 
             if front_or_rear == 'rear':
                 Alayer_loop = np.flip(Alayer_loop, axis=2)
