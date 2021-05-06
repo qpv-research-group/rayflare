@@ -684,17 +684,6 @@ def test_rcwa_tmm_profiles_coh():
     tmm_profile_s = output_s[output_s > 1e-7]
     rcwa_profile_s = output_rcwa_s[output_s > 1e-7]
 
-    # import matplotlib.pyplot as plt
-    #
-    # plt.figure()
-    # plt.plot(output_s[2], '--')
-    # plt.plot(output_rcwa_s[2], '-.')
-    # plt.plot()
-    # plt.show()
-    #
-    # plt.figure()
-    # plt.show()
-
     assert rcwa_profile_s == approx(tmm_profile_s, rel=0.02)
 
     options.pol = 'p'
@@ -732,3 +721,197 @@ def test_rcwa_tmm_profiles_coh():
     rcwa_profile_u = output_rcwa_u[output_u > 1e-7]
 
     assert rcwa_profile_u == approx(tmm_profile_u, rel=0.02)
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_rcwa_tmm_matrix_s():
+    from solcore.structure import Layer
+    from solcore import material
+
+    # rayflare imports
+    from rayflare.textures.standard_rt_textures import planar_surface
+    from rayflare.structure import Interface, BulkLayer, Structure
+    from rayflare.matrix_formalism.process_structure import process_structure
+    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.options import default_options
+    from rayflare.transfer_matrix_method import tmm_structure
+    from rayflare.angles import make_angle_vector
+
+    # Thickness of bulk Ge layer
+    bulkthick = 30e-9
+
+    wavelengths = np.linspace(640, 850, 6) * 1e-9
+
+    # set options
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.n_rays = 4500
+    options.n_theta_bins = 20
+    options.lookuptable_angles = 100
+    options.parallel = True
+    options.c_azimuth = 0.25
+    options.depth_spacing = 1e-9
+    options.only_incidence_angle = False
+    options.nx = 5
+    options.ny = 5
+
+    _, _, angle_vector = make_angle_vector(options.n_theta_bins,
+                                           options.phi_symmetry, options.c_azimuth)
+
+    for pol in ['s', 'p', 'u']:
+        options.project_name = 'rcwa_tmm_matrix_profiles_' + pol
+        options.pol = pol
+
+        SiN = material('Si3N4')()
+        GaAs = material('GaAs')()
+        GaInP = material('GaInP')(In=0.5)
+        Ag = material('Ag')()
+        Air = material('Air')()
+        Ta2O5 = material('TaOx1')()  # Ta2O5 (SOPRA database)
+        MgF2 = material('MgF2')()  # MgF2 (SOPRA database)
+
+        front_materials = [Layer(100e-9, MgF2), Layer(50e-9, GaInP), Layer(100e-9, Ta2O5), Layer(200e-9, GaAs)]
+        back_materials = [Layer(50E-9, GaInP)]
+
+        prof_layers = np.arange(len(front_materials)) + 1
+
+        ## pure TMM with incoherent thick layer
+        all_layers = front_materials + [Layer(bulkthick, SiN)] + back_materials
+
+        coh_list = len(front_materials) * ['c'] + ['i'] + ['c']
+
+        options.coherent = False
+        options.coherency_list = coh_list
+
+        OS_layers = tmm_structure(all_layers, incidence=Air,
+                                  transmission=Ag, no_back_reflection=False)
+
+
+        th_ind = np.random.randint(0, 5)
+        phi_in = np.random.uniform(0, np.pi)
+
+        options.theta_in = angle_vector[th_ind, 1]
+        options.phi_in = phi_in
+
+        # set up Solcore materials
+
+        TMM_res = OS_layers.calculate(options, profile=True, layers=[1, 2, 3, 4, 5, 6])
+
+        ## TMM Matrix method
+
+        front_surf = Interface('TMM', layers=front_materials, name='TMM_f',
+                               coherent=True, prof_layers=prof_layers)
+        back_surf = Interface('TMM', layers=back_materials, name='TMM_b',
+                              coherent=True, prof_layers=[1])
+
+        bulk_Ge = BulkLayer(bulkthick, SiN, name='SiN_bulk')  # bulk thickness in m
+
+        SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
+
+        process_structure(SC, options)
+
+        results_TMM_Matrix = calculate_RAT(SC, options)
+
+        results_per_pass = results_TMM_Matrix[1]
+
+        # only select absorbing layers, sum over passes
+        results_per_layer_front_TMM = np.sum(results_per_pass['a'][0], 0)
+        results_per_layer_back_TMM = np.sum(results_per_pass['a'][1], 0)
+
+        profile = results_TMM_Matrix[2]
+
+        prof_plot_TMM = profile[0]
+
+        depths = np.linspace(0, len(prof_plot_TMM[0, :]) * options['depth_spacing'] * 1e9, len(prof_plot_TMM[0, :]))
+        integrated_A= np.trapz(prof_plot_TMM, depths, axis=1)
+
+        assert np.all(results_TMM_Matrix[0]['A_interface'][0] == np.sum(results_per_pass['a'][0], (0, 2)))
+
+        assert np.all((results_TMM_Matrix[0]['R'] + results_TMM_Matrix[0]['T'] + results_TMM_Matrix[0]['A_bulk'] + np.sum(
+            results_TMM_Matrix[0]['A_interface'], 0)) == approx(1, abs=0.01))
+
+        assert approx(integrated_A == results_TMM_Matrix[0]['A_interface'][0].data)
+
+        ## RT_TMM Matrix method
+        surf = planar_surface()  # [texture, flipped texture]
+
+        front_surf = Interface('RT_TMM', layers=front_materials, texture=surf, name='RT_TMM_f',
+                               coherent=True, prof_layers=prof_layers)
+        back_surf = Interface('RT_TMM', layers=back_materials, texture=surf, name='RT_TMM_b',
+                              coherent=True, prof_layers=[1])
+
+        SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
+
+        process_structure(SC, options)
+
+        results_RT = calculate_RAT(SC, options)
+
+        results_per_pass = results_RT[1]
+
+        # only select absorbing layers, sum over passes
+        results_per_layer_front_RT = np.sum(results_per_pass['a'][0], 0)
+        results_per_layer_back_RT = np.sum(results_per_pass['a'][1], 0)
+
+        profile = results_RT[2]
+
+        prof_plot_RT = profile[0]
+
+        depths = np.linspace(0, len(prof_plot_RT[0, :]) * options['depth_spacing'] * 1e9, len(prof_plot_RT[0, :]))
+
+        integrated_A = np.trapz(prof_plot_RT, depths, axis=1)
+
+        assert np.all(results_RT[0]['A_interface'][0] == np.sum(results_per_pass['a'][0], (0, 2)))
+
+        assert np.all((results_RT[0]['R'] + results_RT[0]['T'] + results_RT[0]['A_bulk'] + np.sum(
+            results_RT[0]['A_interface'], 0)) == approx(1, abs=0.01))
+
+        assert approx(integrated_A == results_RT[0]['A_interface'][0].data)
+
+        ## RCWA Matrix
+
+        front_surf = Interface('RCWA', layers=front_materials, name='RCWA_f', d_vectors=((500, 0), (0, 500)),
+                               rcwa_orders=2, prof_layers=prof_layers)
+        back_surf = Interface('RCWA', layers=back_materials, name='RCWA_b', d_vectors=((500, 0), (0, 500)),
+                              rcwa_orders=2, prof_layers=[1])
+
+        SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
+
+        process_structure(SC, options)
+
+        results_RCWA_Matrix = calculate_RAT(SC, options)
+
+        results_per_pass = results_RCWA_Matrix[1]
+        R_per_pass = np.sum(results_per_pass['r'][0], 2)
+
+        # only select absorbing layers, sum over passes
+        results_per_layer_front_RCWA = np.sum(results_per_pass['a'][0], 0)
+        results_per_layer_back_RCWA = np.sum(results_per_pass['a'][1], 0)
+
+        profile = results_RCWA_Matrix[2]
+
+        prof_plot_RCWA = profile[0]
+
+        depths = np.linspace(0, len(prof_plot_RCWA[0, :]) * options['depth_spacing'] * 1e9, len(prof_plot_RCWA[0, :]))
+
+        integrated_A = np.trapz(prof_plot_RCWA, depths, axis=1)
+
+        assert np.all(results_RCWA_Matrix[0]['A_interface'][0] == np.sum(results_per_pass['a'][0], (0, 2)))
+
+        assert np.all((results_RCWA_Matrix[0]['R'] + results_RCWA_Matrix[0]['T'] + results_RCWA_Matrix[0]['A_bulk'] + np.sum(
+            results_RCWA_Matrix[0]['A_interface'], 0)) == approx(1, abs=0.01))
+
+        assert approx(integrated_A == results_RCWA_Matrix[0]['A_interface'][0].data, rel=0.02)
+
+
+        results_per_layer_front_TMM_ref = TMM_res['A_per_layer'][:,:len(front_materials)]
+
+        assert results_per_layer_front_TMM == approx(results_per_layer_front_TMM_ref, abs=0.02)
+        assert results_per_layer_front_RCWA == approx(results_per_layer_front_TMM_ref, abs=0.02)
+        assert results_per_layer_front_RT == approx(results_per_layer_front_TMM_ref, abs=0.1)
+
+        assert prof_plot_TMM.data == approx(TMM_res['profile'][:, :len(depths)], abs=0.0005)
+        assert prof_plot_RCWA.data == approx(TMM_res['profile'][:, :len(depths)], abs=0.0005)
+        assert prof_plot_RT.data == approx(TMM_res['profile'][:, :len(depths)], abs=0.002)
+
+
+

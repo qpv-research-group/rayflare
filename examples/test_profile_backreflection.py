@@ -38,11 +38,11 @@ wavelengths = np.linspace(640, 850, 8)*1e-9
 
 pal2 = sns.cubehelix_palette(len(wavelengths), start=.5, rot=-.9)
 
-theta_in = 1
+theta_in = 0.2
 # set options
 options = default_options()
 options.wavelengths = wavelengths
-options.project_name = 'back_incidence_s'
+options.project_name = 'back_incidence_SiN'
 options.n_rays = 4500
 options.n_theta_bins = 20
 options.lookuptable_angles = 100
@@ -87,7 +87,7 @@ ax7 = axes2[1,0]
 ax8 = axes2[1,1]
 
 ## pure TMM (from Solcore)
-all_layers = front_materials + [Layer(bulkthick, Ge)] + back_materials
+all_layers = front_materials + [Layer(bulkthick, SiN)] + back_materials
 
 coh_list = len(front_materials)*['c'] + ['i'] + ['c']
 
@@ -121,7 +121,7 @@ back_surf = Interface('TMM', layers=back_materials, name = 'absorbing_back',
                       coherent=True, prof_layers=[1])
 
 
-bulk_Ge = BulkLayer(bulkthick, Ge, name = 'SiN_bulk') # bulk thickness in m
+bulk_Ge = BulkLayer(bulkthick, SiN, name = 'SiN_bulk') # bulk thickness in m
 
 SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
 
@@ -309,8 +309,6 @@ back_surf = Interface('RCWA', layers=back_materials, name = 'SiN_Ag_RCWA',
 
 SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ag)
 
-options.parallel = False
-
 process_structure(SC, options)
 
 results_RCWA_Matrix = calculate_RAT(SC, options)
@@ -380,6 +378,12 @@ ax3.plot(options['wavelengths']*1e9, intgr_r[:,0], '--y', label='rear int')
 
 
 integrated_A_RCWA = np.trapz(prof_plot, depths, axis=1)
+
+
+plt.figure()
+plt.plot(options['wavelengths']*1e9, integrated_A_RCWA, '--k', label='integrated')
+plt.plot(options['wavelengths']*1e9, results_RCWA_Matrix[0]['A_interface'][0].data)
+plt.show()
 
 
 ax4.plot(options['wavelengths']*1e9, TMM_res['R'], label='R')
@@ -453,188 +457,196 @@ plt.plot(wavelengths*1e9, np.sum(results_per_pass['a'][0],2).T)
 plt.plot(wavelengths*1e9, int_per_pass.T, '--')
 plt.show()
 
-
-mat_path_RT = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'GaInP_GaAs_RT' + 'frontRT.npz')
-mat_path_TMM = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'absorbing_front' + 'frontRT.npz')
-mat_path_RCWA = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'GaInP_GaAs_RCWA' + 'frontRT.npz')
+results_per_layer_front_TMM_ref = TMM_res['A_per_layer'][:,:len(front_materials)]
 
 
-mat_path_RT = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'SiN_Ag_RT_50k' + 'frontRT.npz')
-mat_path_TMM = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'absorbing_back' + 'frontRT.npz')
-mat_path_RCWA = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'SiN_Ag_RCWA' + 'frontRT.npz')
-
-
-wl_to_plot = 650e-9
-
-wl_index = np.argmin(np.abs(wavelengths-wl_to_plot))
-
-sprs_front = load_npz(mat_path_RT)
-
-full_f = sprs_front[wl_index].todense()
-# full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[options['n_theta_bins']:]
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-fig = plt.figure(figsize=(12,3.5))
-ax = fig.add_subplot(1,3,1, aspect='equal')
-ax.text(-0.15, 1, 'RT')
-ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
-
-
-sprs_front = load_npz(mat_path_TMM)
-
-full_f = sprs_front[wl_index].todense()
-# full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[options['n_theta_bins']:]
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-ax2 = fig.add_subplot(1,3,2, aspect='equal')
-ax2.text(-0.15, 1, 'TMM')
-ax2 = whole_mat_imshow.plot.imshow(ax=ax2, cmap=seamap)
-
-sprs_front = load_npz(mat_path_RCWA)
-
-full_f = sprs_front[wl_index].todense()
-# full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[options['n_theta_bins']:]
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-
-ax3 = fig.add_subplot(1,3,3, aspect='equal')
-ax3.text(-0.15, 1, 'RCWA')
-ax3 = whole_mat_imshow.plot.imshow(ax=ax3, cmap=seamap)
-
-
+plt.figure()
+plt.plot(results_per_layer_front)
+plt.plot(results_per_layer_front_TMM_ref, '--')
 plt.show()
 
-
-
-
-sprs_front = load_npz(mat_path_RT)
-
-full_f = sprs_front[wl_index].todense()
-# full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[:options['n_theta_bins']]
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-fig = plt.figure(figsize=(12,3.5))
-ax = fig.add_subplot(1,3,1, aspect='equal')
-ax.text(-0.15, 1, 'RT')
-ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
-
-
-sprs_front = load_npz(mat_path_TMM)
-
-full_f = sprs_front[wl_index].todense()
-# full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[:options['n_theta_bins']]
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-ax2 = fig.add_subplot(1,3,2, aspect='equal')
-ax2.text(-0.15, 1, 'TMM')
-ax2 = whole_mat_imshow.plot.imshow(ax=ax2, cmap=seamap)
-
-sprs_front = load_npz(mat_path_RCWA)
-
-full_f = sprs_front[wl_index].todense()
-# full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
-summat_back = summat[:options['n_theta_bins']]
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-
-ax3 = fig.add_subplot(1,3,3, aspect='equal')
-ax3.text(-0.15, 1, 'RCWA')
-ax3 = whole_mat_imshow.plot.imshow(ax=ax3, cmap=seamap)
-
-
-plt.show()
+#
+# mat_path_RT = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'GaInP_GaAs_RT' + 'frontRT.npz')
+# mat_path_TMM = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'absorbing_front' + 'frontRT.npz')
+# mat_path_RCWA = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'GaInP_GaAs_RCWA' + 'frontRT.npz')
+#
+#
+# mat_path_RT = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'SiN_Ag_RT_50k' + 'frontRT.npz')
+# mat_path_TMM = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'absorbing_back' + 'frontRT.npz')
+# mat_path_RCWA = os.path.join('/home/phoebe/RayFlare_results', options.project_name, 'SiN_Ag_RCWA' + 'frontRT.npz')
+#
+#
+# wl_to_plot = 650e-9
+#
+# wl_index = np.argmin(np.abs(wavelengths-wl_to_plot))
+#
+# sprs_front = load_npz(mat_path_RT)
+#
+# full_f = sprs_front[wl_index].todense()
+# # full_r = sprs_rear[wl_index].todense()
+#
+# summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#
+# ## reflection
+#
+# #whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+# summat_back = summat[options['n_theta_bins']:]
+#
+# whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+#
+# whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+#                                                   b=np.sin(whole_mat_imshow.coords['b']).data)
+#
+#
+# whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#
+#
+# palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+# palhf.reverse()
+# seamap = mpl.colors.ListedColormap(palhf)
+# fig = plt.figure(figsize=(12,3.5))
+# ax = fig.add_subplot(1,3,1, aspect='equal')
+# ax.text(-0.15, 1, 'RT')
+# ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
+#
+#
+# sprs_front = load_npz(mat_path_TMM)
+#
+# full_f = sprs_front[wl_index].todense()
+# # full_r = sprs_rear[wl_index].todense()
+#
+# summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#
+# ## reflection
+#
+# #whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+# summat_back = summat[options['n_theta_bins']:]
+#
+# whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+#
+# whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+#                                                   b=np.sin(whole_mat_imshow.coords['b']).data)
+#
+#
+# whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#
+#
+# ax2 = fig.add_subplot(1,3,2, aspect='equal')
+# ax2.text(-0.15, 1, 'TMM')
+# ax2 = whole_mat_imshow.plot.imshow(ax=ax2, cmap=seamap)
+#
+# sprs_front = load_npz(mat_path_RCWA)
+#
+# full_f = sprs_front[wl_index].todense()
+# # full_r = sprs_rear[wl_index].todense()
+#
+# summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#
+# ## reflection
+#
+# #whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+# summat_back = summat[options['n_theta_bins']:]
+#
+# whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+#
+# whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+#                                                   b=np.sin(whole_mat_imshow.coords['b']).data)
+#
+#
+# whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#
+#
+#
+# ax3 = fig.add_subplot(1,3,3, aspect='equal')
+# ax3.text(-0.15, 1, 'RCWA')
+# ax3 = whole_mat_imshow.plot.imshow(ax=ax3, cmap=seamap)
+#
+#
+# plt.show()
+#
+#
+#
+#
+# sprs_front = load_npz(mat_path_RT)
+#
+# full_f = sprs_front[wl_index].todense()
+# # full_r = sprs_rear[wl_index].todense()
+#
+# summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#
+# ## reflection
+#
+# #whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+# summat_back = summat[:options['n_theta_bins']]
+#
+# whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+#
+# whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+#                                                   b=np.sin(whole_mat_imshow.coords['b']).data)
+#
+#
+# whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#
+#
+# palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
+# palhf.reverse()
+# seamap = mpl.colors.ListedColormap(palhf)
+# fig = plt.figure(figsize=(12,3.5))
+# ax = fig.add_subplot(1,3,1, aspect='equal')
+# ax.text(-0.15, 1, 'RT')
+# ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
+#
+#
+# sprs_front = load_npz(mat_path_TMM)
+#
+# full_f = sprs_front[wl_index].todense()
+# # full_r = sprs_rear[wl_index].todense()
+#
+# summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#
+# ## reflection
+#
+# #whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+# summat_back = summat[:options['n_theta_bins']]
+#
+# whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+#
+# whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+#                                                   b=np.sin(whole_mat_imshow.coords['b']).data)
+#
+#
+# whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#
+#
+# ax2 = fig.add_subplot(1,3,2, aspect='equal')
+# ax2.text(-0.15, 1, 'TMM')
+# ax2 = whole_mat_imshow.plot.imshow(ax=ax2, cmap=seamap)
+#
+# sprs_front = load_npz(mat_path_RCWA)
+#
+# full_f = sprs_front[wl_index].todense()
+# # full_r = sprs_rear[wl_index].todense()
+#
+# summat = theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
+#
+# ## reflection
+#
+# #whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
+# summat_back = summat[:options['n_theta_bins']]
+#
+# whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
+#
+# whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
+#                                                   b=np.sin(whole_mat_imshow.coords['b']).data)
+#
+#
+# whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
+#
+#
+#
+# ax3 = fig.add_subplot(1,3,3, aspect='equal')
+# ax3.text(-0.15, 1, 'RCWA')
+# ax3 = whole_mat_imshow.plot.imshow(ax=ax3, cmap=seamap)
+#
+#
+# plt.show()
