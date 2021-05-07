@@ -23,13 +23,20 @@ def test_perfect_mirror():
 
     theta_intv, phi_intv, angle_vector = make_angle_vector(20, options['phi_symmetry'], 0.25)
 
-    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'front', False)
-
     R_ind = int(len(angle_vector)/2)
+
+    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'front', False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(1)
     assert np.sum(mat, 1)[R_ind:].todense() == approx(0)
+
+    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'rear', False)
+
+    assert np.sum(mat, 0).todense() == approx(1)
+    assert np.sum(mat, 1)[:R_ind].todense() == approx(0)
+    assert np.sum(mat, 1)[R_ind:].todense() == approx(1)
+
 
 
 def test_lambertian_process():
@@ -73,6 +80,14 @@ def test_lambertian_process():
     process_structure(SC, options)
     process_structure(SC_mirror, options)
 
+    RAT = calculate_RAT(SC, options)
+    RAT_mirror = calculate_RAT(SC_mirror, options)
+
+    assert RAT[0]['T'].data == approx(0)
+    assert RAT_mirror[0]['T'].data == approx(0)
+    assert np.all(RAT_mirror[0]['A_bulk'][0].data < RAT[0]['A_bulk'][0].data)
+
+    # repeat to check if loading works correctly
     RAT = calculate_RAT(SC, options)
     RAT_mirror = calculate_RAT(SC_mirror, options)
 
