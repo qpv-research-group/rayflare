@@ -1075,9 +1075,9 @@ def test_profile_integration():
 
             if method == 'RT_TMM_f':
                 c_i = integrated_prof > 0.15
-                assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.1)
+                assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.5)
                 c_i = integrated_prof_r > 0.15
-                assert integrated_prof_r[c_i] == approx(intgr_r.data[c_i], rel=0.1)
+                assert integrated_prof_r[c_i] == approx(intgr_r.data[c_i], rel=0.5)
 
             else:
                 assert integrated_prof == approx(intgr.data, rel=0.03)
