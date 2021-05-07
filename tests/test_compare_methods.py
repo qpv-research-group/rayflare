@@ -1044,7 +1044,8 @@ def test_rcwa_tmm_matrix_profiles():
         assert prof_plot_TMM_back.data[c_i] == approx(back_profile_TMM[c_i], rel=0.15)
         assert prof_plot_RCWA_back.data[c_i] == approx(back_profile_TMM[c_i], rel=0.15)
 
-
+        
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_profile_integration():
     from rayflare.matrix_formalism.process_structure import get_savepath
     import os
