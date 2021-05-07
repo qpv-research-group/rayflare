@@ -7,7 +7,7 @@ import xarray as xr
 from sparse import COO, save_npz, load_npz, stack
 from solcore.absorption_calculator import OptiStack
 
-def TMM(layers, incidence, transmission, surf_name, options,
+def TMM(layers, incidence, transmission, surf_name, options, structpath,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
     """
     Function which takes a layer stack and creates an angular redistribution matrix.
@@ -35,7 +35,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
         for i1, cur_theta in enumerate(theta_bins_in):
 
-            theta = theta_lookup[i1]#angle_vector[i1, 1]
+            theta = theta_lookup[i1] # angle_vector[i1, 1]
 
             data = allres.loc[dict(angle=theta, wl=wl)]
 
@@ -45,22 +45,17 @@ def TMM(layers, incidence, transmission, surf_name, options,
             Alayer_prob = np.real(data['Alayer'].data)
             phi_out = phis_out[i1]
 
-            #print(R_prob, T_prob)
-
             # reflection
             phi_int = phi_intv[cur_theta]
             phi_ind = np.digitize(phi_out, phi_int, right=True) - 1
             bin_out_r = np.argmin(abs(angle_vector[:, 0] - cur_theta)) + phi_ind
 
-            #print(bin_out_r, i1+offset)
-
             RT_mat[bin_out_r, i1] = R_prob
-            #print(R_prob)
+
             # transmission
             with np.errstate(divide='ignore', invalid='ignore'):
                 theta_t = np.abs(-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta_lookup[i1])) + quadrant)
 
-            #print('angle in, transmitted', angle_vector_th[i1], theta_t)
             # theta switches half-plane (th < 90 -> th >90
             if ~np.isnan(theta_t):
 
@@ -71,7 +66,6 @@ def TMM(layers, incidence, transmission, surf_name, options,
                 bin_out_t = np.argmin(abs(angle_vector[:, 0] - theta_out_bin)) + phi_ind
 
                 RT_mat[bin_out_t, i1] = T_prob
-                #print(bin_out_t, i1+offset)
 
             # absorption
             A_mat[:, i1] = Alayer_prob
@@ -81,14 +75,28 @@ def TMM(layers, incidence, transmission, surf_name, options,
         A_mat = COO(A_mat)
         return fullmat, A_mat
 
-    structpath = os.path.join(results_path, options['project_name'])
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
+    def make_prof_matrix_wl(wl):
+
+        prof_wl = xr.DataArray(np.empty((len(dist), len(theta_bins_in))),
+                               dims=['z', 'global_index'],
+                               coords={'z': dist, 'global_index': np.arange(0, len(theta_bins_in))})
+
+        for i1, cur_theta in enumerate(theta_bins_in):
+
+            theta = theta_lookup[i1]
+
+            data = allres.loc[dict(angle=theta, wl=wl)]
+
+            prof_depth = np.real(data['Aprof'].data[0])
+
+            prof_wl[:, i1] = prof_depth
+
+        return prof_wl
 
     savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
     savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    prof_mat_path = os.path.join(results_path, options['project_name'],
-                                 surf_name + front_or_rear + 'profmat.nc')
+    prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+
 
     if os.path.isfile(savepath_RT) and save:
         print('Existing angular redistribution matrices found')
@@ -96,7 +104,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
         A_mat = load_npz(savepath_A)
 
         if prof_layers is not None:
-            profile = xr.load_dataarray(prof_mat_path)
+            profile = xr.load_dataset(prof_mat_path)
             return fullmat, A_mat, profile
 
     else:
@@ -120,12 +128,13 @@ def TMM(layers, incidence, transmission, surf_name, options,
             optlayers = OptiStack(layers[::-1], substrate=incidence, incidence=transmission)
             trns = incidence
             inc = transmission
-
+            if prof_layers is not None:
+                prof_layers = np.sort(len(layers) - np.array(prof_layers) + 1).tolist()
 
         if prof_layers is not None:
             profile = True
             z_limit = np.sum(np.array(optlayers.widths))
-            full_dist = np.arange(0, z_limit, options['depth_spacing'])
+            full_dist = np.arange(0, z_limit, options['depth_spacing']*1e9)
             layer_start = np.insert(np.cumsum(np.insert(optlayers.widths, 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(optlayers.widths, 0, 0))
 
@@ -152,14 +161,12 @@ def TMM(layers, incidence, transmission, surf_name, options,
                          coords={'pol': pols, 'wl': wavelengths, 'angle': thetas},
                          name='T')
 
-
         Alayer = xr.DataArray(np.empty((len(pols), n_angles, len(wavelengths), n_layers)),
                               dims=['pol', 'angle', 'wl', 'layer'],
                               coords={'pol': pols,
                                       'wl': wavelengths,
                                       'angle': thetas,
                                       'layer': range(1, n_layers + 1)}, name='Alayer')
-
 
         theta_t = xr.DataArray(np.empty((len(pols), len(wavelengths), n_angles)),
                                dims=['pol', 'wl', 'angle'],
@@ -211,9 +218,14 @@ def TMM(layers, incidence, transmission, surf_name, options,
             T_loop[T_loop < 0] = 0
             Alayer_loop[Alayer_loop < 0] = 0
 
+            if profile:
+                Aprof_loop[Aprof_loop < 0] = 0
+
             if front_or_rear == 'rear':
                 Alayer_loop = np.flip(Alayer_loop, axis=2)
-                #print('flipping')
+
+                if profile:
+                    Aprof_loop = np.flip(Aprof_loop, axis=2)
 
             R.loc[dict(pol=pol)] = R_loop
             T.loc[dict(pol=pol)] = T_loop
@@ -223,7 +235,6 @@ def TMM(layers, incidence, transmission, surf_name, options,
             if profile:
                 Aprof.loc[dict(pol=pol)] = Aprof_loop
                 Aprof.transpose('pol', 'wl', 'angle', 'z')
-
 
         Alayer = Alayer.transpose('pol', 'wl', 'angle', 'layer')
 
@@ -235,9 +246,7 @@ def TMM(layers, incidence, transmission, surf_name, options,
         if options['pol'] == 'u':
             allres = allres.reduce(np.mean, 'pol').assign_coords(pol='u').expand_dims('pol')
 
-
         # populate matrices
-
         if front_or_rear == "front":
 
             angle_vector_th = angle_vector[:int(len(angle_vector)/2),1]
@@ -260,17 +269,29 @@ def TMM(layers, incidence, transmission, surf_name, options,
 
         theta_bins_in = np.digitize(angle_vector_th, theta_intv, right=True) -1
 
-        #print(theta_bins_in)
         mats = [make_matrix_wl(wl) for wl in wavelengths]
 
         fullmat = stack([item[0] for item in mats])
         A_mat = stack([item[1] for item in mats])
 
+        if profile:
+            prof_mat = [make_prof_matrix_wl(wl) for wl in wavelengths]
+
+            profile = xr.concat(prof_mat, 'wl')
+            intgr = xr.DataArray(np.sum(A_mat.todense(), 1), dims=['wl', 'global_index'],
+                                 coords={'wl': wavelengths, 'global_index': np.arange(0, len(theta_bins_in))})
+            intgr.name = 'intgr'
+            profile.name = 'profile'
+            allres = xr.merge([intgr, profile])
+
+            if save:
+                allres.to_netcdf(prof_mat_path)
+
         if save:
             save_npz(savepath_RT, fullmat)
             save_npz(savepath_A, A_mat)
 
-    return fullmat, A_mat #, allres
+    return fullmat, A_mat
 
 
 class tmm_structure:

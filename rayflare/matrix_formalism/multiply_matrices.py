@@ -1,13 +1,13 @@
 import numpy as np
 from sparse import load_npz, dot, COO, stack
-from rayflare.config import results_path
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
 from rayflare.structure import Interface, BulkLayer
+from rayflare.matrix_formalism.process_structure import get_savepath
 
 
-def calculate_RAT(SC, options):
+def calculate_RAT(SC, options, save_location='default'):
     """
     After the list of Interface and BulkLayers has been processed by process_structure,
     this function calculates the R, A and T by calling matrix_multiplication.
@@ -19,7 +19,6 @@ def calculate_RAT(SC, options):
     bulk_mats = []
     bulk_widths = []
     layer_widths = []
-    n_layers = []
     layer_names = []
     calc_prof_list = []
 
@@ -27,16 +26,15 @@ def calculate_RAT(SC, options):
         if isinstance(struct, BulkLayer):
             bulk_mats.append(struct.material)
             bulk_widths.append(struct.width)
+
         if isinstance(struct, Interface):
             layer_names.append(struct.name)
-
-            n_layers.append(len(struct.layers))
             layer_widths.append((np.array(struct.widths)*1e9).tolist())
             calc_prof_list.append(struct.prof_layers)
 
 
 
-    results = matrix_multiplication(bulk_mats, bulk_widths, options, layer_names, calc_prof_list)
+    results = matrix_multiplication(bulk_mats, bulk_widths, options, layer_names, calc_prof_list, save_location)
 
     return results
 
@@ -144,7 +142,10 @@ def bulk_profile(x, ths):
     return np.exp(-x/ths)
 
 
-def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list):
+def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list, save_location):
+
+    results_path = get_savepath(save_location, options['project_name'])
+
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
@@ -179,8 +180,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     If = []
 
     for i1 in range(n_interfaces):
-        mat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontRT.npz')
-        absmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontA.npz')
+        mat_path = os.path.join(results_path, layer_names[i1] + 'frontRT.npz')
+        absmat_path = os.path.join(results_path, layer_names[i1] + 'frontA.npz')
 
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
@@ -200,7 +201,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         if calc_prof_list[i1] is not None:
             #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
             #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
-            profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'frontprofmat.nc')
+            profmat_path = os.path.join(results_path, layer_names[i1] + 'frontprofmat.nc')
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']
             intgr = prof_int['intgr']
@@ -220,8 +221,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     Ib = []
 
     for i1 in range(n_interfaces-1):
-        mat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearRT.npz')
-        absmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearA.npz')
+        mat_path = os.path.join(results_path, layer_names[i1] + 'rearRT.npz')
+        absmat_path = os.path.join(results_path, layer_names[i1] + 'rearA.npz')
 
         fullmat = load_npz(mat_path)
         absmat = load_npz(absmat_path)
@@ -238,9 +239,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
 
         if calc_prof_list[i1] is not None:
-            #profile, intgr = make_profile_data(options, unique_thetas, n_a_in, side,
-            #                                   layer_names[i1], n_layers[i1], layer_widths[i1])
-            profmat_path = os.path.join(results_path, options['project_name'], layer_names[i1] + 'rearprofmat.nc')
+            profmat_path = os.path.join(results_path, layer_names[i1] + 'rearprofmat.nc')
             prof_int = xr.load_dataset(profmat_path)
             profile = prof_int['profile']
             intgr = prof_int['intgr']
@@ -254,6 +253,16 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     len_calcs = np.array([len(x) if x is not None else 0 for x in calc_prof_list])
     #print(len_calcs)
     #print(np.any(len_calcs > 0))
+    # print('Pf', [mat.shape for mat in Pf])
+    # print('If', [mat.shape for mat in If])
+    # print('Pb', [mat.shape for mat in Pb])
+    # print('Ib', [mat.shape for mat in Ib])
+
+    # for j1, thing in enumerate(Rf):
+    #     print('Rf', j1, thing.todense())
+    #
+    # for j1, thing in enumerate(Rb):
+    #     print('Rb', j1, thing.todense())
 
     if np.any(len_calcs > 0):
         #print('a')
@@ -277,17 +286,22 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
             vf_1[i1] = dot_wl(Tf[i1], v0) # pass through front surface
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
             a[i1].append(dot_wl(Af[i1], v0)) # absorbed in front surface at first interaction
-            #print(v0)
+            # print(v0)
+            # print([Tf[i1][3].todense()])
+
             #print(If[i1])
 
             if len(If[i1] > 0):
                 v_xr = xr.DataArray(v0, dims = ['wl', 'global_index'],
                                                    coords = {'wl': If[i1].coords['wl'],
                                                              'global_index': np.arange(0, n_a_in)})
-                int_power = xr.dot(v_xr, If[i1], dims = 'global_index')
-                scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
+                # scale = (np.sum(dot_wl(Af[i1],v0), 1)/int_power).fillna(0)
 
-                a_prof[i1].append((scale*xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
+                scale = ((np.sum(Af[i1].todense(), 1)*v0)/If[i1]).fillna(0)
+                scaled_prof = scale*Pf[i1]
+
+                # a_prof[i1].append((xr.dot(v_xr, Pf[i1], dims = 'global_index')).data)
+                a_prof[i1].append(np.sum(scaled_prof, 1))
 
             power = np.sum(vf_1[i1], axis=1)
 
@@ -300,7 +314,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1]) # outgoing to incoming
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
                 # vb_1 already an incoming ray
-
+                # print('vf_1', vf_1[i1])
 
                 if len(If[i1+1]) > 0:
 
@@ -308,35 +322,47 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                                         coords={'wl': If[i1+1].coords['wl'],
                                                 'global_index': np.arange(0, n_a_in)})
                     int_power = xr.dot(v_xr, If[i1+1], dims='global_index')
-                    scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
-                    #('front profile')
+                    # scale = (np.sum(dot_wl(Af[i1+1], vb_1[i1]), 1) / int_power).fillna(0)
 
+                    scale = ((np.sum(Af[i1+1].todense(), 1) * vb_1[i1]) / If[i1+1]).fillna(0)
+                    scaled_prof = scale * Pf[i1+1]
 
-                    a_prof[i1+1].append((scale * xr.dot(v_xr, Pf[i1+1], dims='global_index')).data)
+                    # a_prof[i1+1].append((xr.dot(v_xr, Pf[i1+1], dims = 'global_index')).data)
+                    a_prof[i1+1].append(np.sum(scaled_prof, 1))
 
                 #remaining_power.append(np.sum(vb_1, axis=1))
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
                 # nz_thetas = vf_1[i1] != 0
-
                 vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface. incoming -> up
+                # print([Tf[i1+1][3].todense()])
 
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
+
+                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
 
                 #print('rear profile')
                 if len(Ib[i1]) > 0:
                     v_xr = xr.DataArray(vf_2[i1], dims=['wl', 'global_index'],
                                         coords={'wl': Ib[i1].coords['wl'],
                                                 'global_index': np.arange(0, n_a_in)})
+
                     int_power = xr.dot(v_xr, Ib[i1], dims='global_index')
-                    scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
-                    a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+                    # scale = (np.sum(dot_wl(Ab[i1], vf_2[i1]), 1) / int_power).fillna(0)
+                    # a_prof[i1].append((scale * xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+
+                    # print(np.sum(Ab[i1], 1) * vf_2[i1])
+                    scale = ((np.sum(Ab[i1].todense(), 1) * vf_2[i1]) / Ib[i1]).fillna(0)
+                    scaled_prof = scale * Pb[i1]
+
+                    # a_prof[i1].append((xr.dot(v_xr, Pb[i1], dims='global_index')).data)
+                    a_prof[i1].append(np.sum(scaled_prof, 1))
 
                 #remaining_power.append(np.sum(vf_2, axis=1))
 
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
 
-                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1]) # prepare for rear incidence
+
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
                 power = np.sum(vf_1[i1], axis=1)
 
@@ -353,7 +379,9 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         vt = [np.array(item) for item in vt]
         a = [np.array(item) for item in a]
         A = [np.array(item) for item in A]
+
         a_prof = [np.array(item) for item in a_prof]
+
 
         results_per_pass = {'r': vr, 't': vt, 'a': a, 'A': A, 'a_prof': a_prof}
 
