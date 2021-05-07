@@ -1,4 +1,5 @@
 import numpy as np
+from pytest import approx
 
 def test_lambertian_scattering():
     from rayflare.matrix_formalism.ideal_cases import lambertian_matrix
