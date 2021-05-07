@@ -14,3 +14,9 @@ Structures using a single simulation method
 
 Using the angular matrix method
 --------------------------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   HIT_emissivity.ipynb
