@@ -105,7 +105,6 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options, st
                     pass_options['theta_in'] = theta
 
                     tmm_struct =  tmm_structure(optstacks[i1])
-                    #print(side, pol, theta)
                     res = tmm_struct.calculate(pass_options, profile=profile, layers=prof_layers)
                     R_loop[:, i3] = np.real(res['R'])
                     T_loop[:, i3] = np.real(res['T'])

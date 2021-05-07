@@ -31,7 +31,6 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
 
     :return: A dictionary with the R, A and T at the specified wavelengths and angle.
     """
-    # TODO: when non-zero incidence angle, not binned correctly in matrix (just goes in theta = 0)
     # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
     # or if internally it will still do s & p separately
     # TODO: if incidence angle is zero, s and p polarization are the same so no need to do both
@@ -109,7 +108,6 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
 
         shapes_names = [str(x) for x in shape_mats]
 
-        depth_spacing = options['depth_spacing']
         phi_sym = options['phi_symmetry']
         n_theta_bins = options['n_theta_bins']
         c_az = options['c_azimuth']
@@ -220,16 +218,12 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
     G_basis = np.array(S.GetBasisSet())
 
-    #print(len(G_basis))
-    #print('G_basis', G_basis)
     f_mat = S.GetReciprocalLattice()
-    #print('f_mat', f_mat)
+
     fg_1x = f_mat[0][0]
     fg_1y = f_mat[0][1]
     fg_2x = f_mat[1][0]
     fg_2y = f_mat[1][1]
-
-    #print('basis', f_mat)
 
     R = np.zeros((len(theta)))
     T = np.zeros((len(theta)))
@@ -247,18 +241,13 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
     else:
         binned_theta_in = np.digitize(np.pi-np.pi*theta/180, theta_intv, right=True) - 1
-
-        #print(theta, binned_theta_in)
         phi_in = xr.DataArray(np.pi*phi/180,
                               coords={'theta_bin': (['angle_in'], binned_theta_in)},
                               dims=['angle_in'])
-        #print(len(phi_intv), len(angle_vector_0))
+
         in_bin = phi_in.groupby('theta_bin').map(overall_bin,
                                                    args=(phi_intv, angle_vector_0)).data - int(len(angle_vector_0)/2)
 
-    #print(in_bin)
-
-    #imag_e = np.imag(l_oc)
     print(wl)
 
     for i1, (th, ph) in enumerate(zip(theta, phi)):
@@ -430,7 +419,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
     mat_RT = COO(mat_RT)
     mat_int = COO(mat_int)
-    #print(mat_int)
+
     # want to output R, T, A_layer (in case doing single angle of incidence)
     # also want to output transmission and reflection efficiency/power flux per order and the angles (theta and phi)
     # relating to that order.
@@ -465,13 +454,10 @@ def rcwa_rat(S, n_layers, theta, n_inc, det_l=False):
     # can get odd effects.
 
     R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow. Not normalised correctly.
-    # Nrm = np.real(np.sum(R_pfbo))
-    # R_pfbo = np.real((R/Nrm)*R_pfbo)
 
     if det_l:
         layer_name = 'layer_' + str(det_l + 2)
         R_pfbo_int = -np.array(S.GetPowerFluxByOrder(layer_name))[:, 1]
-        #print('R_pfbo', R_pfbo_int)
 
     else:
         R_pfbo_int = 0
@@ -483,8 +469,7 @@ def rcwa_rat(S, n_layers, theta, n_inc, det_l=False):
 
 
 def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths, options):
-    # pass widths
-    #print(widths)
+
     S = S4.New(size, orders)
 
     S.SetOptions(
@@ -503,22 +488,15 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
 
     for i1 in range(len(shapes_oc)):  # create the materials needed for all the shapes in S4
         S.SetMaterial('shape_mat_' + str(i1 + 1), shapes_oc[i1])
-        #print('shape_mat_' + str(i1+1), shapes_oc[i1])
-
-    ## Make the layers
-    #stack_OS = OptiStack(stack, bo_back_reflection=False, substrate=substrate)
-    #widths = stack_OS.get_widths()
 
     for i1, _ in enumerate(widths):  # create 'dummy' materials for base layers including incidence and transmission media
         S.SetMaterial('layer_' + str(i1 + 1), mats_oc[i1])  # This is not strictly necessary but it means S.SetExcitationPlanewave
         # can be done outside the wavelength loop in calculate_rat_rcwa
-        #print('layer_' + str(i1 + 1), mats_oc[i1])
 
     for i1, wid in enumerate(widths):  # set base layers
         layer_name = 'layer_' + str(i1 + 1)
-        #print(layer_name)
+
         if wid == float('Inf'):
-            #print('zero width')
             S.AddLayer(layer_name, 0, layer_name)  # Solcore4 has incidence and transmission media widths set to Inf;
             # in S4 they have zero width
         else:
