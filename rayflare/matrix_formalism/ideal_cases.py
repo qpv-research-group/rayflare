@@ -23,9 +23,9 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, structpath,
         savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
         savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
 
-    if os.path.isfile(savepath_RT) and save:
-        print('Existing angular redistribution matrices found')
-        allArray = load_npz(savepath_RT)
+        if os.path.isfile(savepath_RT):
+            print('Existing angular redistribution matrices found')
+            allArray = load_npz(savepath_RT)
 
     else:
 
@@ -54,16 +54,14 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, structpath,
 
         whole_matrix = np.vstack([whole_matrix_R, whole_matrix_T])
 
-        print(whole_matrix.shape)
-
         A_matrix = np.zeros((1,int(len(angle_vector)/2)))
 
         allArray = COO(whole_matrix)
         absArray = COO(A_matrix)
-        if save:
-            save_npz(savepath_RT, allArray)
-            save_npz(savepath_A, absArray)
 
+    if save:
+        save_npz(savepath_RT, allArray)
+        save_npz(savepath_A, absArray)
 
     return allArray
 
@@ -87,9 +85,9 @@ def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, struct
         savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
         savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
 
-    if os.path.isfile(savepath_RT) and save:
-        print('Existing angular redistribution matrices found')
-        allArray = load_npz(savepath_RT)
+        if os.path.isfile(savepath_RT):
+            print('Existing angular redistribution matrices found')
+            allArray = load_npz(savepath_RT)
 
     else:
 
@@ -111,13 +109,6 @@ def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, struct
 
         binned_theta = np.digitize(angle_vector_th, theta_intv, right=True) - 1
 
-        # print(binned_theta_out, theta_out, theta_intv)
-
-        # print(binned_theta_in)
-        # print(binned_theta_out)
-        # -1 to give the correct index for the bins in phi_intv
-
-
         bin_in = np.arange(len(angle_vector_phi))
 
         phi_ind = [np.digitize(phi, phi_intv[binned_theta[i1]], right=True) - 1 for i1, phi in enumerate(phis_out)]
@@ -132,8 +123,9 @@ def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, struct
 
         allArray = COO(whole_matrix)
         absArray = COO(A_matrix)
-        if save:
-            save_npz(savepath_RT, allArray)
-            save_npz(savepath_A, absArray)
+
+    if save:
+        save_npz(savepath_RT, allArray)
+        save_npz(savepath_A, absArray)
 
     return allArray
