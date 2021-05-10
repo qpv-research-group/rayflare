@@ -7,7 +7,7 @@ def test_lambertian_scattering():
 
     theta_intv, _, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
 
-    mat = lambertian_matrix(angle_vector, theta_intv, 'test', 'test', 'front', False)
+    mat, _ = lambertian_matrix(angle_vector, theta_intv, 'test', 'test', 'front', False)
 
     R_ind = int(len(angle_vector)/2)
 
@@ -25,13 +25,13 @@ def test_perfect_mirror():
 
     R_ind = int(len(angle_vector)/2)
 
-    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'front', False)
+    mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'front', False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(1)
     assert np.sum(mat, 1)[R_ind:].todense() == approx(0)
 
-    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'rear', False)
+    mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'rear', False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(0)

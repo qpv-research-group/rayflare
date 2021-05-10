@@ -1045,7 +1045,7 @@ def test_profile_integration():
     import xarray as xr
 
     for pol in ['s', 'p', 'u']:
-        for method in ['TMM_f', 'RT_TMM_f', 'RCWA_f']:
+        for method in ['TMM_f', 'RCWA_f']:
             project_name = 'rcwa_tmm_matrix_profiles_' + pol
             pth = get_savepath('default', project_name)
 
@@ -1066,12 +1066,24 @@ def test_profile_integration():
             integrated_prof = np.trapz(prof.data, depths, axis=1)
             integrated_prof_r = np.trapz(prof_r.data, depths_r, axis=1)
 
-            if method == 'RT_TMM_f':
-                c_i = integrated_prof > 0.15
-                assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.5)
-                c_i = integrated_prof_r > 0.15
-                assert integrated_prof_r[c_i] == approx(intgr_r.data[c_i], rel=0.5)
+            assert integrated_prof == approx(intgr.data, rel=0.03)
+            assert integrated_prof_r == approx(intgr_r.data, rel=0.03)
 
-            else:
-                assert integrated_prof == approx(intgr.data, rel=0.03)
-                assert integrated_prof_r == approx(intgr_r.data, rel=0.03)
+    for pol in ['s', 'p', 'u']:
+        for method in ['TMM_b', 'RCWA_b']:
+            project_name = 'rcwa_tmm_matrix_profiles_' + pol
+            pth = get_savepath('default', project_name)
+
+            profdatapath = os.path.join(pth, method + 'frontprofmat.nc')
+
+            prof_dataset = xr.load_dataset(profdatapath)
+
+            intgr = prof_dataset['intgr']
+            prof = prof_dataset['profile']
+
+            depths = np.arange(0, len(prof['z']))
+
+            integrated_prof = np.trapz(prof.data, depths, axis=1)
+
+            assert integrated_prof == approx(intgr.data, rel=0.03)
+

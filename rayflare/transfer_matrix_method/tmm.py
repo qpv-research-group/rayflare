@@ -1,10 +1,13 @@
 import numpy as np
-from solcore.absorption_calculator import tmm_core_vec as tmm
-from rayflare.angles import make_angle_vector, fold_phi
-import os
 import xarray as xr
-from sparse import COO, save_npz, load_npz, stack
+from sparse import COO, save_npz, stack
+
+from solcore.absorption_calculator import tmm_core_vec as tmm
 from solcore.absorption_calculator import OptiStack
+
+from rayflare.angles import make_angle_vector, fold_phi
+from rayflare.utilities import get_matrices_or_paths
+
 
 def TMM(layers, incidence, transmission, surf_name, options, structpath,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
@@ -92,19 +95,10 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
         return prof_wl
 
-    savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
-    savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+    existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers)
 
-
-    if os.path.isfile(savepath_RT) and save:
-        print('Existing angular redistribution matrices found')
-        fullmat = load_npz(savepath_RT)
-        A_mat = load_npz(savepath_A)
-
-        if prof_layers is not None:
-            profile = xr.load_dataset(prof_mat_path)
-            return fullmat, A_mat, profile
+    if existing_mats:
+        return path_or_mats
 
     else:
 
@@ -273,6 +267,10 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         fullmat = stack([item[0] for item in mats])
         A_mat = stack([item[1] for item in mats])
 
+        if save:
+            save_npz(path_or_mats[0], fullmat)
+            save_npz(path_or_mats[1], A_mat)
+
         if profile:
             prof_mat = [make_prof_matrix_wl(wl) for wl in wavelengths]
 
@@ -284,13 +282,12 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
             allres = xr.merge([intgr, profile])
 
             if save:
-                allres.to_netcdf(prof_mat_path)
+                allres.to_netcdf(path_or_mats[2])
 
-        if save:
-            save_npz(savepath_RT, fullmat)
-            save_npz(savepath_A, A_mat)
+            return fullmat, A_mat, allres
 
-    return fullmat, A_mat
+
+        return fullmat, A_mat
 
 
 class tmm_structure:

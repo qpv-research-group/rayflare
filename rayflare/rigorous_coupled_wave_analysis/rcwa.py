@@ -2,11 +2,14 @@ import numpy as np
 import tmm
 import xarray as xr
 import matplotlib.pyplot as plt
-from solcore.absorption_calculator import OptiStack
 from joblib import Parallel, delayed
+
+from solcore.absorption_calculator import OptiStack
+
 from rayflare.angles import make_angle_vector, overall_bin
-import os
-from sparse import COO, save_npz, load_npz, stack
+from rayflare.utilities import get_matrices_or_paths
+
+from sparse import COO, save_npz, stack
 
 try:
     import S4
@@ -34,22 +37,10 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
     # or if internally it will still do s & p separately
     # TODO: if incidence angle is zero, s and p polarization are the same so no need to do both
 
-    savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
-    savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
+    existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers)
 
-    if prof_layers is not None:
-        prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
-
-
-    if os.path.isfile(savepath_RT) and save:
-        print('Existing angular redistribution matrices found')
-        full_mat = load_npz(savepath_RT)
-        A_mat = load_npz(savepath_A)
-
-        if prof_layers is not None:
-            prof_dataset = xr.load_dataset(prof_mat_path)
-            return full_mat, A_mat, prof_dataset
-
+    if existing_mats:
+        return path_or_mats
 
     else:
         wavelengths = options['wavelengths']
@@ -170,6 +161,10 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
 
         A_mat = COO(A_mat)
 
+        if save:
+            save_npz(path_or_mats[0], full_mat)
+            save_npz(path_or_mats[1], A_mat)
+
         if prof_layers is not None:
             prof_mat = np.stack([item[5] for item in allres])
             intgr_mat = np.stack([item[6] for item in allres])
@@ -193,19 +188,14 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
             prof_dataset = xr.merge([intgr, profile])
 
             if save:
-                prof_dataset.to_netcdf(prof_mat_path)
+                prof_dataset.to_netcdf(path_or_mats[2])
 
 
-        if save:
-            save_npz(savepath_RT, full_mat)
-            save_npz(savepath_A, A_mat)
+        if prof_layers is not None:
+            return full_mat, A_mat, prof_dataset
 
-
-    if prof_layers is not None:
-        return full_mat, A_mat, prof_dataset
-
-    else:
-        return full_mat, A_mat
+        else:
+            return full_mat, A_mat
 
 
 def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, orders, phi_sym,

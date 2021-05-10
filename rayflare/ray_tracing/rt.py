@@ -6,12 +6,13 @@ from math import atan2
 from random import random
 from itertools import product
 import xarray as xr
-from rayflare.angles import fold_phi, make_angle_vector
 from sparse import COO, save_npz, load_npz, stack
-from rayflare.angles import overall_bin
 from joblib import Parallel, delayed
 from copy import deepcopy
 from warnings import warn
+
+from rayflare.angles import fold_phi, make_angle_vector, overall_bin
+from rayflare.utilities import get_matrices_or_paths
 
 
 def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM = 0,
@@ -40,25 +41,10 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
     This is used to calculate absorption profiles using TMM.
     """
 
-    if save:
+    existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, calc_profile)
 
-        savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
-        savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-        prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
-
-    if os.path.isfile(savepath_RT) and save:
-        print('Existing angular redistribution matrices found')
-        allArrays = load_npz(savepath_RT)
-        absArrays = load_npz(savepath_A)
-        if Fr_or_TMM > 0 and os.path.isfile(prof_mat_path):
-
-            prof_int = xr.load_dataset(prof_mat_path)
-            profile = prof_int['profile']
-            intgr = prof_int['intgr']
-            return allArrays, absArrays, profile, intgr
-
-        else:
-            return allArrays, absArrays
+    if existing_mats:
+        return path_or_mats
 
     else:
         wavelengths = options['wavelengths']
@@ -191,8 +177,8 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
         absArrays = stack([item[1] for item in allres])
 
         if save:
-            save_npz(savepath_RT, allArrays)
-            save_npz(savepath_A, absArrays)
+            save_npz(path_or_mats[0], allArrays)
+            save_npz(path_or_mats[1], absArrays)
 
         if Fr_or_TMM > 0 and calc_profile is not None:
             profile = xr.concat([item[3] for item in allres], 'wl')
@@ -202,9 +188,9 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
             allres = xr.merge([intgr, profile])
 
             if save:
-                allres.to_netcdf(prof_mat_path)
+                allres.to_netcdf(path_or_mats[2])
 
-            return allArrays, absArrays, profile, intgr
+            return allArrays, absArrays, allres
 
 
         else:

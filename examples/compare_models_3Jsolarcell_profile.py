@@ -5,7 +5,7 @@ from solcore.structure import Layer
 from solcore import material
 
 # rayflare imports
-from rayflare.textures.standard_rt_textures import planar_surface
+from rayflare.textures import planar_surface
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import process_structure, calculate_RAT
 from rayflare.options import default_options
