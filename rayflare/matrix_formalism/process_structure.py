@@ -136,7 +136,7 @@ def process_structure(SC, options, save_location='default'):
                 for side in which_sides:
                     only_incidence_angle = determine_only_incidence(side, i1, options['only_incidence_angle'])
 
-                    RT(group, incidence, substrate, struct.name, options, structpath, 0, side, 0, False,
+                    RT(group, incidence, substrate, struct.name, options, structpath, 0, side, 0, None,
                        only_incidence_angle=only_incidence_angle,save=True)
 
             if struct.method == 'RCWA':
