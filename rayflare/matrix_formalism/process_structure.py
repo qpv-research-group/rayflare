@@ -26,12 +26,12 @@ def process_structure(SC, options, save_location='default'):
 
         return only_inc
 
-    def determine_coherency(str):
+    def determine_coherency(strt):
 
-        coh = str.coherent
+        coh = strt.coherent
 
-        if not str.coherent:
-            c_list = str.coherency_list
+        if not strt.coherent:
+            c_list = strt.coherency_list
         else:
             c_list = None
 

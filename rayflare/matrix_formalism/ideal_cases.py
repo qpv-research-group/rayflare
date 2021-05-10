@@ -1,6 +1,5 @@
 import numpy as np
-import os
-from sparse import COO, load_npz, save_npz
+from sparse import COO, save_npz
 from rayflare.angles import fold_phi
 from rayflare.utilities import get_matrices_or_paths
 

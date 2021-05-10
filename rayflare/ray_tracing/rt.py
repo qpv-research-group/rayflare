@@ -6,7 +6,7 @@ from math import atan2
 from random import random
 from itertools import product
 import xarray as xr
-from sparse import COO, save_npz, load_npz, stack
+from sparse import COO, save_npz, stack
 from joblib import Parallel, delayed
 from copy import deepcopy
 from warnings import warn
