@@ -819,7 +819,7 @@ def test_rcwa_tmm_matrix_check_sums():
 
         # only select absorbing layers, sum over passes
         results_per_layer_front_RT = np.sum(results_per_pass['a'][0], 0)
-        results_per_layer_back_RT = np.sum(results_per_pass['a'][1], 0)[:,0]
+        # results_per_layer_back_RT = np.sum(results_per_pass['a'][1], 0)[:,0]
 
         assert np.all(results_RT[0]['A_interface'][0].data == np.sum(results_per_pass['a'][0], (0, 2)))
 

@@ -5,7 +5,7 @@ def test_lambertian_scattering():
     from rayflare.matrix_formalism.ideal_cases import lambertian_matrix
     from rayflare.angles import make_angle_vector
 
-    theta_intv, phi_intv, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
+    theta_intv, _, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
 
     mat = lambertian_matrix(angle_vector, theta_intv, 'test', 'test', 'front', False)
 

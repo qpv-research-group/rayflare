@@ -83,11 +83,9 @@ from solcore.structure import Layer
 
 stack = [Layer(si('100um'), GaAs), Layer(si('70um'), Si), Layer(si('50um'), Ge)]
 
-strt = tmm_structure(stack, coherent=False, coherency_list=['i', 'i', 'i'],
-                     no_back_reflection=False)
+strt = tmm_structure(stack, incidence=Air, transmission=Air, no_back_reflection=False)
 
-output = strt.calculate(options['wavelengths']*1e9, angle=options['theta_in'], pol=options['pol'],
-                        profile=True, depth_spacing=1000, layers=[1,2,3])
+output = strt.calculate(options, profile=True, layers=[1,2,3])
 
 plt.figure()
 plt.plot(options['wavelengths']*1e9, output['R'])

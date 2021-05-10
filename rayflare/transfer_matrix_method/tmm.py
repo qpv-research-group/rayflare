@@ -1,7 +1,6 @@
 import numpy as np
 from solcore.absorption_calculator import tmm_core_vec as tmm
 from rayflare.angles import make_angle_vector, fold_phi
-from rayflare.config import results_path
 import os
 import xarray as xr
 from sparse import COO, save_npz, load_npz, stack
@@ -197,7 +196,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         pass_options['wavelengths'] = wavelengths
         pass_options['depth_spacing'] =  options['depth_spacing']
 
-        for i2, pol in enumerate(pols):
+        for pol in pols:
 
             for i3, theta in enumerate(thetas):
 
@@ -421,7 +420,7 @@ class tmm_structure:
 
                     output['profile'] = 0.5 * (data_s + data_p)
 
-                    for i1, l in enumerate(layers):
+                    for l in layers:
                         if coherency_list[l] == 'c':
                             fn_s = tmm.inc_find_absorp_analytic_fn(l, out_s)
                             fn_p = tmm.inc_find_absorp_analytic_fn(l, out_s)

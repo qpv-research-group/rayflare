@@ -1,6 +1,5 @@
 import numpy as np
 import os
-from rayflare.config import results_path
 from sparse import COO, load_npz, save_npz
 from rayflare.angles import fold_phi
 

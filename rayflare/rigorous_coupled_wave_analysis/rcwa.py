@@ -7,7 +7,6 @@ from joblib import Parallel, delayed
 from rayflare.angles import make_angle_vector, overall_bin
 import os
 from sparse import COO, save_npz, load_npz, stack
-from rayflare.config import results_path
 
 try:
     import S4
@@ -486,8 +485,8 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
     )
 
 
-    for i1 in range(len(shapes_oc)):  # create the materials needed for all the shapes in S4
-        S.SetMaterial('shape_mat_' + str(i1 + 1), shapes_oc[i1])
+    for i1, sh in enumerate(shapes_oc):  # create the materials needed for all the shapes in S4
+        S.SetMaterial('shape_mat_' + str(i1 + 1), sh)
 
     for i1, _ in enumerate(widths):  # create 'dummy' materials for base layers including incidence and transmission media
         S.SetMaterial('layer_' + str(i1 + 1), mats_oc[i1])  # This is not strictly necessary but it means S.SetExcitationPlanewave
@@ -609,7 +608,7 @@ class rcwa_structure:
         geom_list = []
         list_for_OS = []
 
-        for i1, layer in enumerate(structure):
+        for layer in structure:
             if isinstance(layer, list):
                 if len(layer) == 4:
                     geom_list.append(layer[3])

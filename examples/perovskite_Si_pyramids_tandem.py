@@ -12,7 +12,7 @@ from rayflare.matrix_formalism import calculate_RAT
 from rayflare.matrix_formalism import process_structure
 from rayflare.options import default_options
 from rayflare.angles import theta_summary, make_angle_vector
-from rayflare.config import results_path
+from rayflare.matrix_formalism.process_structure import get_savepath
 
 from sparse import load_npz
 
@@ -242,9 +242,9 @@ seamap = mpl.colors.ListedColormap(palhf)
 _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
 
-
-sprs_front = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'frontRT.npz'))
-sprs_rear = load_npz(os.path.join(results_path, options['project_name'], SC[0].name + 'rearRT.npz'))
+mat_path = get_savepath('default', options['project_name'])
+sprs_front = load_npz(os.path.join(mat_path, SC[0].name + 'frontRT.npz'))
+sprs_rear = load_npz(os.path.join(mat_path, SC[0].name + 'rearRT.npz'))
 
 wl_to_plot = 1100e-9
 

@@ -8,7 +8,6 @@ from itertools import product
 import xarray as xr
 from rayflare.angles import fold_phi, make_angle_vector
 from sparse import COO, save_npz, load_npz, stack
-from rayflare.config import results_path
 from rayflare.angles import overall_bin
 from joblib import Parallel, delayed
 from copy import deepcopy
@@ -483,7 +482,7 @@ class rt_structure:
                 offset = j1*nx*ny
                 for c, vals in enumerate(product(xs, ys)):
 
-                    for i1, wl in enumerate(wavelengths):
+                    for i1 in range(len(wavelengths)):
                         I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1], nks[:, i1],
                                                                                           alphas[:, i1], r_a_0,
                                                                                           surfaces, widths, z_pos, I_thresh, pol, randomize)
@@ -955,7 +954,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
         if result == False and not checked_translation:
             if i1 > 1:
 
-                which_side, tt = exit_side(r_a, d, Lx, Ly)
+                which_side, _ = exit_side(r_a, d, Lx, Ly)
                 r_a = r_a + translation[which_side]
                 checked_translation = True
 
@@ -985,9 +984,9 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
                     r_a[0] = r_a[0] % Lx # translate back into until cell before doing any additional translation
                 if r_a[1] > Ly or r_a[1] < 0:
                     r_a[1] = r_a[1] % Ly # translate back into until cell before doing any additional translation
-                exit, t = exit_side(r_a, d, Lx, Ly)
+                ex, t = exit_side(r_a, d, Lx, Ly)
 
-                r_a = r_a + t * d + translation[exit]
+                r_a = r_a + t * d + translation[ex]
                 checked_translation = True
 
             else:
