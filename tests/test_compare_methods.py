@@ -1085,5 +1085,37 @@ def test_profile_integration():
 
             integrated_prof = np.trapz(prof.data, depths, axis=1)
 
-            assert integrated_prof == approx(intgr.data, rel=0.03)
+            c_i = intgr.data > 1e-4
+
+            assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.04)
+
+
+
+def test_compare_RT_TMM_Fresnel():
+    from solcore.structure import Layer
+    from solcore import material
+
+    # rayflare imports
+    from rayflare.textures import regular_pyramids, planar_surface
+    from rayflare.structure import Interface, BulkLayer, Structure
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
+    from rayflare.options import default_options
+    from rayflare.ray_tracing import rt_structure
+
+    Si = material("Si")()
+    Air = material("Air")()
+
+    options = default_options()
+    options.randomize_surface = True
+
+    flat_surf = planar_surface(size=2)  # pyramid size in microns
+    triangle_surf = regular_pyramids(55, upright=False, size=2)
+
+    # set up ray-tracing options
+    rtstr = rt_structure(textures=[triangle_surf, flat_surf],
+                         materials=[Si],
+                         widths=[si('300um')], incidence=Air, transmission=Air)
+
+
+
 
