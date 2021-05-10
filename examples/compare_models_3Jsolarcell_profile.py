@@ -7,8 +7,7 @@ from solcore import material
 # rayflare imports
 from rayflare.textures.standard_rt_textures import planar_surface
 from rayflare.structure import Interface, BulkLayer, Structure
-from rayflare.matrix_formalism.process_structure import process_structure
-from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+from rayflare.matrix_formalism import process_structure, calculate_RAT
 from rayflare.options import default_options
 
 # plotting imports
@@ -35,7 +34,7 @@ pal2 = sns.cubehelix_palette(len(wavelengths), start=.5, rot=-.9)
 # set options
 options = default_options()
 options.wavelengths = wavelengths
-options.project_name = 'method_comparison'
+options.project_name = 'method_comparison_profile'
 options.n_rays = 250
 options.n_theta_bins = 3
 options.lookuptable_angles = 100

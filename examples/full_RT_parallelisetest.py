@@ -1,8 +1,12 @@
-from rayflare.ray_tracing.rt import rt_structure
+from rayflare.ray_tracing import rt_structure
 from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
+from rayflare.transfer_matrix_method import tmm_structure
+from solcore.structure import Layer
+
 from solcore import material
 from solcore import si
+
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -77,9 +81,6 @@ plt.figure()
 plt.plot(result['profile'].T)
 plt.show()
 
-
-from rayflare.transfer_matrix_method.tmm import tmm_structure
-from solcore.structure import Layer
 
 stack = [Layer(si('100um'), GaAs), Layer(si('70um'), Si), Layer(si('50um'), Ge)]
 

@@ -1,1 +1,1 @@
-from .rt import RT
+from .rt import RT, rt_structure

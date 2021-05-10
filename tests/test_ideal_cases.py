@@ -38,15 +38,13 @@ def test_perfect_mirror():
     assert np.sum(mat, 1)[R_ind:].todense() == approx(1)
 
 
-
 def test_lambertian_process():
     from solcore.structure import Layer
     from solcore import material
 
     # rayflare imports
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
 
     # Thickness of bulk Ge layer

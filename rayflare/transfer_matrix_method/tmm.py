@@ -32,7 +32,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         RT_mat = np.zeros((len(theta_bins_in)*2, len(theta_bins_in)))
         A_mat = np.zeros((n_layers, len(theta_bins_in)))
 
-        for i1, cur_theta in enumerate(theta_bins_in):
+        for i1 in range(len(theta_bins_in)):
 
             theta = theta_lookup[i1] # angle_vector[i1, 1]
 

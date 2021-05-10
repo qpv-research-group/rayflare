@@ -7,7 +7,7 @@ def test_RAT():
 
     from solcore import si, material
     from solcore.structure import Layer
-    from rayflare.rigorous_coupled_wave_analysis.rcwa import rcwa_structure
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
 
     from solcore.solar_cell import SolarCell
 
@@ -98,7 +98,7 @@ def test_RAT_angle_pol():
 
     from solcore import si, material
     from solcore.structure import Layer
-    from rayflare.rigorous_coupled_wave_analysis.rcwa import rcwa_structure
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
 
     from solcore.solar_cell import SolarCell
     from rayflare.options import default_options
@@ -169,7 +169,7 @@ def test_RAT_angle_pol_ninc():
 
     from solcore import si, material
     from solcore.structure import Layer
-    from rayflare.rigorous_coupled_wave_analysis.rcwa import rcwa_structure
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
 
     from solcore.solar_cell import SolarCell
     from rayflare.options import default_options
@@ -229,14 +229,6 @@ def test_RAT_angle_pol_ninc():
             options.theta_in = angle
             options.phi_in = angle
             RAT = S4_setup.calculate(options)
-
-            # plt.figure()
-            # plt.plot(wavelengths*1e9, RAT['R'], label='R')
-            # plt.plot(wavelengths * 1e9, RAT['T'], label='T')
-            # plt.plot(wavelengths * 1e9,RAT['A_per_layer'], label=['barrier', 'pn', 'holeb', 'grating1', 'grating2'])
-            # plt.plot(wavelengths*1e9, RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1), '--')
-            # plt.legend()
-            # plt.show()
 
             assert RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1) == approx(1)
 

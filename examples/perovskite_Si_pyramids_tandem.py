@@ -8,11 +8,9 @@ from solcore.constants import q
 
 from rayflare.textures import regular_pyramids
 from rayflare.structure import Interface, BulkLayer, Structure
-from rayflare.matrix_formalism import calculate_RAT
-from rayflare.matrix_formalism import process_structure
+from rayflare.matrix_formalism import calculate_RAT, process_structure, get_savepath
 from rayflare.options import default_options
 from rayflare.angles import theta_summary, make_angle_vector
-from rayflare.matrix_formalism.process_structure import get_savepath
 
 from sparse import load_npz
 
@@ -243,25 +241,17 @@ _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_sym
                                        options['c_azimuth'])
 
 mat_path = get_savepath('default', options['project_name'])
-sprs_front = load_npz(os.path.join(mat_path, SC[0].name + 'frontRT.npz'))
+
 sprs_rear = load_npz(os.path.join(mat_path, SC[0].name + 'rearRT.npz'))
 
 wl_to_plot = 1100e-9
 
 wl_index = np.argmin(np.abs(wavelengths-wl_to_plot))
 
-full_f = sprs_front[wl_index].todense()
 full_r = sprs_rear[wl_index].todense()
 
-#summat= theta_summary(full_f, angle_vector, options['n_theta_bins'], "front")
-
 summat = theta_summary(full_r, angle_vector, options['n_theta_bins'], "rear")
-
-## reflection
-
-#whole_mat = xr.concat((summat, summat_back), dim=r'$\theta_{in}$')
 summat_back = summat[options['n_theta_bins']:]
-
 whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
 
 whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
@@ -274,31 +264,9 @@ whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
-fig = plt.figure(figsize=(10,3.5))
-ax = fig.add_subplot(1,2,1, aspect='equal')
-ax.text(-0.15, 1, 'a)')
+
+fig = plt.figure(figsize=(4.5,3.5))
+ax = fig.add_subplot(1,1,1, aspect='equal')
 ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
-
-
-whole_mat_imshow = summat_back.rename({r'$\theta_{in}$': 'a', r'$\theta_{out}$': 'b'})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(a=np.sin(whole_mat_imshow.coords['a']).data,
-                                                  b=np.sin(whole_mat_imshow.coords['b']).data)
-
-
-whole_mat_imshow = whole_mat_imshow.rename({'a': r'$\sin(\theta_{in})$', 'b': r'$\sin(\theta_{out})$'})
-
-
-
-palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-#fig = plt.figure(figsize=(5,4))
-ax2 = fig.add_subplot(1,2,2, aspect='equal')
-ax2.text(-0.15, 1, 'b)')
-ax2 = whole_mat_imshow.plot.imshow(ax=ax2, cmap=seamap)
-#ax = plt.subplot(212)
-fig.savefig('perovskite_Si_frontsurf_rearRT.pdf', bbox_inches='tight', format='pdf')
-#ax = Tth.plot.imshow(ax=ax)
 
 plt.show()

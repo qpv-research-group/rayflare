@@ -2,7 +2,7 @@ from pytest import approx
 import numpy as np
 
 def test_parallel():
-    from rayflare.ray_tracing.rt import rt_structure
+    from rayflare.ray_tracing import rt_structure
     from rayflare.textures import regular_pyramids
     from rayflare.options import default_options
     from solcore import material

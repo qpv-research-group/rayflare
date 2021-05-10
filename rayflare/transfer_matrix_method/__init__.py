@@ -1,2 +1,1 @@
-from .tmm import TMM
-from .tmm import tmm_structure
+from .tmm import TMM, tmm_structure

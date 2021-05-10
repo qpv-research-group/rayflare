@@ -8,8 +8,7 @@ from solcore.constants import q
 
 from rayflare.textures import regular_pyramids
 from rayflare.structure import Interface, BulkLayer, Structure
-from rayflare.matrix_formalism import calculate_RAT
-from rayflare.matrix_formalism import process_structure
+from rayflare.matrix_formalism import calculate_RAT, process_structure
 from rayflare.options import default_options
 from rayflare.angles import make_angle_vector
 
