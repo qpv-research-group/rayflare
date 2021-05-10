@@ -1138,9 +1138,9 @@ def test_compare_RT_TMM_Fresnel():
 
     T_nz = res_TMM[0]['T'][0].data > 5e-3
 
-    assert res_fresnel[0]['A_bulk'][0].data == approx(res_TMM[0]['A_bulk'][0].data, rel=0.3)
-    assert res_fresnel[0]['R'][0].data == approx(res_TMM[0]['R'][0].data, rel=0.3)
-    assert res_fresnel[0]['T'][0].data[T_nz] == approx(res_TMM[0]['T'][0].data[T_nz], rel=0.3)
+    assert res_fresnel[0]['A_bulk'][0].data == approx(res_TMM[0]['A_bulk'][0].data, abs=0.15)
+    assert res_fresnel[0]['R'][0].data == approx(res_TMM[0]['R'][0].data, abs=0.15)
+    assert res_fresnel[0]['T'][0].data[T_nz] == approx(res_TMM[0]['T'][0].data[T_nz], abs=0.15)
 
 
 
