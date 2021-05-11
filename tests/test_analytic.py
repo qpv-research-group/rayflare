@@ -1,5 +1,5 @@
 import numpy as np
-from pytest import approx
+from pytest import approx, mark
 import sys
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
