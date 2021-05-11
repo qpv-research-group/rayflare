@@ -236,7 +236,7 @@ def test_RAT_angle_pol_ninc():
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_shapes():
-    from solcore import si, material
+    from solcore import material
     from solcore.structure import Layer
     from solcore.solar_cell import SolarCell
 
@@ -267,7 +267,7 @@ def test_shapes():
                         'vertices': ((300, 0), (0, 300), (-300, 0))}]
 
     grating_circle_polygon = [{'type': 'circle', 'mat': Ag, 'center': (0, 0), 'radius': 100},
-                              {'type': 'polygon', 'mat': Ag, 'center': (600, 600), 'angle': -20,
+                              {'type': 'polygon', 'mat': Au, 'center': (600, 600), 'angle': -20,
                                'vertices': ((100, 0), (0, 100), (-100, 0))}]
 
     grating_list = [grating_circles, grating_squares, grating_ellipse, grating_polygon, grating_circle_polygon, None]
