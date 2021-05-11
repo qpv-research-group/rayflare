@@ -561,6 +561,16 @@ def rcwa_absorption_per_layer_order(S, n_layers, theta, n_inc):
 
 
 def get_reciprocal_lattice(size, orders):
+    """
+    Returns the reciprocal lattice as defined in S4 (note that this is missing a foctor of 2pi compared to the
+    standard definition).
+    :param size: lattice vectors in real space ((ax, ay), (bx, by))
+    :type size:
+    :param orders: number of Fourier orders to keep
+    :type orders:
+    :return: reciprocal lattice (tuple)
+    :rtype:
+    """
 
     S = S4.New(size, orders)
     f_mat = S.GetReciprocalLattice()
