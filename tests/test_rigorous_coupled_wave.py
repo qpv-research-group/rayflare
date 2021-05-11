@@ -321,6 +321,7 @@ def test_shapes():
         assert np.all(A_back[i1] > A_back[-1])
 
 
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_reciprocal_lattice():
     from rayflare.rigorous_coupled_wave_analysis.rcwa import get_reciprocal_lattice
 
@@ -332,6 +333,7 @@ def test_reciprocal_lattice():
     assert a[1] == approx((0, 1/200))
 
 
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_plotting_funcs():
 
     from solcore import si, material
