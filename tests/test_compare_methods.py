@@ -856,7 +856,7 @@ def test_rcwa_tmm_matrix_check_sums():
 
         assert results_per_layer_front_TMM[c_i] == approx(results_per_layer_front_TMM_ref[c_i], rel=0.05)
         assert results_per_layer_front_RCWA[c_i] == approx(results_per_layer_front_TMM_ref[c_i], rel=0.05)
-        assert results_per_layer_front_RT[c_i] == approx(results_per_layer_front_TMM_ref[c_i], rel=0.5)
+        assert results_per_layer_front_RT[c_i] == approx(results_per_layer_front_TMM_ref[c_i], rel=0.8)
 
 
         c_i = results_per_layer_back_TMM_ref > 1e-2
