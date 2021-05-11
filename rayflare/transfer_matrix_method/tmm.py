@@ -1,11 +1,13 @@
 import numpy as np
-from solcore.absorption_calculator import tmm_core_vec as tmm
-from rayflare.angles import make_angle_vector, fold_phi
-from rayflare.config import results_path
-import os
 import xarray as xr
-from sparse import COO, save_npz, load_npz, stack
+from sparse import COO, save_npz, stack
+
+from solcore.absorption_calculator import tmm_core_vec as tmm
 from solcore.absorption_calculator import OptiStack
+
+from rayflare.angles import make_angle_vector, fold_phi
+from rayflare.utilities import get_matrices_or_paths
+
 
 def TMM(layers, incidence, transmission, surf_name, options, structpath,
                coherent=True, coherency_list=None, prof_layers=None, front_or_rear='front', save=True):
@@ -81,7 +83,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
                                dims=['z', 'global_index'],
                                coords={'z': dist, 'global_index': np.arange(0, len(theta_bins_in))})
 
-        for i1, cur_theta in enumerate(theta_bins_in):
+        for i1 in range(len(theta_bins_in)):
 
             theta = theta_lookup[i1]
 
@@ -93,19 +95,10 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
         return prof_wl
 
-    savepath_RT = os.path.join(structpath, surf_name + front_or_rear + 'RT.npz')
-    savepath_A = os.path.join(structpath, surf_name + front_or_rear + 'A.npz')
-    prof_mat_path = os.path.join(structpath, surf_name + front_or_rear + 'profmat.nc')
+    existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers)
 
-
-    if os.path.isfile(savepath_RT) and save:
-        print('Existing angular redistribution matrices found')
-        fullmat = load_npz(savepath_RT)
-        A_mat = load_npz(savepath_A)
-
-        if prof_layers is not None:
-            profile = xr.load_dataset(prof_mat_path)
-            return fullmat, A_mat, profile
+    if existing_mats:
+        return path_or_mats
 
     else:
 
@@ -197,7 +190,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         pass_options['wavelengths'] = wavelengths
         pass_options['depth_spacing'] =  options['depth_spacing']
 
-        for i2, pol in enumerate(pols):
+        for pol in pols:
 
             for i3, theta in enumerate(thetas):
 
@@ -274,6 +267,10 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
         fullmat = stack([item[0] for item in mats])
         A_mat = stack([item[1] for item in mats])
 
+        if save:
+            save_npz(path_or_mats[0], fullmat)
+            save_npz(path_or_mats[1], A_mat)
+
         if profile:
             prof_mat = [make_prof_matrix_wl(wl) for wl in wavelengths]
 
@@ -285,13 +282,12 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
             allres = xr.merge([intgr, profile])
 
             if save:
-                allres.to_netcdf(prof_mat_path)
+                allres.to_netcdf(path_or_mats[2])
 
-        if save:
-            save_npz(savepath_RT, fullmat)
-            save_npz(savepath_A, A_mat)
+            return fullmat, A_mat, allres
 
-    return fullmat, A_mat
+
+        return fullmat, A_mat
 
 
 class tmm_structure:
@@ -421,7 +417,7 @@ class tmm_structure:
 
                     output['profile'] = 0.5 * (data_s + data_p)
 
-                    for i1, l in enumerate(layers):
+                    for l in layers:
                         if coherency_list[l] == 'c':
                             fn_s = tmm.inc_find_absorp_analytic_fn(l, out_s)
                             fn_p = tmm.inc_find_absorp_analytic_fn(l, out_s)

@@ -1,10 +1,11 @@
 import numpy as np
 import os
+
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare.structure import Interface, RTgroup, BulkLayer
-from rayflare.ray_tracing.rt import RT
-from rayflare.rigorous_coupled_wave_analysis.rcwa import RCWA
-from rayflare.transfer_matrix_method.tmm import TMM
+from rayflare.ray_tracing import RT
+from rayflare.rigorous_coupled_wave_analysis import RCWA
+from rayflare.transfer_matrix_method import TMM
 from rayflare.angles import make_angle_vector
 from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
 
@@ -16,6 +17,25 @@ def process_structure(SC, options, save_location='default'):
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations
     """
+
+    def determine_only_incidence(sd, j1, oia):
+        if sd == 'front' and j1 == 0 and oia:
+            only_inc = True
+        else:
+            only_inc = False
+
+        return only_inc
+
+    def determine_coherency(strt):
+
+        coh = strt.coherent
+
+        if not strt.coherent:
+            c_list = strt.coherency_list
+        else:
+            c_list = None
+
+        return coh, c_list
 
     layer_widths = []
 
@@ -30,6 +50,7 @@ def process_structure(SC, options, save_location='default'):
     for i1, struct in enumerate(SC):
         if isinstance(struct, Interface):
             # Check: is this an interface type which requires a lookup table?
+
             if struct.method == 'RT_TMM':
                 print('Making lookuptable for element ' + str(i1) + ' in structure')
                 if i1 == 0:  # top interface
@@ -42,11 +63,7 @@ def process_structure(SC, options, save_location='default'):
                 else: # not bottom interface
                     substrate = SC[i1+1].material # bulk material below
 
-                coherent = struct.coherent
-                if not coherent:
-                    coherency_list = struct.coherency_list
-                else:
-                    coherency_list = None
+                coherent, coherency_list = determine_coherency(struct)
 
                 prof_layers = struct.prof_layers
 
@@ -56,7 +73,18 @@ def process_structure(SC, options, save_location='default'):
 
     for i1, struct in enumerate(SC):
         if isinstance(struct, Interface):
-            # perfect mirror
+
+            if i1 == 0:
+                incidence = SC.incidence
+            else:
+                incidence = SC[i1 - 1].material  # bulk material above
+
+            if i1 == (len(SC) - 1):
+                substrate = SC.transmission
+                which_sides = ['front']
+            else:
+                substrate = SC[i1 + 1].material  # bulk material below
+                which_sides = ['front', 'rear']
 
             if struct.method == 'Mirror':
                 theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
@@ -75,31 +103,13 @@ def process_structure(SC, options, save_location='default'):
 
             if struct.method == 'TMM':
                 print('Making matrix for planar surface using TMM for element ' + str(i1) + ' in structure')
-                if i1 == 0:
-                    incidence = SC.incidence
-                else:
-                    incidence = SC[i1 - 1].material  # bulk material above
 
-                if i1 == (len(SC) - 1):
-                    substrate = SC.transmission
-                    which_sides = ['front'] # if this is the bottom interface, we don't need to matrices for rear incidence
-                else:
-                    substrate = SC[i1 + 1].material  # bulk material below
-                    which_sides = ['front', 'rear']
-
-                coherent = struct.coherent
-                if not coherent:
-                    coherency_list = struct.coherency_list
-                else:
-                    coherency_list = None
+                coherent, coherency_list = determine_coherency(struct)
 
                 prof_layers = struct.prof_layers
 
                 for side in which_sides:
-                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
-                        only_incidence_angle = True
-                    else:
-                        only_incidence_angle = False
+                    # only_incidence_angle = determine_only_incidence(side, i1, options['only_incidence_angle'])
 
                     TMM(struct.layers, incidence, substrate, struct.name, options, structpath,
                                coherent=coherent, coherency_list=coherency_list, prof_layers=prof_layers,
@@ -108,83 +118,38 @@ def process_structure(SC, options, save_location='default'):
 
             if struct.method == 'RT_TMM':
                 print('Ray tracing with TMM lookup table for element ' + str(i1) + ' in structure')
-                if i1 == 0:
-                    incidence = SC.incidence
-                else:
-                    incidence = SC[i1-1].material # bulk material above
-
-                if i1 == (len(SC) - 1):
-                    substrate = SC.transmission
-                    which_sides = ['front']
-                else:
-                    substrate = SC[i1+1].material # bulk material below
-                    which_sides = ['front', 'rear']
-
 
                 prof = struct.prof_layers
                 n_abs_layers = len(struct.layers)
 
                 group = RTgroup(textures=[struct.texture])
                 for side in which_sides:
-                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
-                        only_incidence_angle = True
-                    else:
-                        only_incidence_angle = False
+                    only_incidence_angle = determine_only_incidence(side, i1, options['only_incidence_angle'])
 
                     RT(group, incidence, substrate, struct.name, options, structpath, 1, side,
                        n_abs_layers, prof, only_incidence_angle, layer_widths[i1], save=True)
 
             if struct.method == 'RT_Fresnel':
                 print('Ray tracing with Fresnel equations for element ' + str(i1) + ' in structure')
-                if i1 == 0:
-                    incidence = SC.incidence
-                else:
-                    incidence = SC[i1-1].material # bulk material above
-
-                if i1 == (len(SC) - 1):
-                    substrate = SC.transmission
-                    which_sides = ['front']
-                else:
-                    substrate = SC[i1+1].material # bulk material below
-                    which_sides = ['front', 'rear']
 
                 group = RTgroup(textures=[struct.texture])
                 for side in which_sides:
-                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
-                        only_incidence_angle = True
-                    else:
-                        only_incidence_angle = False
+                    only_incidence_angle = determine_only_incidence(side, i1, options['only_incidence_angle'])
 
-                    RT(group, incidence, substrate, struct.name, options, structpath, 0, side, 0, False,
+                    RT(group, incidence, substrate, struct.name, options, structpath, 0, side, 0, None,
                        only_incidence_angle=only_incidence_angle,save=True)
 
             if struct.method == 'RCWA':
                 print('RCWA calculation for element ' + str(i1) + ' in structure')
-                if i1 == 0:
-                    incidence = SC.incidence
-                else:
-                    incidence = SC[i1-1].material # bulk material above
-
-                if i1 == (len(SC) - 1):
-                    substrate = SC.transmission
-                    which_sides = ['front']
-                else:
-                    substrate = SC[i1+1].material # bulk material below
-                    which_sides = ['front', 'rear']
 
                 prof = struct.prof_layers
 
                 for side in which_sides:
-                    if side == 'front' and i1 == 0 and options['only_incidence_angle']:
-                        only_incidence_angle = True
-                    else:
-                        only_incidence_angle = False
+                    # only_incidence_angle = determine_only_incidence(side, i1, options['only_incidence_angle'])
 
                     RCWA(struct.layers, struct.d_vectors, struct.rcwa_orders, options, structpath,
                          incidence, substrate, only_incidence_angle=False, prof_layers=prof,
                          front_or_rear=side, surf_name=struct.name, save=True)
-
-
 
 
 def get_savepath(save_location, project_name):
@@ -207,3 +172,6 @@ def get_savepath(save_location, project_name):
         os.mkdir(structpath)
 
     return structpath
+
+
+

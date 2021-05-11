@@ -1,5 +1,5 @@
 import numpy as np
-from rayflare.textures.define_textures import xyz_texture, heights_texture
+from rayflare.textures import xyz_texture, heights_texture
 import matplotlib.pyplot as plt
 
 # provide x, y and z coordinates of points in the unit cell to make a V-groove texture

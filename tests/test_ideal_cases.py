@@ -5,9 +5,9 @@ def test_lambertian_scattering():
     from rayflare.matrix_formalism.ideal_cases import lambertian_matrix
     from rayflare.angles import make_angle_vector
 
-    theta_intv, phi_intv, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
+    theta_intv, _, angle_vector = make_angle_vector(20, np.pi/2, 0.25)
 
-    mat = lambertian_matrix(angle_vector, theta_intv, 'test', 'test', 'front', False)
+    mat, _ = lambertian_matrix(angle_vector, theta_intv, 'test', 'test', 'front', False)
 
     R_ind = int(len(angle_vector)/2)
 
@@ -25,18 +25,17 @@ def test_perfect_mirror():
 
     R_ind = int(len(angle_vector)/2)
 
-    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'front', False)
+    mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'front', False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(1)
     assert np.sum(mat, 1)[R_ind:].todense() == approx(0)
 
-    mat = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'rear', False)
+    mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, 'test', options, 'test', 'rear', False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(0)
     assert np.sum(mat, 1)[R_ind:].todense() == approx(1)
-
 
 
 def test_lambertian_process():
@@ -45,8 +44,7 @@ def test_lambertian_process():
 
     # rayflare imports
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
 
     # Thickness of bulk Ge layer

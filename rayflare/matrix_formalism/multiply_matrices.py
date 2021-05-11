@@ -233,6 +233,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
 
     if np.any(len_calcs > 0):
+
         a = [[] for _ in range(n_interfaces)]
         a_prof = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]

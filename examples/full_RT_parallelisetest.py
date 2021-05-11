@@ -1,8 +1,12 @@
-from rayflare.ray_tracing.rt import rt_structure
+from rayflare.ray_tracing import rt_structure
 from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
+from rayflare.transfer_matrix_method import tmm_structure
+from solcore.structure import Layer
+
 from solcore import material
 from solcore import si
+
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -78,16 +82,11 @@ plt.plot(result['profile'].T)
 plt.show()
 
 
-from rayflare.transfer_matrix_method.tmm import tmm_structure
-from solcore.structure import Layer
-
 stack = [Layer(si('100um'), GaAs), Layer(si('70um'), Si), Layer(si('50um'), Ge)]
 
-strt = tmm_structure(stack, coherent=False, coherency_list=['i', 'i', 'i'],
-                     no_back_reflection=False)
+strt = tmm_structure(stack, incidence=Air, transmission=Air, no_back_reflection=False)
 
-output = strt.calculate(options['wavelengths']*1e9, angle=options['theta_in'], pol=options['pol'],
-                        profile=True, depth_spacing=1000, layers=[1,2,3])
+output = strt.calculate(options, profile=True, layers=[1,2,3])
 
 plt.figure()
 plt.plot(options['wavelengths']*1e9, output['R'])

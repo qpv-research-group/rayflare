@@ -2,7 +2,6 @@ import xarray as xr
 import numpy as np
 from rayflare.transfer_matrix_method.tmm import tmm_structure
 import os
-from rayflare.config import results_path
 from solcore.absorption_calculator import OptiStack
 
 
@@ -97,7 +96,7 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options, st
             pass_options['coherent'] = coherent
             pass_options['coherency_list'] = coherency_lists[i1]
 
-            for i2, pol in enumerate(pols):
+            for pol in pols:
 
                 for i3, theta in enumerate(thetas):
 

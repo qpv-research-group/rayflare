@@ -4,7 +4,6 @@ import sys
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_tmm_rcwa_structure_comparison():
-    import numpy as np
     from solcore import si, material
     from solcore.structure import Layer
     from solcore.solar_cell import SolarCell
@@ -58,7 +57,6 @@ def test_tmm_rcwa_structure_comparison():
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_planar_structure():
-
     # solcore imports
     from solcore.structure import Layer
     from solcore import material
@@ -67,8 +65,7 @@ def test_planar_structure():
     # rayflare imports
     from rayflare.textures.standard_rt_textures import planar_surface
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
 
     # Thickness of bottom Ge layer
@@ -200,8 +197,7 @@ def test_planar_structure_45deg():
     # rayflare imports
     from rayflare.textures.standard_rt_textures import planar_surface
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
 
     # Thickness of bottom Ge layer
@@ -332,8 +328,7 @@ def test_tmm_rcwa_pol_angle():
 
     # rayflare imports
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
 
     # Thickness of bottom Ge layer
@@ -442,12 +437,12 @@ def test_tmm_rcwa_pol_angle():
 
 
 def test_absorption_profile():
-    from rayflare.ray_tracing.rt import rt_structure
+    from rayflare.ray_tracing import rt_structure
     from rayflare.textures import planar_surface
     from rayflare.options import default_options
     from solcore import material
     from solcore import si
-    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from rayflare.transfer_matrix_method import tmm_structure
     from solcore.structure import Layer
 
     Air = material('Air')()
@@ -488,12 +483,12 @@ def test_absorption_profile():
 
 
 def test_absorption_profile_incoh_angles():
-    from rayflare.ray_tracing.rt import rt_structure
+    from rayflare.ray_tracing import rt_structure
     from rayflare.textures import planar_surface
     from rayflare.options import default_options
     from solcore import material
     from solcore import si
-    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from rayflare.transfer_matrix_method import tmm_structure
     from solcore.structure import Layer
 
     Air = material('Air')()
@@ -559,12 +554,12 @@ def test_absorption_profile_incoh_angles():
 
 
 def test_absorption_profile_coh_angles():
-    from rayflare.ray_tracing.rt import rt_structure
+    from rayflare.ray_tracing import rt_structure
     from rayflare.textures import planar_surface
     from rayflare.options import default_options
     from solcore import material
     from solcore import si
-    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from rayflare.transfer_matrix_method import tmm_structure
     from solcore.structure import Layer
 
     Air = material('Air')()
@@ -632,7 +627,7 @@ def test_rcwa_tmm_profiles_coh():
     from rayflare.options import default_options
     from solcore import material
     from solcore import si
-    from rayflare.transfer_matrix_method.tmm import tmm_structure
+    from rayflare.transfer_matrix_method import tmm_structure
     from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
     from solcore.structure import Layer
 
@@ -709,10 +704,9 @@ def test_rcwa_tmm_matrix_check_sums():
     from solcore import material
 
     # rayflare imports
-    from rayflare.textures.standard_rt_textures import planar_surface
+    from rayflare.textures import planar_surface
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
     from rayflare.transfer_matrix_method import tmm_structure
     from rayflare.angles import make_angle_vector
@@ -819,7 +813,7 @@ def test_rcwa_tmm_matrix_check_sums():
 
         # only select absorbing layers, sum over passes
         results_per_layer_front_RT = np.sum(results_per_pass['a'][0], 0)
-        results_per_layer_back_RT = np.sum(results_per_pass['a'][1], 0)[:,0]
+        # results_per_layer_back_RT = np.sum(results_per_pass['a'][1], 0)[:,0]
 
         assert np.all(results_RT[0]['A_interface'][0].data == np.sum(results_per_pass['a'][0], (0, 2)))
 
@@ -879,8 +873,7 @@ def test_rcwa_tmm_matrix_profiles():
     # rayflare imports
     from rayflare.textures.standard_rt_textures import planar_surface
     from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism.process_structure import process_structure
-    from rayflare.matrix_formalism.multiply_matrices import calculate_RAT
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
     from rayflare.transfer_matrix_method import tmm_structure
     from rayflare.angles import make_angle_vector
@@ -1052,7 +1045,7 @@ def test_profile_integration():
     import xarray as xr
 
     for pol in ['s', 'p', 'u']:
-        for method in ['TMM_f', 'RT_TMM_f', 'RCWA_f']:
+        for method in ['TMM_f', 'RCWA_f']:
             project_name = 'rcwa_tmm_matrix_profiles_' + pol
             pth = get_savepath('default', project_name)
 
@@ -1073,12 +1066,81 @@ def test_profile_integration():
             integrated_prof = np.trapz(prof.data, depths, axis=1)
             integrated_prof_r = np.trapz(prof_r.data, depths_r, axis=1)
 
-            if method == 'RT_TMM_f':
-                c_i = integrated_prof > 0.15
-                assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.5)
-                c_i = integrated_prof_r > 0.15
-                assert integrated_prof_r[c_i] == approx(intgr_r.data[c_i], rel=0.5)
+            assert integrated_prof == approx(intgr.data, rel=0.03)
+            assert integrated_prof_r == approx(intgr_r.data, rel=0.03)
 
-            else:
-                assert integrated_prof == approx(intgr.data, rel=0.03)
-                assert integrated_prof_r == approx(intgr_r.data, rel=0.03)
+    for pol in ['s', 'p', 'u']:
+        for method in ['TMM_b', 'RCWA_b']:
+            project_name = 'rcwa_tmm_matrix_profiles_' + pol
+            pth = get_savepath('default', project_name)
+
+            profdatapath = os.path.join(pth, method + 'frontprofmat.nc')
+
+            prof_dataset = xr.load_dataset(profdatapath)
+
+            intgr = prof_dataset['intgr']
+            prof = prof_dataset['profile']
+
+            depths = np.arange(0, len(prof['z']))
+
+            integrated_prof = np.trapz(prof.data, depths, axis=1)
+
+            c_i = intgr.data > 1e-4
+
+            assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.04)
+
+
+
+def test_compare_RT_TMM_Fresnel():
+    from solcore.structure import Layer
+    from solcore import material
+
+    # rayflare imports
+    from rayflare.textures import regular_pyramids, planar_surface
+    from rayflare.structure import Interface, BulkLayer, Structure
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
+    from rayflare.options import default_options
+
+    Si = material("Si")()
+    Air = material("Air")()
+
+    options = default_options()
+    options.project_name = 'RT_Fresnel_TMM'
+    options.n_theta_bins = 20
+    options.wavelengths = np.linspace(950, 1130, 4)*1e-9
+
+    flat_surf = planar_surface(size=2)  # pyramid size in microns
+    triangle_surf = regular_pyramids(55, upright=False, size=2)
+
+    front_surf = Interface('RT_Fresnel', name='RT_F_f', texture=triangle_surf)
+    back_surf = Interface('RT_Fresnel', name='RT_F_b', texture=flat_surf)
+
+    bulk = BulkLayer(300e-6, Si, name='Si_bulk')  # bulk thickness in m
+
+    SC_F = Structure([front_surf, bulk, back_surf], incidence=Air, transmission=Air)
+
+    process_structure(SC_F, options, 'current')
+
+    res_fresnel = calculate_RAT(SC_F, options, 'current')
+
+    front_surf = Interface('RT_TMM', name='RT_TMM_f', texture=triangle_surf, layers=[Layer(1e-9, Si)],
+                           coherent=False, coherency_list=['i'])
+    back_surf = Interface('RT_TMM', name='RT_TMM_b', texture=flat_surf, layers=[Layer(1e-9, Si)],
+                          coherent=False, coherency_list=['i'])
+
+    bulk = BulkLayer(300e-6, Si, name='Si_bulk')  # bulk thickness in m
+
+    SC_TMM = Structure([front_surf, bulk, back_surf], incidence=Air, transmission=Air)
+
+    process_structure(SC_TMM, options, 'current')
+
+    res_TMM = calculate_RAT(SC_TMM, options, 'current')
+
+    T_nz = res_TMM[0]['T'][0].data > 5e-3
+
+    assert res_fresnel[0]['A_bulk'][0].data == approx(res_TMM[0]['A_bulk'][0].data, abs=0.15)
+    assert res_fresnel[0]['R'][0].data == approx(res_TMM[0]['R'][0].data, abs=0.15)
+    assert res_fresnel[0]['T'][0].data[T_nz] == approx(res_TMM[0]['T'][0].data[T_nz], abs=0.15)
+
+
+
