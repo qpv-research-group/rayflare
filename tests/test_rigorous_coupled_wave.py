@@ -234,7 +234,225 @@ def test_RAT_angle_pol_ninc():
 
 
 
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_shapes():
+    from solcore import material
+    from solcore.structure import Layer
+    from solcore.solar_cell import SolarCell
 
+    from rayflare.structure import Interface, BulkLayer, Structure
+    from rayflare.options import default_options
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+
+    wavelengths = np.linspace(800, 1150, 4)*1e-9
+
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.project_name = 'rcwa_mat_test'
+
+    Ag = material("Ag")()
+    Au = material("Au")()
+    Si = material("Si")()
+    SiN = material("Si3N4")()
+    Air = material("Air")()
+
+    grating_circles = [{'type': 'circle', 'mat': Ag, 'center': (0, 0), 'radius': 300}]
+
+    grating_squares = [{'type': 'rectangle', 'mat': Ag, 'center': (0, 0), 'halfwidths': [300, 300], 'angle': 20}]
+
+    grating_ellipse = [{'type': 'ellipse', 'mat': Ag, 'center': (0, 0), 'halfwidths': [300, 200], 'angle': 20}]
+
+    grating_polygon = [{'type': 'polygon', 'mat': Ag, 'center': (0, 0), 'angle': 0,
+                        'vertices': ((300, 0), (0, 300), (-300, 0))}]
+
+    grating_circle_polygon = [{'type': 'circle', 'mat': Ag, 'center': (0, 0), 'radius': 100},
+                              {'type': 'polygon', 'mat': Au, 'center': (600, 600), 'angle': -20,
+                               'vertices': ((100, 0), (0, 100), (-100, 0))}]
+
+    grating_list = [grating_circles, grating_squares, grating_ellipse, grating_polygon, grating_circle_polygon, None]
+
+    bulk_Si = BulkLayer(100e-6, Si)
+
+    A_bulk = []
+    A_back = []
+    R = []
+    T= []
+
+    d_v = ((1000, 0), (0, 1000))
+
+    for i1, geometry in enumerate(grating_list):
+
+        back_materials = [Layer(200e-9, SiN, geometry=geometry)]
+        front_surf = Interface('TMM', layers=[], name='planar_front', coherent=True)
+        back_surf = Interface('RCWA', layers=back_materials, name='grating_' + str(i1),
+                              coherent=True, d_vectors=d_v, rcwa_orders=9)
+
+        SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
+
+        if i1 == 2:
+            options.parallel = False
+
+        process_structure(SC, options)
+
+        res = calculate_RAT(SC, options)
+
+        A_bulk.append(res[0]['A_bulk'][0])
+        A_back.append(np.sum(res[1]['a'][1], 0).T[0])
+        R.append(res[0]['R'][0])
+        T.append(res[0]['T'][0])
+
+        solar_cell = SolarCell(back_materials)
+        S4_setup = rcwa_structure(solar_cell, size=d_v, options=options,
+                                  incidence=Air, transmission=Ag)
+
+        S4_setup.get_fourier_epsilon(layer_index=1, wavelength=500, options=options)
+
+        if i1 == 2:
+            options.parallel = False
+
+
+    for i1 in range(len(grating_list)):
+
+        assert (A_bulk[i1] + A_back[i1] + R[i1] + T[i1]).data == approx(1, abs=0.01)
+
+    for i1 in range(len(grating_list)-1):
+
+        assert np.all(A_back[i1] > A_back[-1])
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_reciprocal_lattice():
+    from rayflare.rigorous_coupled_wave_analysis.rcwa import get_reciprocal_lattice
+
+    size = ((200, 0), (0, 200))
+
+    a = get_reciprocal_lattice(size, 3)
+
+    assert a[0] == approx((1/200, 0))
+    assert a[1] == approx((0, 1/200))
+
+
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_plotting_funcs():
+
+    from solcore import si, material
+    from solcore.structure import Layer
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    import os
+
+    from solcore.solar_cell import SolarCell
+    from rayflare.options import default_options
+
+    InAlP_hole_barrier = material('AlInP')(Al=0.5)
+    GaAs_pn_junction = material('GaAs')()
+    InGaP_e_barrier = material('GaInP')(In=0.5)
+    Ag = material('Ag')()
+    SiN = material('Si3N4')()
+
+    wl_plot = 400
+    e_SiN = (SiN.n(wl_plot*1e-9) + 1j*SiN.k(wl_plot*1e-9))**2
+    e_Ag = (Ag.n(wl_plot*1e-9) + 1j*Ag.k(wl_plot*1e-9))**2
+
+    wavelengths = np.linspace(300, 500, 3) * 1e-9
+
+    # define the problem
+
+    x = 500
+
+    size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
+
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.orders = 50
+    options.pol = 's'
+
+    ropt = dict(LatticeTruncation='Circular',
+                DiscretizedEpsilon=False,
+                DiscretizationResolution=8,
+                PolarizationDecomposition=False,
+                PolarizationBasis='Default',
+                LanczosSmoothing=True,
+                SubpixelSmoothing=False,
+                ConserveMemory=False,
+                WeismannFormulation=True,
+                Verbosity=0)
+
+    options.S4_options = ropt
+
+    grating = [Layer(si(100, 'nm'), SiN, geometry=[{'type': 'circle', 'mat': Ag, 'center': (0, 0),
+                                                      'radius': 115, 'angle': 0}])]
+
+    solar_cell = SolarCell([Layer(material=InGaP_e_barrier, width=si('19nm')),
+                            Layer(material=GaAs_pn_junction, width=si('85nm')),
+                            Layer(material=InAlP_hole_barrier, width=si('19nm'))] + grating,
+                           substrate=Ag)
+
+
+    S4_setup = rcwa_structure(solar_cell, size, options, SiN, Ag)
+
+    S4_setup.save_layer_postscript(4, options, 'test')
+
+    current_dir = os.getcwd()
+
+    assert os.path.isfile(os.path.join(current_dir, 'test.ps'))
+
+    xs, ys, a_r, a_i = S4_setup.get_fourier_epsilon(4, wl_plot, options)
+
+    assert np.min(a_r) == approx(np.real(e_Ag), rel=0.2)
+    assert np.max(a_r) == approx(np.real(e_SiN), rel=0.2)
+    assert np.min(a_i) == approx(np.imag(e_SiN), abs=0.1)
+    assert np.max(a_i) == approx(np.imag(e_Ag), rel=0.2)
+
+    xs, ys, a_r, a_i = S4_setup.get_fourier_epsilon(3, wl_plot, options, extent=[[-10, 10], [-20, 20]],
+                                                    n_points=10, plot=False)
+
+    e_InAlP = (InAlP_hole_barrier.n(wl_plot * 1e-9) + 1j * InAlP_hole_barrier.k(wl_plot * 1e-9)) ** 2
+    assert a_r == approx(np.real(e_InAlP))
+    assert a_i == approx(np.imag(e_InAlP))
+
+    assert [np.min(xs), np.max(xs)] == [-10, 10]
+    assert [np.min(ys), np.max(ys)] == [-20, 20]
+    assert len(xs) == 10
+    assert len(ys) == 10
+
+    options.pol = (0.5, 0.5)
+
+    xs, ys, E, H, E_mag, H_mag = S4_setup.get_fields(4, wl_plot, options, extent = [[-100, 100], [-150, 150]],
+                                                     n_points=10, plot=False)
+
+    assert len(xs) == 10
+    assert len(ys) == 10
+    assert np.all(E_mag > 0)
+    assert np.all(H_mag > 0)
+    assert E.shape == (len(xs), len(ys), 3)
+    assert H.shape == (len(xs), len(ys), 3)
+
+    options.pol = 's'
+
+    xs, ys, E_1, H_1, E_mag, H_mag = S4_setup.get_fields(4, wl_plot, options)
+
+    assert np.all(E_mag > 0)
+    assert np.all(H_mag > 0)
+    assert E_1.shape == (len(xs), len(ys), 3)
+    assert H_1.shape == (len(xs), len(ys), 3)
+
+    E_2, H_2 = S4_setup.get_fields_unit_cell(4, wl_plot, options, n_points=50)
+
+    assert np.array(E_2).shape == (50, 50, 3)
+    assert np.array(H_2).shape == (50, 50, 3)
+
+    assert (np.min(E_1), np.max(E_1), np.min(H_1), np.max(H_1)) == approx((np.min(E_2), np.max(E_2), np.min(H_2), np.max(H_2)), rel=0.05)
+
+    options.order = 7
+    xs, ys, E, H, E_mag, H_mag = S4_setup.get_fields_z_integral(4, wl_plot, options, n_points=10)
+
+    assert len(xs) == 10
+    assert len(ys) == 10
+    assert np.all(E_mag > 0)
+    assert np.all(H_mag > 0)
+    assert E.shape == (len(xs), len(ys), 3)
+    assert H.shape == (len(xs), len(ys), 3)
 
 
 

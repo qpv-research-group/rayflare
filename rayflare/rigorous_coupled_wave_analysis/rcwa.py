@@ -526,15 +526,6 @@ def necessary_materials(geom_list):
     return list(set([val for sublist in shape_mats for val in sublist])), geom_list_str
 
 
-def update_epsilon(S, stack_OS, shape_mats_OS, wl):
-    for i1 in range(len(stack_OS.get_widths())):
-        S.SetMaterial('layer_' + str(i1 + 1), stack_OS.get_indices(wl)[i1] ** 2)
-    for i1 in range(len(shape_mats_OS.widths)):  # initialise the materials needed for all the shapes in S4
-        S.SetMaterial('shape_mat_' + str(i1 + 1), shape_mats_OS.get_indices(wl)[i1 + 1] ** 2)
-
-    return S
-
-
 def rcwa_position_resolved(S, layer, depth, A, theta, n_inc):
     if A > 0:
         delta = 1e-9
@@ -570,6 +561,16 @@ def rcwa_absorption_per_layer_order(S, n_layers, theta, n_inc):
 
 
 def get_reciprocal_lattice(size, orders):
+    """
+    Returns the reciprocal lattice as defined in S4 (note that this is missing a foctor of 2pi compared to the
+    standard definition).
+    :param size: lattice vectors in real space ((ax, ay), (bx, by))
+    :type size:
+    :param orders: number of Fourier orders to keep
+    :type orders:
+    :return: reciprocal lattice (tuple)
+    :rtype:
+    """
 
     S = S4.New(size, orders)
     f_mat = S.GetReciprocalLattice()
@@ -808,9 +809,9 @@ class rcwa_structure:
 
         return to_return
 
-    def save_layer_postscript(self, layer_index, filename):
+    def save_layer_postscript(self, layer_index, options, filename):
         # layer_index: layer 0 is the incidence medium
-        S = initialise_S(self.size, 1, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names, self.widths, self.S4_options)
+        S = initialise_S(self.size, 1, self.geom_list, self.layers_oc[0], self.shapes_oc[0], self.shapes_names, self.widths, options.S4_options)
         S.OutputLayerPatternPostscript(Layer='layer_' + str(layer_index + 1), Filename=filename + '.ps')
 
 
@@ -876,6 +877,7 @@ class rcwa_structure:
             axs[1].set_ylabel('y (nm)')
             axs[1].set_aspect(aspect=1)
             plt.show()
+
         return xs, ys, a_r, a_i
 
     def get_fields(self, layer_index, wavelength, options, extent=None, depth=1e-10, n_points=200, plot=True):
@@ -951,13 +953,13 @@ class rcwa_structure:
 
         if plot:
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
-            im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
+            im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma', shading='auto')
             fig.colorbar(im1, ax=axs[0])
             axs[0].set_xlabel('x (nm)')
             axs[0].set_ylabel('y (nm)')
             axs[0].set_aspect(aspect=1)
 
-            im2 = axs[1].pcolormesh(xs, ys, H_mag.T, cmap='magma')
+            im2 = axs[1].pcolormesh(xs, ys, H_mag.T, cmap='magma', shading='auto')
             fig.colorbar(im2, ax=axs[1])
             axs[1].set_xlabel('x (nm)')
             axs[1].set_ylabel('y (nm)')
