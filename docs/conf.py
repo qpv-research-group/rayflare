@@ -63,6 +63,7 @@ html_sidebars = {
 }
 
 autodoc_mock_imports = ["S4"]
+nbsphinx_allow_errors = True
 
 def setup(app):
    app.add_css_file("css/insegel.css")

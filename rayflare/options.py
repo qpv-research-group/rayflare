@@ -18,7 +18,7 @@ class default_options(State):
         self.n_jobs = -1
         self.c_azimuth = 0.25
         self.only_incidence_angle = True
-        
+
         # RCWA options
         self.A_per_order = False
         self.S4_options = dict(LatticeTruncation='Circular',
@@ -31,6 +31,7 @@ class default_options(State):
                                 ConserveMemory=False,
                                 WeismannFormulation=False,
                                 Verbosity=0)
+
         self.orders = 10
         
         # Ray-tracing options

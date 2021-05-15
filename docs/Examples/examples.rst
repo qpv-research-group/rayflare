@@ -19,4 +19,5 @@ Using the angular matrix method
    :maxdepth: 2
    :caption: Contents:
 
+   grating_pyramids_OPTOS.ipynb
    HIT_emissivity.ipynb

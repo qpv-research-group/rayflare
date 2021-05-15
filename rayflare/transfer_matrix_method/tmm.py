@@ -40,6 +40,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
             theta = theta_lookup[i1] # angle_vector[i1, 1]
 
             data = allres.loc[dict(angle=theta, wl=wl)]
+            print(allres['wl'], wl)
 
             R_prob = np.real(data['R'].data.item(0))
             T_prob = np.real(data['T'].data.item(0))
@@ -56,8 +57,11 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
             # transmission
             with np.errstate(divide='ignore', invalid='ignore'):
-                theta_t = np.abs(-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta_lookup[i1])) + quadrant)
+                theta_t = np.abs(-np.arcsin((inc.n(wl) / trns.n(wl)) * np.sin(theta_lookup[i1])) + quadrant)
 
+            print(inc)
+            print(inc.n(wl), trns.n(wl))
+            print('angle in, transmitted', angle_vector_th[i1], theta_t)
             # theta switches half-plane (th < 90 -> th >90
             if ~np.isnan(theta_t):
 
