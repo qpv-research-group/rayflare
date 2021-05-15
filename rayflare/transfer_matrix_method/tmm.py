@@ -56,7 +56,7 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
 
             # transmission
             with np.errstate(divide='ignore', invalid='ignore'):
-                theta_t = np.abs(-np.arcsin((inc.n(wl * 1e-9) / trns.n(wl * 1e-9)) * np.sin(theta_lookup[i1])) + quadrant)
+                theta_t = np.abs(-np.arcsin((inc.n(wl) / trns.n(wl)) * np.sin(theta_lookup[i1])) + quadrant)
 
             # theta switches half-plane (th < 90 -> th >90
             if ~np.isnan(theta_t):
