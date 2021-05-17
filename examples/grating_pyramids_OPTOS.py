@@ -20,7 +20,7 @@ from cycler import cycler
 
 angle_degrees_in = 8
 
-wavelengths = np.linspace(1100, 1200, 1)*1e-9
+wavelengths = np.linspace(900, 1200, 30)*1e-9
 
 Si = material('Si_OPTOS')()
 Air = material('Air')()
@@ -28,16 +28,16 @@ Air = material('Air')()
 options = default_options()
 options.wavelengths = wavelengths
 options.theta_in = angle_degrees_in*np.pi/180
-options.n_theta_bins = 10
-options.c_azimuth = 1
-options.n_rays = 1000
-options.project_name = 'OPTOS_comparison_new'
+options.n_theta_bins = 100
+options.c_azimuth = 0.25
+options.n_rays = 25*25*1300
+options.project_name = 'OPTOS_comparison'
 options.phi_symmetry = np.pi/2
 options.I_thresh = 1e-3
 options.pol = 'u'
-options.nx = 5
-options.ny = 5
-options.parallel = False
+options.nx = 25
+options.ny = 25
+options.parallel = True
 
 # materials with constant n, zero k
 x = 1000
