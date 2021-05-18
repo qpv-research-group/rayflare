@@ -58,6 +58,11 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
             with np.errstate(divide='ignore', invalid='ignore'):
                 theta_t = np.abs(-np.arcsin((inc.n(wl) / trns.n(wl)) * np.sin(theta_lookup[i1])) + quadrant)
 
+            if np.isnan(theta_t) and T_prob > 1e-8:
+                # bodge, but when transmitting into an absorbing medium, can't get total internal reflection even though
+                # it is not possible to calculate the transmission angle through the method above.
+                theta_t = np.abs(np.pi/2 - 1e-5 - quadrant)
+
             # theta switches half-plane (th < 90 -> th >90
             if ~np.isnan(theta_t):
 
