@@ -313,8 +313,10 @@ def test_planar_structure_45deg():
     assert TMM_reference == approx(RCWA_matrix, abs=0.05)
     assert TMM_reference == approx(RT_matrix, abs=0.3)
 
-    assert (results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + np.sum(results_per_layer_front_TMM_matrix, 1) + results_TMM_Matrix[0].A_bulk[0]).data == approx(1)
-    assert (results_RCWA_Matrix[0].R[0] + results_RCWA_Matrix[0].T[0] + np.sum(results_per_layer_front_RCWA, 1) + results_RCWA_Matrix[0].A_bulk[0]).data == approx(1)
+    assert (results_TMM_Matrix[0].R[0] + results_TMM_Matrix[0].T[0] + np.sum(results_per_layer_front_TMM_matrix, 1) +
+            results_TMM_Matrix[0].A_bulk[0]).data == approx(1)
+    assert (results_RCWA_Matrix[0].R[0] + results_RCWA_Matrix[0].T[0] + np.sum(results_per_layer_front_RCWA, 1) +
+            results_RCWA_Matrix[0].A_bulk[0]).data == approx(1)
     assert (results_RT[0].R[0] + results_RT[0].T[0] + np.sum(results_per_layer_front_RT, 1) +
             results_RT[0].A_bulk[0]).data == approx(1)
 
