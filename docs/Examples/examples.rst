@@ -20,4 +20,6 @@ Using the angular matrix method
    :caption: Contents:
 
    grating_pyramids_OPTOS.ipynb
+   compare_models_3Jsolarcell.ipynb
+   compare_models_3Jsolarcell_profile.ipynb
    HIT_emissivity.ipynb

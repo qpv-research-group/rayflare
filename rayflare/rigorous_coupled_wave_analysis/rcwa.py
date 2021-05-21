@@ -275,10 +275,10 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             # T[in_bin[i1]] = np.sum(T_pfbo)
             A_layer[in_bin[i1]] = 0.5*(Ap+As)
 
-            print('R_pfbo', R_pfbo)
-            print('T', T[in_bin[i1]])
-            print('Alayer', A_layer[in_bin[i1]])
-            print(n_inc, np.cos(theta[i1] * np.pi / 180))
+            # print('R_pfbo', R_pfbo)
+            # print('T', T[in_bin[i1]])
+            # print('Alayer', A_layer[in_bin[i1]])
+            # print(n_inc, np.cos(theta[i1] * np.pi / 180))
 
 
         if dist is not None:
@@ -348,7 +348,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
         fi_y = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) *
                        np.cos(ph * np.pi / 180))
 
-        print('**********')
+        # print('**********')
         # print(th, ph)
         # print('Rtot', R[in_bin[i1]])
         # print(np.round(th, 1), ph, fi_x, fi_y)
@@ -491,8 +491,8 @@ def rcwa_rat(S, n_layers, theta, n_inc, det_l=False):
     # power flux by order backwards in layer_1: if incidence medium has n=1, this gives a (real part of) sum equal to R
 
     # transmission power flux by order always sums to T, regardless of optical constants of transmission/incidence medium
-    # R = -n_inc*np.real(S.GetPowerFlux('layer_1')[1])/np.cos(theta*np.pi/180)  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
-    R = n_inc*(1 - sum(S.GetPowerFlux('layer_2')))/np.cos(theta*np.pi/180)
+    R = -n_inc*np.real(S.GetPowerFlux('layer_1')[1])/np.cos(theta*np.pi/180)  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+    # R = n_inc*(1 - sum(S.GetPowerFlux('layer_2')))/np.cos(theta*np.pi/180)
     # this should be correct answer in 'far field': anythng that doesn't go into the surface must be reflected. but if n_incidence != 1
     # can get odd effects.
 

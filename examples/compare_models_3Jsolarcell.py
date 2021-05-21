@@ -8,6 +8,7 @@ from solcore import material
 from rayflare.textures import planar_surface
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import process_structure, calculate_RAT
+from rayflare.transfer_matrix_method import tmm_structure
 from rayflare.options import default_options
 
 # plotting imports
@@ -15,7 +16,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cycler import cycler
 
-pal = sns.cubehelix_palette(10, start=.5, rot=-.9)
+pal = sns.color_palette('husl', 5)
 
 cols = cycler('color', pal)
 
@@ -81,7 +82,6 @@ results_per_pass = results_TMM_Matrix[1]
 # only select absorbing layers, sum over passes
 results_per_layer_front = np.sum(results_per_pass['a'][0], 0)
 ax1.plot(options['wavelengths']*1e9, results_TMM_Matrix[0].R[0], label='R')
-ax1.plot(options['wavelengths']*1e9, results_per_layer_front[:,0] + results_per_layer_front[:,1], label='ARC')
 ax1.plot(options['wavelengths']*1e9, results_per_layer_front[:,2], label='InGaP')
 ax1.plot(options['wavelengths']*1e9, results_per_layer_front[:,3], label='GaAs')
 ax1.plot(options['wavelengths']*1e9, results_TMM_Matrix[0].A_bulk[0], label='Ge')
@@ -112,8 +112,6 @@ results_per_pass = results_RT[1]
 results_per_layer_front = np.sum(results_per_pass['a'][0], 0)
 
 ax2.plot(options['wavelengths']*1e9, results_RT[0].R[0], label='R')
-
-ax2.plot(options['wavelengths']*1e9, results_per_layer_front[:,0] + results_per_layer_front[:,1], label='ARC')
 ax2.plot(options['wavelengths']*1e9, results_per_layer_front[:,2], label='InGaP')
 ax2.plot(options['wavelengths']*1e9, results_per_layer_front[:,3], label='GaAs')
 ax2.plot(options['wavelengths']*1e9, results_RT[0].A_bulk[0], label='Ge')
@@ -145,7 +143,6 @@ results_per_layer_front = np.sum(results_per_pass['a'][0], 0)
 
 
 ax3.plot(options['wavelengths']*1e9, results_RCWA_Matrix[0].R[0], label='R')
-ax3.plot(options['wavelengths']*1e9, results_per_layer_front[:,0] +  results_per_layer_front[:,1], label='ARC')
 ax3.plot(options['wavelengths']*1e9, results_per_layer_front[:,2], label='InGaP')
 ax3.plot(options['wavelengths']*1e9, results_per_layer_front[:,3], label='GaAs')
 ax3.plot(options['wavelengths']*1e9, results_RCWA_Matrix[0].A_bulk[0], label='Ge')
@@ -155,27 +152,23 @@ ax3.set_ylabel('Reflection / Absorption')
 ax3.set_title('c) RCWA + matrix formalism', loc = 'left')
 
 
-from solcore.absorption_calculator import calculate_rat, OptiStack
-
-
-## pure TMM (from Solcore)
+## pure TMM
 all_layers = front_materials + [Layer(bulkthick, Ge)] + back_materials
 
 coh_list = len(front_materials)*['c'] + ['i'] + ['c']
 
-OS_layers = OptiStack(all_layers, substrate=Ag, no_back_reflection=False)
+options.coherency_list = coh_list
+options.coherent = False
 
-TMM_res = calculate_rat(OS_layers, wavelength=wavelengths*1e9,
-                        no_back_reflection=False, angle=options['theta_in']*180/np.pi, coherent=False,
-                        coherency_list=coh_list, pol=options['pol'])
+TMM_setup = tmm_structure(all_layers, incidence=Air, transmission=Ag, no_back_reflection=False)
 
+TMM_res = TMM_setup.calculate(options)
 
 ax4.plot(options['wavelengths']*1e9, TMM_res['R'], label='R')
 
-ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][1] + TMM_res['A_per_layer'][2], label='ARC')
-ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][3], label='InGaP')
-ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][4], label='GaAs')
-ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][len(front_materials)+1], label='Ge')
+ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][:,2], label='InGaP')
+ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][:,3], label='GaAs')
+ax4.plot(options['wavelengths']*1e9, TMM_res['A_per_layer'][:,4], label='Ge')
 ax4.plot(options['wavelengths']*1e9, TMM_res['T'], label='T')
 ax4.set_xlabel('Wavelength (nm)')
 ax4.set_ylabel('Reflection / Absorption')
