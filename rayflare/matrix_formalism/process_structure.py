@@ -153,6 +153,15 @@ def process_structure(SC, options, save_location='default'):
 
 
 def get_savepath(save_location, project_name):
+    """
+
+    :param save_location:
+    :type save_location:
+    :param project_name:
+    :type project_name:
+    :return:
+    :rtype:
+    """
     if save_location == 'current':
         cwd = os.getcwd()
         structpath = os.path.join(cwd, project_name)
