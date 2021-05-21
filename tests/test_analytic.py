@@ -1,6 +1,7 @@
 import numpy as np
 from pytest import approx
 import sys
+from pytest import approx, mark
 
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_get_order_directions():
