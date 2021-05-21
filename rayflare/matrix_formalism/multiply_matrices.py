@@ -129,6 +129,29 @@ def dot_wl_u2d(mat, vec):
     return result
 
 
+def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
+    per_bin = v_1 - v_2
+    abscos = np.abs(np.cos(thetas))
+    norm = per_bin/(1-np.exp(-alphas[:, None]*d/abscos[None, :]))
+
+    result = np.empty((v_1.shape[0], len(depths)))
+
+    for i1 in range(v_1.shape[0]):
+        a_x = ((alphas[i1]*norm[i1])/(abscos))[None,:]*np.exp(-alphas[i1]*depths[:,None]/abscos[None, :])
+        result[i1, :] = np.sum(a_x, 1)
+
+    check = np.trapz(result, depths, axis=1)
+    # the bulk layer is often thick so you don't want the depth spacing too fine,
+    # but at short wavelengths this causes an issue where the integrated depth profile
+    # is not equal to the total absorption. Scale the profile to fix this and make things
+    # consistent.
+    scale = np.nan_to_num(A/check)
+
+    corrected = scale[:,None]*result
+
+    return corrected
+
+
 def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list, save_location):
 
     results_path = get_savepath(save_location, options['project_name'])
@@ -151,8 +174,12 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     up2down, down2up = out_to_in_matrix(options['phi_symmetry'], angle_vector, theta_intv, phi_intv)
 
     D = []
+    depths_bulk = []
     for i1 in range(n_bulks):
         D.append(make_D(bulk_mats[i1].alpha(options['wavelengths']), bulk_thick[i1], thetas))
+
+        if options['bulk_profile']:
+            depths_bulk.append(np.arange(0, bulk_thick[i1], options['depth_spacing_bulk']))
 
     # front incidence matrices
     Rf = []
@@ -232,7 +259,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
     len_calcs = np.array([len(x) if x is not None else 0 for x in calc_prof_list])
 
 
-    if np.any(len_calcs > 0):
+    if np.any(len_calcs > 0) or options.bulk_profile:
 
         a = [[] for _ in range(n_interfaces)]
         a_prof = [[] for _ in range(n_interfaces)]
@@ -254,7 +281,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
             vr[i1].append(dot_wl(Rf[i1], v0)) # reflected from front surface
             a[i1].append(dot_wl(Af[i1], v0)) # absorbed in front surface at first interaction
 
-            if len(If[i1] > 0):
+            if len(If[i1]) > 0:
                 scale = ((np.sum(Af[i1].todense(), 1)*v0)/If[i1]).fillna(0)
                 scaled_prof = scale*Pf[i1]
                 a_prof[i1].append(np.sum(scaled_prof, 1))
@@ -277,6 +304,9 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
+                A_prof[i1].append(bulk_profile_calc(vf_1[i1], vb_1[i1], bulk_mats[i1].alpha(options['wavelengths']),
+                                               thetas, bulk_thick[i1], depths_bulk[i1], A[i1][-1]))
+
                 vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface. incoming -> up
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1]) # pass through bulk, upwards
                 vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
@@ -288,9 +318,13 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
 
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
+                A_prof[i1].append(np.flip(bulk_profile_calc(vb_2[i1], vf_2[i1], bulk_mats[i1].alpha(options['wavelengths']),
+                                               thetas, bulk_thick[i1], depths_bulk[i1], A[i1][-1]),1))
 
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
                 power = np.sum(vf_1[i1], axis=1)
+
+                print('After iteration', i2, ': maximum power fraction remaining =', np.max(power))
 
                 vr[i1].append(dot_wl(Tb[i1], vf_2[i1]))  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
                 vt[i1].append(dot_wl(Tf[i1+1], vb_1[i1]))  # transmitted into medium below through back surface
@@ -303,10 +337,11 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         vt = [np.array(item) for item in vt]
         a = [np.array(item) for item in a]
         A = [np.array(item) for item in A]
+        A_prof = [np.array(item) for item in A_prof]
 
         a_prof = [np.array(item) for item in a_prof]
 
-        results_per_pass = {'r': vr, 't': vt, 'a': a, 'A': A, 'a_prof': a_prof}
+        results_per_pass = {'r': vr, 't': vt, 'a': a, 'A': A, 'a_prof': a_prof, 'A_prof': A_prof}
 
         sum_dims = ['bulk_index', 'wl']
         sum_coords = {'bulk_index': np.arange(0, n_bulks), 'wl': options['wavelengths']}
@@ -328,9 +363,9 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
                        dims=['wl', 'z'], coords = {'wl': options['wavelengths']},
                                             name = 'A_profile' + str(j1))) # not necessarily same number of z coords per layer stack
 
-        bulk_profile = np.array(A_prof)
-
         RAT = xr.merge([R, A_bulk, A_interface, T])
+
+        bulk_profile = [np.sum(prof_el, 0) for prof_el in A_prof]
 
         return RAT, results_per_pass, profile, bulk_profile
 

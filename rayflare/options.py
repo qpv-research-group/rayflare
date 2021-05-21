@@ -13,11 +13,13 @@ class default_options(State):
         self.n_theta_bins = 50
         self.I_thresh = 1e-2
         self.depth_spacing = 1e-9
+        self.depth_spacing_bulk = 1e-6
         self.parallel = True
         self.pol = 'u'
         self.n_jobs = -1
         self.c_azimuth = 0.25
         self.only_incidence_angle = True
+        self.bulk_profile = True
         
         # RCWA options
         self.A_per_order = False
