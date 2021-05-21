@@ -304,7 +304,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
 
-                A_prof[i1].append(bulk_profile_calc(vf_1[i1], vb_1[i1], bulk_mats[i1].alpha(options['wavelengths']),
+                if options.bulk_profile:
+                    A_prof[i1].append(bulk_profile_calc(vf_1[i1], vb_1[i1], bulk_mats[i1].alpha(options['wavelengths']),
                                                thetas, bulk_thick[i1], depths_bulk[i1], A[i1][-1]))
 
                 vb_2[i1] = dot_wl(Rf[i1+1], vb_1[i1]) # reflect from back surface. incoming -> up
@@ -318,7 +319,9 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
 
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
-                A_prof[i1].append(np.flip(bulk_profile_calc(vb_2[i1], vf_2[i1], bulk_mats[i1].alpha(options['wavelengths']),
+
+                if options.bulk_profile:
+                    A_prof[i1].append(np.flip(bulk_profile_calc(vb_2[i1], vf_2[i1], bulk_mats[i1].alpha(options['wavelengths']),
                                                thetas, bulk_thick[i1], depths_bulk[i1], A[i1][-1]),1))
 
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1]) # reflect from front surface
