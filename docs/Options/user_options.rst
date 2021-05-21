@@ -13,8 +13,13 @@ General options/options for matrix framework
 - **phi_in**: azimuthal angle of incident light (in radians)
 - **phi_symmetry**: used by the matrix framework. Defines symmetry element [0, phi_symmetry] into which values of phi can be collapsed (in radians)
 - **n_theta_bins**: used by the matrix framework. Number of polar angle bins used in the angular redistribution matrices (integer)
-- **I_thresh**: used by the matrix framework and the ray-tracer. The fraction of incident power remaining below which is a ray is considered to have been absorbed
-- **depth_spacing**: if absorption profiles are being calculated, the spacing of points at which the absorbed energy density should be calculated (in m)
+- **I_thresh**: used by the matrix framework and the ray-tracer. The fraction of incident power remaining below which is
+  a ray is considered to have been absorbed
+- **depth_spacing**: if absorption profiles for the surface layers are being calculated, the spacing of points at which
+  the absorbed energy density should be calculated (float, in m)
+- **bulk_profile**: Whether or not to calculate the absorption profile in the bulk material. Boolean.
+- **depth_spacing_bulk**: if absorption profile is being calculated in the bulk, the spacing of points at which the absorbed
+  energy density should be calculated (float, in m)
 - **pol**: Polarization of incident light. Can be 's', 'p' or 'u' (unpolarized, an equal mix of 's' and 'p'). Default 'u'
 - **parallel**: whether or not to execute computations in parallel, where relevant (e.g. for the RCWA and ray-tracing). Boolean.
 - **n_jobs**: the n_jobs option passed to joblib for parallel computation. Default = -1, which leads to all cores being used.
@@ -60,8 +65,12 @@ Options used only by the ray-tracer
 Options used only by the TMM
 ---------------------------------------------
 
-- lookuptable_angles: when using combined ray-tracing/TMM in the matrix framework, how many local indicence angles should be stored in the TMM lookup table.
-
+- **lookuptable_angles**: when using combined ray-tracing/TMM in the matrix framework, how many local indicence angles should be
+  stored in the TMM lookup table.
+- **coherent**: for a full TMM structure calculation (not using the matrix framework), True if the structure is fully coherent, otherwise False.
+- **coherency_list**: for a full TMM structure calculation, a list of strings specifying whether each layer should be treated coherently ('c') or
+  incoherently ('i'). The incidence and transmission medium are not included, the first element in the list corresponds to the
+  first layer in the structure.
 
 
 .. automodule:: rayflare.options
