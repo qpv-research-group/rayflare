@@ -14,6 +14,14 @@ def calculate_RAT(SC, options, save_location='default'):
 
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations
+    :param save_location: location from which to load the redistribution matrices. Current options:
+
+              - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
+              - 'current', which stores the results in the current working directory
+              - or you can specify the full path location for wherever you want the results to be stored.
+
+            This should match what was specified for process_structure.
+
     :return: The number of returned values depends on whether absorption profiles were calculated or not. The first two
             are always returned, the final two are only returned if a calculation of absorption profiles was done.
 
@@ -27,7 +35,8 @@ def calculate_RAT(SC, options, save_location='default'):
               interface respectively. Each entry in the list is an array indexed as (pass number, wavelength, layer index).
             - profile - a list of xarrays, one for each surface. These store the absorption profiles and have coordinates
               wavelength and z (depth) position.
-            - bulk_profile -
+            - bulk_profile - a list of arrays, one for each bulk (currently, always only one). Indices are
+              (wavelength, position)
 
     """
 
@@ -168,18 +177,13 @@ def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
 def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list, save_location):
     """
 
-    :param bulk_mats:
-    :type bulk_mats:
-    :param bulk_thick:
-    :type bulk_thick:
-    :param options:
-    :type options:
-    :param layer_names:
-    :type layer_names:
-    :param calc_prof_list:
-    :type calc_prof_list:
-    :param save_location:
-    :type save_location:
+    :param bulk_mats: list of bulk materials
+    :param bulk_thick: list of bulk thicknesses (in m)
+    :param options: user options (dictionary or State object)
+    :param layer_names: list of names of the Interface layers, to load the redistribution matrices
+    :param calc_prof_list: list of lists - for each interface, which layers should be included in profile calculations
+           (can be empty)
+    :param save_location: string, location of saved matrices
     :return:
     :rtype:
     """
