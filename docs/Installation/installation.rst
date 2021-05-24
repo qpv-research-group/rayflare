@@ -93,6 +93,7 @@ To do a normal installation:
 
 .. code-block:: console
 
+    pip install numpy setuptools
     git clone https://github.com/qpv-research-group/rayflare.git
     cd rayflare
     pip install .
@@ -103,6 +104,7 @@ To install RayFlare in development mode:
 
 .. code-block:: console
 
+    pip install numpy setuptools
     git clone https://github.com/qpv-research-group/rayflare.git
     cd rayflare
     pip install -e .[dev]
