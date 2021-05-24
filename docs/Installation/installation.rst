@@ -8,9 +8,9 @@ Installation instructions
     python_install
 
 Most of RayFlare will run on any platform (Windows, Linux, MacOS). However, if you want to use the rigorous coupled-wave analysis (RCWA)
-functionality, this requires the S4 Python package, which must be compiled locally (on your computer). Instructions for
-setting up S4 are only available for Ubuntu (Linux) and MacOS. So if you don't intend to use RayFlare's RCWA functionality,
-you can skip the 'Setting up' steps for you platform below and go straight to the 'Installing RayFlare' section.
+functionality, this requires installing the Python package S4, which must be compiled locally (on your computer). Instructions for
+setting up S4 are available for Ubuntu (Linux) and MacOS, but not for Windows. If you don't intend to use RayFlare's RCWA functionality,
+you can skip the 'Setting up' steps for your platform below and go straight to the :ref:`Installing RayFlare <install>` section.
 
 Setting up to install S4 on Ubuntu
 -----------------------------------
@@ -60,7 +60,6 @@ you can again use homebrew:
 
     brew install fftw suite-sparse openblas lapack
 
-If these packages are installed in the default directory
 
 Installing S4 (Ubuntu and MacOS)
 ---------------------------------
@@ -80,11 +79,12 @@ Downloading and installing S4 (start from the directory in which you want to dow
     make boost
     make S4_pyext
 
-Here we download a fork of S4 (modified to be compatible with Python3), move to the downloaded directory, make boost
+Here we download my fork of S4 (modified to be compatible with Python3), move to the downloaded directory, make boost
 which downloads and compiles the boost libraries required, and then we make the Python extension. Note that
 make boost will download and build the boost packages, it may take quite a long time and you will get a lot of output
 on the terminal screen. If you activated the virtual environment, this should automatically install into that virtual environment.
 
+.. _install:
 
 Installing RayFlare
 ---------------------

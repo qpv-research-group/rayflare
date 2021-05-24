@@ -6,7 +6,7 @@ Examples
 Structures using a single simulation method per structure
 ----------------------------------------------------------
 
-These examples do not use the angular matrix method; the whole structure to be simulated
+These examples do not use the angular redistribution matrix method; the whole structure to be simulated
 is treated with the same optical method (ray-tracing, TMM or RCWA).
 
 .. toctree::
