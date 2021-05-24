@@ -1,5 +1,4 @@
 import numpy as np
-from pytest import approx
 import sys
 from pytest import approx, mark
 

@@ -1,3 +1,5 @@
+.. _overview:
+
 Overview & background
 ====================================================
 
@@ -12,10 +14,10 @@ for the front and back surface. A brief overview is given here.
 The idea behind RayFlare is to provide a comprehensive and flexible optical modelling framework. At the moment,
 the following methods are included:
 
-- Ray-tracing (RT): Geometric optics. Suitable for calculating reflection and refraction due to large-scale (compared to the wavelength)
+- **Ray-tracing (RT)**: Geometric optics. Suitable for calculating reflection and refraction due to large-scale (compared to the wavelength)
   textures, which are described in terms of a triangulated surface.
-- Transfer-matrix method (TMM): Suitable for calculating interference effects in thin-films (transparent or absorbing).
-- Rigorous coupled-wave analysis (RCWA): Maxwell solver for calculating diffraction effects from periodic structures
+- **Transfer-matrix method (TMM)**: Suitable for calculating interference effects in thin-films (transparent or absorbing).
+- **Rigorous coupled-wave analysis (RCWA)**: Maxwell solver for calculating diffraction effects from periodic structures
 
 All of these methods can be used to simulate a whole structure (using the rt_structure, tmm_structure and rcwa_structure
 classes, respectively). In this case, the relevant materials and thicknesses of the layers, surface textures (RT) or grating shapes
@@ -39,13 +41,13 @@ demonstrated.
 
 The methods currently available to generate redistribution matrices are:
 
-- Ray-tracing with the Fresnel equations. This is suitable for simple interfaces with some large-scale texture and no surface layers.
-- Integrated ray-tracing and transfer-matrix method: The probability of reflection/transmission
+- **Ray-tracing with the Fresnel equations**. This is suitable for simple interfaces with some large-scale texture and no surface layers.
+- **Integrated ray-tracing and transfer-matrix method**: The probability of reflection/transmission
   (or absorption in interface layers) are calculated using TMM rather than through the Fresnel equations. This is suitable for large-scale
   textures with one or more thin (compared to the size of the texture features) surface layers.
-- TMM: Suitable for planar surfaces with multiple layers.
-- RCWA: For gratings, which can be made of multiple layers including planar layers.
-- Ideal/theoretical reference cases: currently, a perfect mirror or a perfect Lambertian scatterer.
+- **TMM**: Suitable for planar surfaces with multiple layers.
+- **RCWA**: For gratings, which can be made of multiple layers including planar layers.
+- **Ideal/theoretical reference cases**: currently, a perfect mirror or a perfect Lambertian scatterer.
 
 Some examples:
 

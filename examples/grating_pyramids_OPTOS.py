@@ -5,17 +5,20 @@ from solcore.structure import Layer
 from solcore import material
 from solcore import si
 from rayflare.structure import Interface, BulkLayer, Structure
-from rayflare.matrix_formalism import process_structure, calculate_RAT
+from rayflare.matrix_formalism import process_structure, calculate_RAT, get_savepath
 from rayflare.transfer_matrix_method import tmm_structure
 from rayflare.angles import theta_summary
 from rayflare.textures import regular_pyramids
 from rayflare.options import default_options
-from solcore.material_system import create_new_material
+from rayflare.angles import make_angle_vector
+
 import matplotlib.pyplot as plt
-
+from sparse import load_npz
 import seaborn as sns
-from cycler import cycler
+import matplotlib as mpl
 
+# Needs to run only once per computer to add material to database:
+# from solcore.material_system import create_new_material
 # create_new_material('Si_OPTOS', 'data/Si_OPTOS_n.txt', 'data/Si_OPTOS_k.txt')
 
 angle_degrees_in = 8
@@ -97,12 +100,6 @@ sim_fig6 = np.loadtxt('data/optos_fig6_sim.csv', delimiter=',')
 sim_fig7 = np.loadtxt('data/optos_fig7_sim.csv', delimiter=',')
 sim_fig8 = np.loadtxt('data/optos_fig8_sim.csv', delimiter=',')
 
-
-
-# rayflare_fig6 = np.loadtxt('fig6_rayflare.txt')
-# rayflare_fig7 = np.loadtxt('fig7_rayflare.txt')
-# rayflare_fig8 = np.loadtxt('fig8_rayflare.txt')
-
 # planar
 
 struc = tmm_structure([Layer(si('200um'), Si)], Air, Air)
@@ -138,22 +135,10 @@ plt.plot(wavelengths*1e9, RAT_fig8['R'][0] + RAT_fig8['A_bulk'][0] + RAT_fig8['T
 plt.legend()
 plt.show()
 
-# np.savetxt('fig8_rayflare.txt', RAT['A_bulk'][0])
-#
-from rayflare.angles import make_angle_vector
-# from config import results_path
-# from sparse import load_npz
-#
-#
+
 theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
-#
-# wl_to_plot = 1100e-9
-#
-# wl_index = np.argmin(np.abs(wavelengths-wl_to_plot))
-#
-from rayflare.matrix_formalism import get_savepath
-from sparse import load_npz
+
 
 path = get_savepath('default', options.project_name)
 sprs = load_npz(os.path.join(path, SC_fig6[2].name + 'frontRT.npz'))
@@ -191,19 +176,9 @@ summat_r = summat_r.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_
 summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coords[r'$\sin(\theta_{in})$']).data,
                                     r'$\sin(\theta_{out})$': np.sin(summat_r.coords[r'$\sin(\theta_{out})$']).data})
 
-#whole_mat_imshow = whole_mat_imshow.interp(theta_in = np.linspace(0, np.pi, 100), theta_out =  np.linspace(0, np.pi, 100))
-
-#whole_mat_imshow = whole_mat_imshow.rename({'theta_in': r'$\theta_{in}$', 'theta_out' : r'$\theta_{out}$'})
-
-
-#ax = plt.subplot(212)
-
-#ax = Tth.plot.imshow(ax=ax)
-
 plt.show()
 
-import seaborn as sns
-import matplotlib as mpl
+
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
@@ -211,9 +186,5 @@ seamap = mpl.colors.ListedColormap(palhf)
 fig = plt.figure()
 ax = plt.subplot(111)
 ax = summat_r.plot.imshow(ax=ax, cmap=seamap, vmax=0.3)
-#ax = plt.subplot(212)
-#fig.savefig('matrix.png', bbox_inches='tight', format='png')
-#ax = Tth.plot.imshow(ax=ax)
-
 plt.show()
 
