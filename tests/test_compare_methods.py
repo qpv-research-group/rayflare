@@ -83,6 +83,7 @@ def test_planar_structure():
     options.parallel = True
     options.c_azimuth = 0.001
     options.I_thresh = 1e-8
+    options.bulk_profile = False
 
     # set up Solcore materials
     Ge = material('Ge')()
@@ -218,6 +219,7 @@ def test_planar_structure_45deg():
     options.nx = 1
     options.ny = 1
     options.I_thresh = 1e-8
+    options.bulk_profile = False
 
     # set up Solcore materials
     Ge = material('Ge')()
@@ -348,6 +350,7 @@ def test_tmm_rcwa_pol_angle():
     options.c_azimuth = 0.001
     options.I_thresh = 1e-8
     options.only_incidence_angle = False
+    options.bulk_profile = False
 
     # set up Solcore materials
     Ge = material('Ge')()
@@ -728,6 +731,7 @@ def test_rcwa_tmm_matrix_check_sums():
     options.only_incidence_angle = False
     options.nx = 4
     options.ny = 4
+    options.bulk_profile = False
 
     _, _, angle_vector = make_angle_vector(options.n_theta_bins,
                                            options.phi_symmetry, options.c_azimuth)
@@ -1110,6 +1114,7 @@ def test_compare_RT_TMM_Fresnel():
     options.project_name = 'RT_Fresnel_TMM'
     options.n_theta_bins = 20
     options.wavelengths = np.linspace(950, 1130, 4)*1e-9
+    options.bulk_profile = False
 
     flat_surf = planar_surface(size=2)  # pyramid size in microns
     triangle_surf = regular_pyramids(55, upright=False, size=2)

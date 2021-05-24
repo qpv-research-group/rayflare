@@ -7,4 +7,4 @@ joblib==0.14.1
 matplotlib==3.2.1
 scipy==1.4.1
 solcore==5.7.1
-nbsphinx==0.8.0
+nbsphinx==0.8.5
