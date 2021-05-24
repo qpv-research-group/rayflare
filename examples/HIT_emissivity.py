@@ -43,6 +43,7 @@ options.nx = 5
 options.ny = 5
 _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
+options.bulk_profile = True
 
 Si = material('Si_UVtoMIR')()
 Air = material('Air')()
@@ -139,7 +140,5 @@ ax.set_xlabel(r'Wavelength ($\mu$m)')
 ax.set_ylabel('Absorption/Emissivity')
 ax.set_xlim(min(options['wavelengths']*1e6), max(options['wavelengths']*1e6))
 ax.set_ylim(0, 1)
-plt.legend()
-# fig.savefig('perovskite_Si_summary.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 

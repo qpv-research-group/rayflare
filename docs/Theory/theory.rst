@@ -36,10 +36,11 @@ enough that interference effects in it can be neglected, i.e. significantly thic
 being considered.
 
 While this matrix multiplication framework has been previously established by e.g. `OPTOS`_ and `GenPro4`_, the novelty of RayFlare is that
-it will automatically calculate the necessary redistribution matrices for the user-defined structure (using any of the methods listed below)
-at the required wavelengths as well as performing the matrix multiplication, including tracking absorption in any surface layers on the
+it is open-source and includes support for grating structures (unlike GenPro4) and that it will automatically calculate the necessary redistribution matrices
+for the user-defined structure (using any of the methods listed below) at the required wavelengths (unlike OPTOS), including tracking absorption in
+any surface layers on the
 front and rear surface. It can also calculate absorption profiles in the surface and bulk layers, something which has not previously been
-demonstrated.
+demonstrated to my knowledge.
 
 The methods currently available to generate redistribution matrices are:
 
@@ -51,13 +52,14 @@ The methods currently available to generate redistribution matrices are:
 - **RCWA**: For gratings, which can be made of multiple layers including planar layers.
 - **Ideal/theoretical reference cases**: currently, a perfect mirror or a perfect Lambertian scatterer.
 
-Some examples:
+Some examples of structures which can be treated in this way:
 
 - A structure with a planar front surface with an anti-reflection coating, and a pyramidal back surface. The redistribution matrix
   for the front can be calculated with TMM (very fast) and only the back needs to be treated with ray-tracing (slower).
 - A structure with pyramids on the front surface and a diffracting grating on the rear surface. The front surface can be treated with
   TMM (or ray-tracing + TMM) while the rear surface is treated with RCWA.
 
+See the :ref:`Examples <examples>` section for more.
 
 
 .. _OPTOS: https://doi.org/10.1364/OE.23.0A1720

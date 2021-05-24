@@ -19,19 +19,27 @@ except Exception as err:
 
 def RCWA(structure, size, orders, options, structpath, incidence, transmission, only_incidence_angle=False,
                        prof_layers=None, front_or_rear='front', surf_name='', detail_layer=False, save=True):
-    """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
-    defined using an RCWA method implemented using the S4 package.
 
-    :param structure: A solcore Structure object with layers and materials or a OptiStack object.
-    :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-    :param orders: number of orders to retain in the RCWA calculations.
-    :param wavelength: Wavelengths (in nm) in which calculate the data.
-    :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
-    :param phi: azimuthal incidence angle in degrees. Default: 0
-    :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-    :param transmission: semi-infinite transmission medium
+    """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
+    rigorous coupled-wave analysis.
 
-    :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+    :param structure: list of Solcore Layer objects for the surface
+    :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
+    :param orders: number of RCWA orders to be used for the calculations
+    :param options: user options (dictionary or State object)
+    :param structpath: file path where matrices will be stored or loaded from
+    :param incidence: incidence medium
+    :param transmission: transmission medium
+    :param only_incidence_angle: if True, the calculations will only be performed for the incidence theta and phi \
+         specified in the options (rest of the matrix will be zeros). CURRENTLY DOES NOT WORK CORRECTLY
+    :param prof_layers: If no profile calculations are being done, None. Otherwise a list of layers in which the profile
+          should be calculated (front non-incidence medium layer has index 1)
+    :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
+            medium, or rear incidence on the stack, from the transmission medium.
+    :param surf_name: name of the surface (to save the matrices generated).
+    :param detail_layer:
+    :param save: whether to save the redistribution matrices (True/False)
+    :return:
     """
     # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
     # or if internally it will still do s & p separately
@@ -582,8 +590,14 @@ class rcwa_structure:
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
 
-    :param structure: A solcore Structure/SolarCell object with layers and materials or a OptiStack object.
-    :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
+    :param structure: A Solcore Structure/SolarCell object with layers and materials. Alternatively, you can supply
+           a list which can contain any mixture of Solcore Layer objects and layers defined in one of the two following ways:
+            - 1. A list of length 4, for materials with a constant refractive index. The list entries are:
+                 [width of the layer in nm, real part of refractive index (n), imaginary part of refractive index (k),
+                 geometry]
+            - 2. A list of length 5, for materials with a wavelength-dependent refractive index. The list entries are:
+                 [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
+    :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
     :param incidence: semi-infinite incidence medium
     :param transmission: semi-infinite transmission medium (substrate)
     """

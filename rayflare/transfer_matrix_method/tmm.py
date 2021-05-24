@@ -15,19 +15,26 @@ def TMM(layers, incidence, transmission, surf_name, options, structpath,
     Function which takes a layer stack and creates an angular redistribution matrix.
 
     :param layers: A list with one or more layers.
-    :param transmission: transmission medium
     :param incidence: incidence medium
-    :param surf_name: name of the surface (to save the matrices generated.
+    :param transmission: transmission medium
+    :param surf_name: name of the surface (to save/load the matrices generated).
     :param options: a list of options
+    :param structpath: file path where matrices will be stored or loaded from
     :param coherent: whether or not the layer stack is coherent. If None, it is assumed to be fully coherent
-    :param coherency: a list with the same number of entries as the layers, either 'c' for a coherent layer or
+    :param coherency_list: a list with the same number of entries as the layers, either 'c' for a coherent layer or
             'i' for an incoherent layer
     :param prof_layers: layers for which the absorption profile should be calculated
             (if None, do not calculate absorption profile at all)
     :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
             medium, or rear incidence on the stack, from the transmission medium.
+    :param save:
 
-    :return: R and T redistribution matrix fullmat, matrix describing absorption per layer
+    :return: Number of returns depends on whether absorption profiles are being calculated; the first two items are
+             always returned, the final one only if a profile is being calcualted.
+
+                - fullmat: the R/T redistribution matrix at each wavelength, indexed as (wavelength, angle_bin_out, angle_bin_in)
+                - A_mat: the absorption redistribution matrix (total absorption per layer), indexed as (wavelength, layer_out, angle_bin_in)
+                - allres: xarray dataset storing the absorption profile data
     """
 
     def make_matrix_wl(wl):
