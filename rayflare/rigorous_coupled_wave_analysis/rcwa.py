@@ -265,9 +265,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths), th, n_inc, layer_details)
             As = rcwa_absorption_per_layer(S, len(widths), th, n_inc)
 
-            # by definition, should have R = 1-T-A_total.
-
-            R_pfbo = 0.5*(R_pfbo_s + R_pfbo_p) # this will not be normalized correctly! fix this outside if/else
+            R_pfbo = R_pfbo_s + R_pfbo_p # this will not be normalized correctly! fix this outside if/else
             T_pfbo = 0.5*(T_pfbo_s + T_pfbo_p)
 
             T[in_bin[i1]] = 0.5 * (out_p['T'] + out_s['T'])
@@ -331,6 +329,8 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
 
         R[in_bin[i1]] = 1 - T[in_bin[i1]] - np.sum(A_layer[in_bin[i1]])
+        R_pfbo = np.real(R_pfbo)
+        T_pfbo = np.real(T_pfbo)
 
         fi_x = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) *
                        np.sin(ph * np.pi / 180))
@@ -342,7 +342,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
         fr_z = np.sqrt((l_oc[0]/(wl**2))-fr_x**2 - fr_y**2)
         ft_z = np.sqrt((l_oc[-1]/(wl**2))-fr_x**2 - fr_y**2)
-
 
         phi_rt = np.nan_to_num(np.arctan(fr_x/fr_y))
         phi_rt = fold_phi(phi_rt, phi_sym)
@@ -363,7 +362,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
         R_pfbo[np.abs(R_pfbo < 1e-16)] = 0 # sometimes get very small negative valyes
         T_pfbo[np.abs(T_pfbo < 1e-16)] = 0
 
-        # renormalize so that np.sum(R_pfbo) = R[in_bin[i1]]
         Rsum = np.sum(R_pfbo)
         R_pfbo = (R[in_bin[i1]]/Rsum)*R_pfbo
 
@@ -385,7 +383,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             mat_RT[bini, in_bin[i1]] = mat_RT[bini, i1] + T_pfbo[i2]
 
         if layer_details:
-            #print(R_pfbo_int_p)
+
             if pol not in 'sp':
                 R_pfbo_int = (R_pfbo_int_p + R_pfbo_int_s)/2
             f_z = np.sqrt((l_oc[layer_details] / (wl ** 2)) - fr_x ** 2 - fr_y ** 2)
@@ -439,10 +437,11 @@ def rcwa_rat(S, n_layers, theta, n_inc, det_l=False):
 
     # transmission power flux by order always sums to T, regardless of optical constants of transmission/incidence medium
     R = -n_inc*np.real(S.GetPowerFlux('layer_1')[1])/np.cos(theta*np.pi/180)  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+
     # this should be correct answer in 'far field': anythng that doesn't go into the surface must be reflected. but if n_incidence != 1
     # can get odd effects.
 
-    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow. Not normalised correctly.
+    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow. Not normalised correctly!
 
     if det_l:
         layer_name = 'layer_' + str(det_l + 2)

@@ -2,6 +2,7 @@ import numpy as np
 from pytest import approx, mark
 import sys
 
+
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_get_order_directions():
     from rayflare.analytic.diffraction import get_order_directions

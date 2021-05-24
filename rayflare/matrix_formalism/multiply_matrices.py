@@ -14,6 +14,21 @@ def calculate_RAT(SC, options, save_location='default'):
 
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: options for the matrix calculations
+    :return: The number of returned values depends on whether absorption profiles were calculated or not. The first two
+            are always returned, the final two are only returned if a calculation of absorption profiles was done.
+
+            - RAT - an xarray with coordinates bulk_index and wl (wavelength), and 3 data variables: R (reflection),
+              T (transmission) and A_bulk (absorption in the bulk medium. Currently, the bulk index can only be 0.
+            - results_per_pass - a dictionary with entries 'r' (reflection), 't' (transmission), 'a' (absorption in the
+              surfaces) and 'A' (bulk absorption), which store these quantities per each pass of the bulk or interaction
+              with the relevant surface during matrix multiplication. 'r', 't' and 'A' are lists of length 1, corresponding
+              to one set of values for each bulk material; the list entry is an array which is indexed as
+              (pass number, wavelength). 'a' is a list of length two, corresponding to absorption in the front and back
+              interface respectively. Each entry in the list is an array indexed as (pass number, wavelength, layer index).
+            - profile - a list of xarrays, one for each surface. These store the absorption profiles and have coordinates
+              wavelength and z (depth) position.
+            - bulk_profile -
+
     """
 
     bulk_mats = []
@@ -31,8 +46,6 @@ def calculate_RAT(SC, options, save_location='default'):
             layer_names.append(struct.name)
             layer_widths.append((np.array(struct.widths)*1e9).tolist())
             calc_prof_list.append(struct.prof_layers)
-
-
 
     results = matrix_multiplication(bulk_mats, bulk_widths, options, layer_names, calc_prof_list, save_location)
 
@@ -153,6 +166,23 @@ def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
 
 
 def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list, save_location):
+    """
+
+    :param bulk_mats:
+    :type bulk_mats:
+    :param bulk_thick:
+    :type bulk_thick:
+    :param options:
+    :type options:
+    :param layer_names:
+    :type layer_names:
+    :param calc_prof_list:
+    :type calc_prof_list:
+    :param save_location:
+    :type save_location:
+    :return:
+    :rtype:
+    """
 
     results_path = get_savepath(save_location, options['project_name'])
 
