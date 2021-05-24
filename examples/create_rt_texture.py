@@ -27,7 +27,8 @@ z = Z.flatten()
 # xyz_texture takes a 1D numpy array/list of x, y and z coordinates
 random_surf = xyz_texture(x, y, z)
 
-# can also use heights_texture; this takes a 2D array of z coordinates and the extent of the x and y axes
+# can also use heights_texture; this takes a 2D array of z coordinates and
+# the extent of the x and y axes
 random_surf_2 = heights_texture(Z, np.max(x_in), np.max(y_in))
 
 # random_surf and random_surf_2 are identical
@@ -62,6 +63,7 @@ rtstr = rt_structure(textures=[random_surf, flat_surf],
                      widths=[200e-6], incidence=Air, transmission=Air)
 result = rtstr.calculate(options)
 
+
 options.coherent = False
 options.coherency_list = ['i']
 planar_struct = tmm_structure([Layer(200e-6, Si)], incidence=Air, transmission=Air)
@@ -82,8 +84,10 @@ plt.ylim(0,1)
 plt.show()
 
 plt.figure()
-plt.plot(wavelengths*1e9, np.mean(result['n_interactions'], 1), label='Mean number of surface interactions')
-plt.plot(wavelengths*1e9, np.mean(result['n_passes'], 1), label='Mean number of passes')
+plt.plot(wavelengths*1e9, np.mean(result['n_interactions'], 1),
+         label='Mean number of surface interactions')
+plt.plot(wavelengths*1e9, np.mean(result['n_passes'], 1),
+         label='Mean number of passes')
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('N')
 plt.autoscale(tight=True)

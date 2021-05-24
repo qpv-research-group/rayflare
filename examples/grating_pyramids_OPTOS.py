@@ -7,10 +7,9 @@ from solcore import si
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import process_structure, calculate_RAT, get_savepath
 from rayflare.transfer_matrix_method import tmm_structure
-from rayflare.angles import theta_summary
+from rayflare.angles import theta_summary, make_angle_vector
 from rayflare.textures import regular_pyramids
 from rayflare.options import default_options
-from rayflare.angles import make_angle_vector
 
 import matplotlib.pyplot as plt
 from sparse import load_npz
@@ -125,16 +124,6 @@ plt.xlim([900, 1200])
 plt.ylim([0, 1])
 plt.show()
 
-fig = plt.figure()
-plt.plot(wavelengths*1e9, RAT_fig6['A_bulk'][0])
-plt.plot(wavelengths*1e9, RAT_fig6['R'][0], '--')
-plt.plot(wavelengths*1e9, RAT_fig6['T'][0], '--')
-plt.plot(wavelengths*1e9, RAT_fig6['R'][0] + RAT_fig6['A_bulk'][0] + RAT_fig6['T'][0], label='grating')
-plt.plot(wavelengths*1e9, RAT_fig7['R'][0] + RAT_fig7['A_bulk'][0] + RAT_fig7['T'][0], label='pyramids')
-plt.plot(wavelengths*1e9, RAT_fig8['R'][0] + RAT_fig8['A_bulk'][0] + RAT_fig8['T'][0], label='both')
-plt.legend()
-plt.show()
-
 
 theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
@@ -142,24 +131,6 @@ theta_intv, phi_intv, angle_vector = make_angle_vector(options['n_theta_bins'], 
 
 path = get_savepath('default', options.project_name)
 sprs = load_npz(os.path.join(path, SC_fig6[2].name + 'frontRT.npz'))
-sprsA = load_npz(os.path.join(path, SC_fig6[2].name + 'frontA.npz'))
-
-sprs_old = load_npz('/home/phoebe/Documents/rayflare_28_9/results/optos_checks_2021_old/crossed_grating_60frontRT.npz')
-
-summed = np.sum(sprs, 1)
-summedA = np.sum(sprsA, 1)
-
-wl0 = summed[0].todense() + summedA[0].todense()
-
-plt.figure()
-plt.plot(angle_vector[:int(len(angle_vector)/2),2], wl0, 'o', fillstyle='none')
-plt.xlabel('phi')
-plt.show()
-
-plt.figure()
-plt.plot(angle_vector[:int(len(angle_vector)/2),1], wl0, 'o', fillstyle='none')
-plt.xlabel('theta')
-plt.show()
 
 wl_to_plot = 1100e-9
 
@@ -175,8 +146,6 @@ summat_r = summat_r.rename({r'$\theta_{in}$': r'$\sin(\theta_{in})$', r'$\theta_
 
 summat_r = summat_r.assign_coords({r'$\sin(\theta_{in})$': np.sin(summat_r.coords[r'$\sin(\theta_{in})$']).data,
                                     r'$\sin(\theta_{out})$': np.sin(summat_r.coords[r'$\sin(\theta_{out})$']).data})
-
-plt.show()
 
 
 palhf = sns.cubehelix_palette(256, start=.5, rot=-.9)

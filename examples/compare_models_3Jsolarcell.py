@@ -61,7 +61,7 @@ ax2 = axes[0,1]
 ax3 = axes[1,0]
 ax4 = axes[1,1]
 
-# TMM, matrix framework
+# TMM with redistribution matrix method
 
 front_surf = Interface('TMM', layers=front_materials, name = 'GaInP_GaAs_TMM',
                        coherent=True)
@@ -151,7 +151,6 @@ ax3.set_xlabel('Wavelength (nm)')
 ax3.set_ylabel('Reflection / Absorption')
 ax3.set_title('c) RCWA + matrix formalism', loc = 'left')
 
-
 ## pure TMM
 all_layers = front_materials + [Layer(bulkthick, Ge)] + back_materials
 
@@ -177,6 +176,4 @@ ax4.set_title('d) Only TMM (Solcore)', loc = 'left')
 handles, labels = ax4.get_legend_handles_labels()
 fig.legend(handles, labels, bbox_to_anchor=(0, 0, 0.42, 0.46), loc='upper right')
 
-# fig.savefig('model_validation2.pdf', bbox_inches='tight', format='pdf')
 plt.show()
-
