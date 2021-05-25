@@ -11,10 +11,19 @@ from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matr
 
 def process_structure(SC, options, save_location='default'):
     """
-    Function which takes a list of Interface and BulkLayer objects and carries out the
+    Function which takes a list of Interface and BulkLayer objects, and user options, and carries out the
     necessary calculations to populate the redistribution matrices.
 
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
+    :param options: a dictionary or State object listing the user options
+    :param save_location: string - location where the calculated redistribution matrices should be stored. Currently recognized are:
+
+              - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
+              - 'current', which stores the results in the current working directory
+              - or you can specify the full path location for wherever you want the results to be stored.
+
+              In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
+
     :param options: options for the matrix calculations
     """
 
@@ -153,6 +162,19 @@ def process_structure(SC, options, save_location='default'):
 
 
 def get_savepath(save_location, project_name):
+    """
+    Returns the full path where matrices will be stored.
+
+    :param save_location: string - location where the calculated redistribution matrices should be stored. Currently recognized are:
+
+              - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
+              - 'current', which stores the results in the current working directory
+              - or you can specify the full path location for wherever you want the results to be stored.
+
+              In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
+    :param project_name: the project name (string)
+    :return: full file path where matrices are stored (string)
+    """
     if save_location == 'current':
         cwd = os.getcwd()
         structpath = os.path.join(cwd, project_name)

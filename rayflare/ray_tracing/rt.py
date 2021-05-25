@@ -26,6 +26,7 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
     :param transmission: transmission medium
     :param surf_name: name of the surface (to save matrices)
     :param options: dictionary of options
+    :param structpath: file path where matrices will be stored or loaded from
     :param Fr_or_TMM: whether to use the Fresnel equations (0) or a TMM lookup table (1)
     :param front_or_rear: whether light is incident from the front or rear
     :param n_absorbing_layers: for a structure with multiple interface layers, where a TMM lookuptable is used, the number of layers in \
@@ -34,11 +35,15 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
     profile. List of layers where the profile should be calculated, or otherwise None
     :param only_incidence_angle: if True, the ray-tracing will only be performed for the incidence theta and phi \
     specified in the options.
+    :param widths: if using TMM, width of the surface layers (in nm)
+    :param save: whether to save redistribution matrices (True/False)
 
-    :return: out_mat: the R/T redistribution matrix at each wavelength, indexed as (wavelength, angle_bin_out, angle_bin_in) \
-    A_mat: the absorption redistribution matrix (total absorption per layer), indexed as (wavelength, layer_out, angle_bin_in) \
-    local_angle_mat: only if calc_profile = True. A matrix storing the local incidence angles for rays which were absorbed. \
-    This is used to calculate absorption profiles using TMM.
+    :return: Number of returns depends on whether absorption profiles are being calculated; the first two items are
+             always returned, the final one only if a profile is being calcualted.
+
+                - allArrays: the R/T redistribution matrix at each wavelength, indexed as (wavelength, angle_bin_out, angle_bin_in)
+                - absArrays: the absorption redistribution matrix (total absorption per layer), indexed as (wavelength, layer_out, angle_bin_in)
+                - allres: xarray dataset storing the absorption profile data
     """
 
     existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, calc_profile)

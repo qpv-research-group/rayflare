@@ -7,21 +7,21 @@ Installation instructions
 
     python_install
 
+Most of RayFlare will run on any platform (Windows, Linux, MacOS). However, if you want to use the rigorous coupled-wave analysis (RCWA)
+functionality, this requires installing the Python package S4, which must be compiled locally (on your computer). Instructions for
+setting up S4 are available for Ubuntu (Linux) and MacOS, but not for Windows. If you don't intend to use RayFlare's RCWA functionality,
+you can skip the 'Setting up' steps for your platform below and go straight to the :ref:`Installing RayFlare <install>` section.
+
+Setting up to install S4 on Ubuntu
+-----------------------------------
+
 This is assuming an Ubuntu computer or Virtual Machine, or MacOS. For an Ubuntu  Virtual Machine running on a Windows platform,
 I have used both VirtualBox and Hyper-V manager to run the VM. You can download an Ubuntu disk image from the `official website`_.
 
 There are lots of guides online for how to get an Ubuntu VM working in Windows, for example
-here_. Alternatively, you can `dual boot`_
-your computer with Windows and Ubuntu. Both methods have some advantages and disadvantages (running a Virtual Machine
+here_. Alternatively, you can `dual boot`_ your computer with Windows and Ubuntu. Both methods have some advantages and disadvantages (running a Virtual Machine
 is somewhat safer and you can access it without having to reboot your computer. However, the performance won't be
-the same as running the operating system directly on the computer's hardware). RayFlare will work on Windows too, but there
-are no instructions available for compiling and using S4, which is required for the RCWA functionality, on Windows.
-All other parts of RayFlare should work regardless of platform.
-
-If you don't intend to use RayFlare's RCWA functionality, you can skip these 'Setting up' steps.
-
-Setting up to install S4 on Ubuntu
------------------------------------
+the same as running the operating system directly on the computer's hardware).
 
 These instructions follow installation on Ubuntu version 18.04 but have also been tested on Ubuntu16 and Ubuntu20.
 
@@ -60,10 +60,9 @@ you can again use homebrew:
 
     brew install fftw suite-sparse openblas lapack
 
-If these packages are installed in the default directory
 
-Installing S4
----------------
+Installing S4 (Ubuntu and MacOS)
+---------------------------------
 
 Install some packages we will need:
 
@@ -80,23 +79,36 @@ Downloading and installing S4 (start from the directory in which you want to dow
     make boost
     make S4_pyext
 
-Here we download a fork of S4 (modified to be compatible with Python3), move to the downloaded directory, make boost
+Here we download my fork of S4 (modified to be compatible with Python3), move to the downloaded directory, make boost
 which downloads and compiles the boost libraries required, and then we make the Python extension. Note that
 make boost will download and build the boost packages, it may take quite a long time and you will get a lot of output
 on the terminal screen. If you activated the virtual environment, this should automatically install into that virtual environment.
 
+.. _install:
 
 Installing RayFlare
 ---------------------
 
+To do a normal installation:
+
 .. code-block:: console
 
+    pip install numpy setuptools
+    git clone https://github.com/qpv-research-group/rayflare.git
+    cd rayflare
+    pip install .
+
+
+To install RayFlare in development mode:
+
+
+.. code-block:: console
+
+    pip install numpy setuptools
     git clone https://github.com/qpv-research-group/rayflare.git
     cd rayflare
     pip install -e .[dev]
 
-This install RayFlare in development mode, as discussed above. Alternatively, do a normal installation with
-:literal:`pip install .`.
 
 Setting things up to use/develop
 -----------------------------------
@@ -117,7 +129,7 @@ instructions above and are on Ubuntu 18, these are probably Python2.7, Python3.6
 Python3.8). You can create one of those environments by going to Project Interpreter in the same way, adding a new
 environment and selecting 'Virtualenv environment' with the relevant base interpreter.
 
-Installing on Windows
+Installing S4 on Windows
 -----------------------------------
 
 To date, I have not yet found a way to make S4 work on Windows (although it is certainly possible, because

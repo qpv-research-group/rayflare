@@ -19,19 +19,27 @@ except Exception as err:
 
 def RCWA(structure, size, orders, options, structpath, incidence, transmission, only_incidence_angle=False,
                        prof_layers=None, front_or_rear='front', surf_name='', detail_layer=False, save=True):
-    """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
-    defined using an RCWA method implemented using the S4 package.
 
-    :param structure: A solcore Structure object with layers and materials or a OptiStack object.
-    :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
-    :param orders: number of orders to retain in the RCWA calculations.
-    :param wavelength: Wavelengths (in nm) in which calculate the data.
-    :param theta: polar incidence angle (in degrees) of the incident light. Default: 0 (normal incidence)
-    :param phi: azimuthal incidence angle in degrees. Default: 0
-    :param pol: Polarisation of the light: 's', 'p' or 'u'. Default: 'u' (unpolarised).
-    :param transmission: semi-infinite transmission medium
+    """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
+    rigorous coupled-wave analysis.
 
-    :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+    :param structure: list of Solcore Layer objects for the surface
+    :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
+    :param orders: number of RCWA orders to be used for the calculations
+    :param options: user options (dictionary or State object)
+    :param structpath: file path where matrices will be stored or loaded from
+    :param incidence: incidence medium
+    :param transmission: transmission medium
+    :param only_incidence_angle: if True, the calculations will only be performed for the incidence theta and phi \
+         specified in the options (rest of the matrix will be zeros). CURRENTLY DOES NOT WORK CORRECTLY
+    :param prof_layers: If no profile calculations are being done, None. Otherwise a list of layers in which the profile
+          should be calculated (front non-incidence medium layer has index 1)
+    :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
+            medium, or rear incidence on the stack, from the transmission medium.
+    :param surf_name: name of the surface (to save the matrices generated).
+    :param detail_layer:
+    :param save: whether to save the redistribution matrices (True/False)
+    :return:
     """
     # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
     # or if internally it will still do s & p separately
@@ -265,9 +273,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             out_s, R_pfbo_s, T_pfbo_s, R_pfbo_int_s = rcwa_rat(S, len(widths), th, n_inc, layer_details)
             As = rcwa_absorption_per_layer(S, len(widths), th, n_inc)
 
-            # by definition, should have R = 1-T-A_total.
-
-            R_pfbo = 0.5*(R_pfbo_s + R_pfbo_p) # this will not be normalized correctly! fix this outside if/else
+            R_pfbo = R_pfbo_s + R_pfbo_p # this will not be normalized correctly! fix this outside if/else
             T_pfbo = 0.5*(T_pfbo_s + T_pfbo_p)
 
             T[in_bin[i1]] = 0.5 * (out_p['T'] + out_s['T'])
@@ -331,6 +337,8 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
 
         R[in_bin[i1]] = 1 - T[in_bin[i1]] - np.sum(A_layer[in_bin[i1]])
+        R_pfbo = np.real(R_pfbo)
+        T_pfbo = np.real(T_pfbo)
 
         fi_x = np.real((np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) *
                        np.sin(ph * np.pi / 180))
@@ -342,7 +350,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
 
         fr_z = np.sqrt((l_oc[0]/(wl**2))-fr_x**2 - fr_y**2)
         ft_z = np.sqrt((l_oc[-1]/(wl**2))-fr_x**2 - fr_y**2)
-
 
         phi_rt = np.nan_to_num(np.arctan(fr_x/fr_y))
         phi_rt = fold_phi(phi_rt, phi_sym)
@@ -363,7 +370,6 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
         R_pfbo[np.abs(R_pfbo < 1e-16)] = 0 # sometimes get very small negative valyes
         T_pfbo[np.abs(T_pfbo < 1e-16)] = 0
 
-        # renormalize so that np.sum(R_pfbo) = R[in_bin[i1]]
         Rsum = np.sum(R_pfbo)
         R_pfbo = (R[in_bin[i1]]/Rsum)*R_pfbo
 
@@ -385,7 +391,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
             mat_RT[bini, in_bin[i1]] = mat_RT[bini, i1] + T_pfbo[i2]
 
         if layer_details:
-            #print(R_pfbo_int_p)
+
             if pol not in 'sp':
                 R_pfbo_int = (R_pfbo_int_p + R_pfbo_int_s)/2
             f_z = np.sqrt((l_oc[layer_details] / (wl ** 2)) - fr_x ** 2 - fr_y ** 2)
@@ -439,10 +445,11 @@ def rcwa_rat(S, n_layers, theta, n_inc, det_l=False):
 
     # transmission power flux by order always sums to T, regardless of optical constants of transmission/incidence medium
     R = -n_inc*np.real(S.GetPowerFlux('layer_1')[1])/np.cos(theta*np.pi/180)  # GetPowerFlux gives forward & backward Poynting vector, so sum to get power flux
+
     # this should be correct answer in 'far field': anythng that doesn't go into the surface must be reflected. but if n_incidence != 1
     # can get odd effects.
 
-    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow. Not normalised correctly.
+    R_pfbo = -np.array(S.GetPowerFluxByOrder('layer_1'))[:,1] # real part of backwards power flow. Not normalised correctly!
 
     if det_l:
         layer_name = 'layer_' + str(det_l + 2)
@@ -583,8 +590,14 @@ class rcwa_structure:
     """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
 
-    :param structure: A solcore Structure/SolarCell object with layers and materials or a OptiStack object.
-    :param size: list with 2 entries, size of the unit cell (right now, can only be rectangular
+    :param structure: A Solcore Structure/SolarCell object with layers and materials. Alternatively, you can supply
+           a list which can contain any mixture of Solcore Layer objects and layers defined in one of the two following ways:
+            - 1. A list of length 4, for materials with a constant refractive index. The list entries are:
+                 [width of the layer in nm, real part of refractive index (n), imaginary part of refractive index (k),
+                 geometry]
+            - 2. A list of length 5, for materials with a wavelength-dependent refractive index. The list entries are:
+                 [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
+    :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
     :param incidence: semi-infinite incidence medium
     :param transmission: semi-infinite transmission medium (substrate)
     """

@@ -62,7 +62,7 @@ install_requires = [
 
 setup(
     name="rayflare",
-    version="0.0.1",
+    version="1.0.0",
     description="Python-based integrated optical modelling",
     long_description=long_description,
     url="https://github.com/qpv-research-group/rayflare",
@@ -88,7 +88,6 @@ setup(
     keywords="photovoltaics modelling physics optics",
     packages=find_packages(exclude=[]),
     package_data={"": ["*.*"]},
-    data_files=gen_data_files("solcore"),
     include_package_data=True,
     setup_requires="pytest-runner",
     install_requires=install_requires,

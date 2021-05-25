@@ -17,35 +17,11 @@ import seaborn as sns
 
 from cycler import cycler
 
+
+# new materials from data - uncomment to add to database
+
 # from solcore.material_system import create_new_material
-# Si_recon = np.loadtxt('data/Si_n15_FZ_Green_recon.csv', delimiter=',')
-#
-# Si_n = np.stack((Si_recon[:,0]/1e6, Si_recon[:,1])).T
-# Si_k = np.stack((Si_recon[:,0]/1e6, Si_recon[:,2])).T
-#
-# np.savetxt('data/Si_IR_recon_n.txt', Si_n)
-# np.savetxt('data/Si_IR_recon_k.txt', Si_k)
-#
-# front_ITO = np.loadtxt('data/front_ito_nk_uvtomir.csv', delimiter=',')
-#
-# front_ITO_n = np.stack((front_ITO[:,0]/1e6, front_ITO[:,1])).T
-# front_ITO_k = np.stack((front_ITO[:,0]/1e6, front_ITO[:,2])).T
-#
-# np.savetxt('data/front_ITO_n.txt', front_ITO_n)
-# np.savetxt('data/front_ITO_k.txt', front_ITO_k)
-#
-#
-# back_ITO = np.loadtxt('data/back_ito_nk_new.csv', delimiter=',')
-#
-# back_ITO_n = np.stack((back_ITO[:,0]/1e6, back_ITO[:,1])).T
-# back_ITO_k = np.stack((back_ITO[:,0]/1e6, back_ITO[:,2])).T
-#
-# np.savetxt('data/back_ITO_n.txt', back_ITO_n)
-# np.savetxt('data/back_ITO_k.txt', back_ITO_k)
-
-
-cur_path = os.path.dirname(os.path.abspath(__file__))
-# new materials from data
+#cur_path = os.path.dirname(os.path.abspath(__file__))
 # create_new_material('aSi_i', os.path.join(cur_path, 'data/model_i_a_silicon_n.txt'),os.path.join(cur_path, 'data/model_i_a_silicon_k.txt'))
 # create_new_material('aSi_p', os.path.join(cur_path, 'data/model_p_a_silicon_n.txt'), os.path.join(cur_path, 'data/model_p_a_silicon_k.txt'))
 # create_new_material('aSi_n', os.path.join(cur_path, 'data/model_n_a_silicon_n.txt'), os.path.join(cur_path, 'data/model_n_a_silicon_k.txt'))
@@ -60,14 +36,14 @@ wavelengths = np.round(np.floor(np.exp(wavelengths))*1e-9, 12)
 
 options = default_options()
 options.wavelengths = wavelengths
-options.project_name = 'HIT'
-options.n_rays = 33800
-options.n_theta_bins = 50
+options.project_name = 'HIT_notebook'
+options.n_rays = 5000
+options.n_theta_bins = 20
 options.nx = 5
 options.ny = 5
-
 _, _, angle_vector = make_angle_vector(options['n_theta_bins'], options['phi_symmetry'],
                                        options['c_azimuth'])
+options.bulk_profile = True
 
 Si = material('Si_UVtoMIR')()
 Air = material('Air')()
@@ -164,7 +140,5 @@ ax.set_xlabel(r'Wavelength ($\mu$m)')
 ax.set_ylabel('Absorption/Emissivity')
 ax.set_xlim(min(options['wavelengths']*1e6), max(options['wavelengths']*1e6))
 ax.set_ylim(0, 1)
-plt.legend()
-# fig.savefig('perovskite_Si_summary.pdf', bbox_inches='tight', format='pdf')
 plt.show()
 
