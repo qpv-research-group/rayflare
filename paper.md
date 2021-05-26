@@ -15,11 +15,12 @@ authors:
   - name: Phoebe M. Pearce
     orcid: 0000-0001-9082-9506
     affiliation: 1
+    
 affiliations:
  - name: Department of Physics, University of Cambridge, 19 JJ Thomson Avenue, Cambridge CB3 0HE
    index: 1
 
-date: 24 May 2021
+date: 26 May 2021
 bibliography: paper.bib
 
 ---
@@ -54,7 +55,7 @@ exist which are appropriate for modelling the effect of different light-trapping
   solving Maxwell's equations in (periodically) textured layers, these have many uses, but are often used in solar cell
   optics research to calculate the effect of gratings or arrays of nanoparticles on absorption in the cell.
 
-![Schematic of the methods implemented in RayFlare.\label{fig:rayflare}](rayflare_diagram_crop.pdf){ width=100% }
+![Schematic of the methods implemented in RayFlare. \label{fig:rayflare}](rayflare_diagram_crop.pdf){ width=100% }
 
 # Statement of need
 
