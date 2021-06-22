@@ -21,3 +21,16 @@ jobs:
           # PDF. Note, this should be the same directory as the input
           # paper.md
           path: paper/paper.pdf
+          
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: TeX and PDF
+        uses: docker://openjournals/paperdraft:latest
+        with:
+          args: '-k paper/paper.md'
+        env:
+          GIT_SHA: $GITHUB_SHA
+          JOURNAL: joss
