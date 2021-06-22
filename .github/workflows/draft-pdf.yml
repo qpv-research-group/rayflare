@@ -5,10 +5,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: TeX and PDF
+      - name: TeX
         uses: docker://openjournals/paperdraft:latest
         with:
-          args: '-k paper/paper.md'
+          args: paper/paper.md --to=latex --output=paper.tex
         env:
           GIT_SHA: $GITHUB_SHA
           JOURNAL: joss
+      - name: PDF
+        uses: docker://openjournals/paperdraft:latest
+        with:
+          args: paper/paper.md
+        env:
+          GIT_SHA: $GITHUB_SHA
+          JOURNAL: joss
+      - uses: actions/upload-artifact@v2
+        with:
+          path: paper
