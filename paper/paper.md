@@ -112,7 +112,7 @@ The methods currently available to generate redistribution matrices are:
 - **RCWA**: suitable for gratings or other periodic wavelength-scale structures, 
   which can be made of multiple layers including planar layers. RayFlare uses a modified version of $S^4$
   [@Liu2012] which is compatible with Python3 to perform RCWA calculations.
--- **Ideal/theoretical reference cases**: currently, a perfect mirror or a perfect Lambertian scatterer are implemented.
+- **Ideal/theoretical reference cases**: currently, a perfect mirror or a perfect Lambertian scatterer are implemented.
   
 As each of these methods are implemented independently, additional methods which can be used to calculate redistribution
 matrices can be added. 
