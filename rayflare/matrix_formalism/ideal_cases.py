@@ -1,3 +1,10 @@
+# Copyright (C) 2021 Phoebe Pearce
+#
+# This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
+# Please see the LICENSE.txt file included as part of this package.
+#
+# Contact: pmp31@cam.ac.uk
+
 import numpy as np
 from sparse import COO, save_npz
 from rayflare.angles import fold_phi
