@@ -1,7 +1,6 @@
-.. _examples:
-
 Examples
 ========
+.. _examples:
 
 Structures using a single simulation method per structure
 ----------------------------------------------------------

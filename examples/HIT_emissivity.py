@@ -1,5 +1,4 @@
 import numpy as np
-import os
 
 from solcore.structure import Layer
 from solcore import material
@@ -17,6 +16,8 @@ import seaborn as sns
 
 from cycler import cycler
 
+
+# import os
 
 # new materials from data - uncomment to add to database
 

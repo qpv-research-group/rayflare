@@ -16,6 +16,8 @@
    Ray_tracing/ray_tracing
    TMM/tmm
    RCWA/rcwa
+   Textures/textures.rst
+   Analytic/analytic.rst
    Options/user_options.rst
 
 

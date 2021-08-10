@@ -1,3 +1,10 @@
+# Copyright (C) 2021 Phoebe Pearce
+#
+# This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
+# Please see the LICENSE.txt file included as part of this package.
+#
+# Contact: pmp31@cam.ac.uk
+
 import numpy as np
 import os
 
@@ -23,8 +30,6 @@ def process_structure(SC, options, save_location='default'):
               - or you can specify the full path location for wherever you want the results to be stored.
 
               In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
-
-    :param options: options for the matrix calculations
     """
 
     def determine_only_incidence(sd, j1, oia):

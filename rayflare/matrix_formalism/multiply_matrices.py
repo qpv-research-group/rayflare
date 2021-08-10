@@ -1,3 +1,10 @@
+# Copyright (C) 2021 Phoebe Pearce
+#
+# This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
+# Please see the LICENSE.txt file included as part of this package.
+#
+# Contact: pmp31@cam.ac.uk
+
 import numpy as np
 from sparse import load_npz, dot, COO, stack
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
@@ -72,6 +79,7 @@ def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym):
     :param num_wl: Number of wavelengths
     :param n_theta_bins: Number of theta bins in the matrix multiplication
     :param c_azimuth: c_azimuth used to generate the matrices being multiplied
+    :param phi_sym: Defines symmetry element [0, phi_sym] into which values of phi can be collapsed (in radians)
 
     :return: v0, an array of size (num_wl, n_angle_bins_in)
     """

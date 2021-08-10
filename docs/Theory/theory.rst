@@ -1,7 +1,6 @@
-.. _overview:
-
 Overview & background
 ====================================================
+.. _overview:
 
 A detailed look at the motivation, implementation, mathematics etc. behind
 RayFlare can be found :download:`here <RayFlare_theory.pdf>`. This includes an

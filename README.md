@@ -11,5 +11,8 @@ methods to be coupled across a single structure to calculate total absorption/re
 layer, and absorption profiles. 
 
 You can view RayFlare's documentation, including installation instructions [here](https://rayflare.readthedocs.io/en/latest/).
+The contributing guidelines are [here](CONTRIBUTING.md) and the Code of Conduct is [here](CODE_OF_CONDUCT.md). This package
+is distributed under a [GNU GPL (version 3) license](GNU_GPL_v3.txt). If you have questions, issues, etc., please check the
+documentation first or open an [issue](https://github.com/qpv-research-group/rayflare/issues) using the relevant template.
 
 ![poster](poster.png "RayFlare poster")

@@ -1,3 +1,10 @@
+# Copyright (C) 2021 Phoebe Pearce
+#
+# This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
+# Please see the LICENSE.txt file included as part of this package.
+#
+# Contact: pmp31@cam.ac.uk
+
 import numpy as np
 from sparse import COO, save_npz
 from rayflare.angles import fold_phi
@@ -11,7 +18,7 @@ def lambertian_matrix(angle_vector, theta_intv, surf_name, structpath,
     :param angle_vector: an angle_vector in the standard format
     :param theta_intv: the theta (polar) intervals (edges of the bins) to be used
     :param surf_name: surface name (for saving the matrix)
-    :param options: dictionary of user options
+    :param structpath: file path where matrices will be stored or loaded from
     :param front_or_rear: generate matrix for 'front' or 'rear' incidence?
     :param save: Boolean, whether to save the resulting matrix (True) or only return it (False). Default True
 
@@ -71,6 +78,7 @@ def mirror_matrix(angle_vector, theta_intv, phi_intv, surf_name, options, struct
     :param phi_intv: the phi (azimuthal) intervals (edges of the bins)
     :param surf_name: surface name (for saving the matrix)
     :param options: dictionary of user options
+    :param structpath: file path where matrices will be stored or loaded from
     :param front_or_rear: generate matrix for 'front' or 'rear' incidence?
     :param save: Boolean, whether to save the resulting matrix (True) or only return it (False). Default True
 
