@@ -306,7 +306,7 @@ def test_shapes():
         S4_setup = rcwa_structure(solar_cell, size=d_v, options=options,
                                   incidence=Air, transmission=Ag)
 
-        S4_setup.get_fourier_epsilon(layer_index=1, wavelength=500, options=options, plot=False)
+        S4_setup.get_fourier_epsilon(layer_index=1, wavelength=500, options=options, plot=True)
 
         if i1 == 2:
             options.parallel = False
@@ -397,7 +397,7 @@ def test_plotting_funcs():
 
     assert os.path.isfile(os.path.join(current_dir, 'test.ps'))
 
-    xs, ys, a_r, a_i = S4_setup.get_fourier_epsilon(4, wl_plot, options, plot=False)
+    xs, ys, a_r, a_i = S4_setup.get_fourier_epsilon(4, wl_plot, options, plot=True)
 
     assert np.min(a_r) == approx(np.real(e_Ag), rel=0.2)
     assert np.max(a_r) == approx(np.real(e_SiN), rel=0.2)
@@ -405,7 +405,7 @@ def test_plotting_funcs():
     assert np.max(a_i) == approx(np.imag(e_Ag), rel=0.2)
 
     xs, ys, a_r, a_i = S4_setup.get_fourier_epsilon(3, wl_plot, options, extent=[[-10, 10], [-20, 20]],
-                                                    n_points=10, plot=False)
+                                                    n_points=10, plot=True)
 
     e_InAlP = (InAlP_hole_barrier.n(wl_plot * 1e-9) + 1j * InAlP_hole_barrier.k(wl_plot * 1e-9)) ** 2
     assert a_r == approx(np.real(e_InAlP))
@@ -419,7 +419,7 @@ def test_plotting_funcs():
     options.pol = (0.5, 0.5)
 
     xs, ys, E, H, E_mag, H_mag = S4_setup.get_fields(4, wl_plot, options, extent = [[-100, 100], [-150, 150]],
-                                                     n_points=10, plot=False)
+                                                     n_points=10, plot=True)
 
     assert len(xs) == 10
     assert len(ys) == 10
@@ -430,7 +430,7 @@ def test_plotting_funcs():
 
     options.pol = 's'
 
-    xs, ys, E_1, H_1, E_mag, H_mag = S4_setup.get_fields(4, wl_plot, options, plot=False)
+    xs, ys, E_1, H_1, E_mag, H_mag = S4_setup.get_fields(4, wl_plot, options, plot=True)
 
     assert np.all(E_mag > 0)
     assert np.all(H_mag > 0)
@@ -445,7 +445,7 @@ def test_plotting_funcs():
     assert (np.min(E_1), np.max(E_1), np.min(H_1), np.max(H_1)) == approx((np.min(E_2), np.max(E_2), np.min(H_2), np.max(H_2)), rel=0.05)
 
     options.order = 7
-    xs, ys, E, H, E_mag, H_mag = S4_setup.get_fields_z_integral(4, wl_plot, options, n_points=10, plot=False)
+    xs, ys, E, H, E_mag, H_mag = S4_setup.get_fields_z_integral(4, wl_plot, options, n_points=10, plot=True)
 
     assert len(xs) == 10
     assert len(ys) == 10
