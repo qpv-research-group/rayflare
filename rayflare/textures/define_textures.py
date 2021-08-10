@@ -10,12 +10,12 @@ import numpy as np
 
 
 def xyz_texture(x, y, z):
-    """
+    """Defines RTSurface textures for ray-tracing based on lists of x, y and z coordinates provided by the user.
 
     :param x: list of x (in-plane) coordinates of points on the surface texture (1D numpy array)
     :param y: list of y (in-plane) coordinates of points on the surface texture (1D numpy array)
     :param z: list of z (height) coordinates of points on the surface texture (1D numpy array)
-    :return:
+    :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
 
     """
     Points = np.vstack([x, y, z]).T
@@ -28,13 +28,15 @@ def xyz_texture(x, y, z):
 
 
 def heights_texture(z_points, x_width, y_width):
-    """
+    """Defines RTSurface textures for ray-tracing based on a 2D array of z coordinates and the width along the x and
+    y directions.
 
-    :param z_points: list of z (height) coordinates of points on the surface texture (2D numpy array)
+    :param z_points: array of z (height) coordinates of points on the surface texture (2D numpy array)
     :param x_width: width along the x direction
     :param y_width: width along the y direction
-    :return:
+    :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
+
     x = np.linspace(0, x_width, z_points.shape[0])
     y = np.linspace(0, y_width, z_points.shape[1])
 

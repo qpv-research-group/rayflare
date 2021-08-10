@@ -1123,13 +1123,28 @@ class rcwa_structure:
         return xs, ys, E, H, E_mag, H_mag
 
     def set_widths(self, new_widths):
+        """Allows the user to set new widths for the layers in the structure.
+
+        :param new_widths: new layer widths, in nm.
+        """
+
         new_widths = np.append(np.insert(np.array(new_widths, dtype='f'), 0, np.inf), np.inf).tolist()
         self.widths = new_widths
 
     def set_size(self, new_size):
+        """Allows the user to set new basis vectors for the structure.
+
+        :param new_size: new basis vectors in the format ((x1, y1), (x2, y2))
+        """
         self.size = new_size
 
     def edit_geom_list(self, layer_index, geom_index, geom_entry):
+        """Allows the user to edit the geom_list of a specific layer in the structure.
+
+        :param layer_index: for which layer to edit the geom_list; 0 is the incidence medium
+        :param geom_index: which entry in that layer's geom_list to change
+        :param geom_entry: new entry for the geom_list.
+        """
 
         self.geom_list[layer_index][geom_index].update(geom_entry)
 
