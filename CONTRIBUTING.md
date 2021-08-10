@@ -50,7 +50,7 @@ details to help maintainers reproduce the problem:
 * **Provide specific examples to demonstrate the steps**. Include links to files or GitHub projects, or copy/pasteable snippets, which you use in those examples. If you're providing snippets in the issue, use [Markdown code blocks](https://help.github.com/articles/markdown-basics/#multiple-lines).
 * **Describe the behavior you observed after following the steps** and point out what exactly is the problem with that behavior.
 * **Explain which behavior you expected to see instead and why.**
-* **If there is any error output in the temrinal, include that output with your report.**
+* **If there is any error output in the terminal, include that output with your report.**
 
 Provide more context by answering these questions:
 
@@ -63,7 +63,7 @@ Include details about your configuration and environment:
 * **Which version of RayFlare are you using?** 
 * **What's the name and version of the OS you're using**?
 * **Are you running RayFlare in a virtual machine?** If so, which VM software are you using and which operating systems and versions are used for the host and the guest?
-* **If the problem is related with the Poisson-drift-diffusion solver**, which compiler did you use? What were the installation steps you followed?
+* **If the problem is related to S4**, which compiler did you use? What were the installation steps you followed?
 
 ### Suggesting Enhancements
 
@@ -95,7 +95,7 @@ The process described here has several goals:
 Please follow these steps to have your contribution considered by the maintainers:
 
 1. **Describe clearly what is the purpose of the pull request**. Refer to the relevant issues on [Bugs](#reporting-bugs) or [Enhancements](#suggesting-enhancements). In general, an issue should always be open *prior* to a pull request, to discuss its contents with a maintainer and make sure it makes sense for RayFlare. If the pull request is a work in progress that will take some time to be ready but still you want to discuss it with the community, open a [draft pull request](https://github.blog/2019-02-14-introducing-draft-pull-requests/). 
-2. **Include relevant unit tests and integration tests, where needed**. RayFlare's test suite is quite limited at the moment. We are working to improve this and tests as many features as possible, so any new addition to the code must come with its own set of tests to avoid going backwards in this matter.   
+2. **Include relevant unit tests and integration tests, where needed**. 
 3. **For new features and enhancements, include documentation and examples**. Both in the code, as docstrings in classes, functions and modules, and as proper documentation describing how to use the new feature. 
 4. Follow the [styleguides](#styleguides)
 5. After you submit your pull request, verify that all [status checks](https://help.github.com/articles/about-status-checks/) are passing <details><summary>What if the status checks are failing?</summary>If a status check is failing, and you believe that the failure is unrelated to your change, please leave a comment on the pull request explaining why you believe the failure is unrelated. A maintainer will re-run the status check for you. If we conclude that the failure was a false positive, then we will open an issue to track that problem with our status check suite.</details>
