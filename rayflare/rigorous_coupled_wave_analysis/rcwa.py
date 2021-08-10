@@ -605,6 +605,7 @@ class rcwa_structure:
             - 2. A list of length 5, for materials with a wavelength-dependent refractive index. The list entries are:
                  [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
     :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
+    :param options: dictionary or State object containing user options
     :param incidence: semi-infinite incidence medium
     :param transmission: semi-infinite transmission medium (substrate)
     """
@@ -771,6 +772,7 @@ class rcwa_structure:
         In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
         density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
 
+        :param options: dictionary or State object containing user options
         """
 
         wl = options['wavelengths'] * 1e9
@@ -842,6 +844,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
+        :param options: dictionary or State object containing user options
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
         :param n_points: number of points to scan across in the x and y directions
@@ -907,6 +910,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
+        :param options: dictionary or State object containing user options
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
         :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
@@ -995,6 +999,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
+        :param options: dictionary or State object containing user options
         :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
         :param n_points: number of points to scan across in the x and y directions
 
@@ -1036,7 +1041,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param pol: polarization of the incident light, 's', 'p' or a tuple
+        :param options: dictionary or State object containing user options
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
         :param n_points: number of points to scan across in the x and y directions

@@ -15,7 +15,8 @@ def make_TMM_lookuptable(layers, incidence, transmission, surf_name, options, st
     :param incidence: semi-incidence medium. Should be an isntance of a Solcore material object
     :param transmission: semi-infinite transmission medium. Should be an instance of a Solcore material object
     :param surf_name: name of the surfaces, for storing the lookup table (string).
-    :param options: dictionary of options
+    :param options: dictionary or State object containing user options
+    :param structpath: file path where matrices will be stored or loaded from
     :param coherent: boolean. True if all the layers in the stack (excluding the semi-inifinite incidence and \
     transmission medium) are coherent, False otherwise. Default True.
     :param coherency_list: list. List of 'c' (coherent) and 'i' (incoherent) for each layer excluding incidence and \

@@ -30,8 +30,6 @@ def process_structure(SC, options, save_location='default'):
               - or you can specify the full path location for wherever you want the results to be stored.
 
               In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
-
-    :param options: options for the matrix calculations
     """
 
     def determine_only_incidence(sd, j1, oia):
