@@ -578,6 +578,7 @@ def get_reciprocal_lattice(size, orders):
     """
     Returns the reciprocal lattice as defined in S4 (note that this is missing a foctor of 2pi compared to the
     standard definition).
+
     :param size: lattice vectors in real space ((ax, ay), (bx, by))
     :type size:
     :param orders: number of Fourier orders to keep
@@ -1042,14 +1043,14 @@ class rcwa_structure:
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
         :param options: dictionary or State object containing user options
-        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
-        on the unit cell size by default
+        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
+                on the unit cell size by default
         :param n_points: number of points to scan across in the x and y directions
         :param plot: plot the results (True or False, default True)
 
-        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the (x, y, z) amplitudes squared of the E-field (|Ex|^2 etc.), \
-        the (x, y, z) amplitudes squared of the H-field (|Ex|^2 etc.) the magnitude of the E-field, \
-        the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
+        :return: xs, ys, E, H, E_mag, H_mag. x points, y points, the (x, y, z) amplitudes squared of the E-field (|Ex|^2 etc.),
+                the (x, y, z) amplitudes squared of the H-field (|Ex|^2 etc.) the magnitude of the E-field,
+                the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
 
         def vs_pol(s, p):

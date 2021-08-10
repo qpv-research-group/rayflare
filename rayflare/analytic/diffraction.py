@@ -17,6 +17,7 @@ def get_order_directions(wl, size, m_max, incidence, transmission, theta, phi, p
     """
     Returns analytically-calculated order directions for given incidence and transmission media, incidence
     angles (polar and azimuthal)
+
     :param wl: wavelength in nm (array)
     :param size: tuple of lattice vectors
     :param m_max: maximum index of the diffraction orders, results are returned for all combinations up to this value
@@ -26,8 +27,8 @@ def get_order_directions(wl, size, m_max, incidence, transmission, theta, phi, p
     :param phi: azimuthal incidence angle in radians
     :param phi_sym: phi values for which the grating is unique
     :return: dictionary containing the diffraction orders (order_index), and the corresponding azimuthal angle (phi),
-    polar angle in reflection (theta_r) and transmission (theta_t), real space in-plane magnitudes (fr_x and fr_y)
-    and reciprocal space in-plane magnitude (kxy)
+                polar angle in reflection (theta_r) and transmission (theta_t), real space in-plane magnitudes (fr_x and fr_y)
+                and reciprocal space in-plane magnitude (kxy)
     """
 
     rl = get_reciprocal_lattice(size, 9)
@@ -94,6 +95,26 @@ def get_order_directions(wl, size, m_max, incidence, transmission, theta, phi, p
 
 
 def group_diffraction_orders(size, basis_set, per_order=None):
+    """
+    Groups power from equivalent diffraction orders based on the symmetry of the unit cell, and returns the total power
+    in a set of unique order directions.
+
+    :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
+    :type size:
+    :param basis_set: list of the diffraction order (m1 and m2) combinations (list of length 2 lists in the format [m1, m2],
+            where m1 and m2 are integers)
+    :type basis_set:
+    :param per_order: optional - if you want to group power across orders in equivalent directions, e.g based on the output
+            of an RCWA calculation giving power per order. Numpy array with dimensions [wavelengths, order] where the second
+            dimension should be in order of the [m1, m2] combinations given in basis_seet
+    :type per_order:
+    :return: a dictionary with entries: 'k_xy', which gives the unique components of the k-vector parallel to the interface;
+            'reps', which gives the degeneracy of these directions (how many of the input m1/m2 combinations correspond to this
+            direction), 'per_order', which gives the power per unique k_xy (if powers were provided) and 'degeneracy', which
+            lists how many different values of power were collapsed into each set of per_order data.
+    :rtype:
+    """
+
     lv = np.array(size).T
     a1 = lv[:, 0]
     a2 = lv[:, 1]
