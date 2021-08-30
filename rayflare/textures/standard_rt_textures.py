@@ -48,8 +48,8 @@ def planar_surface(size=1):
     """
     Lx = 1*size
     Ly = 1*size
-    x = np.array([0, Lx, Lx, 0])
-    y = np.array([0, Ly, 0, Ly])
+    x = np.array([-Lx, Lx, Lx, -Lx])
+    y = np.array([-Ly, Ly, -Ly, Ly])
     z = np.array([0, 0, 0, 0])
 
     Points = np.vstack([x, y, z]).T

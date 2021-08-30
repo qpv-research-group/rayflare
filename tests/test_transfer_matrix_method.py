@@ -159,7 +159,7 @@ def test_tmm_structure_abs():
 
     options = {'pol': 's',
                'wavelengths': RCWA_wl,
-               'parallel': True,
+               'parallel': False,
                'n_jobs': -1,
                'theta_in': 0,
                'phi_in': 0,

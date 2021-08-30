@@ -24,7 +24,7 @@ def test_parallel():
     options.pol = 'p'
     options.n_rays = 3000
     options.depth_spacing = 1e-6
-    options.parallel = True
+    options.parallel = False
 
     rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                         materials = [GaAs, Si, Ge],

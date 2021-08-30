@@ -2,7 +2,7 @@ from pytest import approx, mark
 import numpy as np
 import sys
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+
 def test_RAT():
 
     from solcore import si, material
@@ -33,7 +33,7 @@ def test_RAT():
                'pol': 'u',
                'wavelengths': RCWA_wl,
                'theta_in': 0, 'phi_in': 0,
-               'parallel': True, 'n_jobs': -1,
+               'parallel': False, 'n_jobs': -1,
                'phi_symmetry': np.pi / 2,
                'project_name': 'ultrathin',
                'A_per_order': True,
@@ -93,7 +93,7 @@ def test_RAT():
 
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+
 def test_RAT_angle_pol():
 
     from solcore import si, material
@@ -164,7 +164,7 @@ def test_RAT_angle_pol():
 
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+
 def test_RAT_angle_pol_ninc():
 
     from solcore import si, material
@@ -234,7 +234,7 @@ def test_RAT_angle_pol_ninc():
 
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+
 def test_shapes():
     from solcore import material
     from solcore.structure import Layer
@@ -321,7 +321,7 @@ def test_shapes():
         assert np.all(A_back[i1] > A_back[-1])
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+
 def test_reciprocal_lattice():
     from rayflare.rigorous_coupled_wave_analysis.rcwa import get_reciprocal_lattice
 
@@ -333,7 +333,7 @@ def test_reciprocal_lattice():
     assert a[1] == approx((0, 1/200))
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+
 def test_plotting_funcs():
 
     from solcore import si, material
@@ -457,3 +457,47 @@ def test_plotting_funcs():
 
 
 
+def test_matrix_generation():
+    from rayflare.rigorous_coupled_wave_analysis import RCWA
+    from solcore.structure import Layer
+    from solcore import material
+    from solcore.absorption_calculator import calculate_rat, OptiStack
+
+    # rayflare imports
+    from rayflare.textures.standard_rt_textures import planar_surface
+    from rayflare.structure import Interface, BulkLayer, Structure
+    from rayflare.matrix_formalism import process_structure, calculate_RAT
+    from rayflare.options import default_options
+
+    # Thickness of bottom Ge layer
+    bulkthick = 300e-6
+
+    wavelengths = np.linspace(300, 1850, 50) * 1e-9
+
+    # set options
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.project_name = 'method_comparison_test'
+    options.n_rays = 250
+    options.n_theta_bins = 3
+    options.lookuptable_angles = 100
+    options.parallel = False
+    options.c_azimuth = 0.001
+    options.I_thresh = 1e-8
+    options.bulk_profile = False
+
+    # set up Solcore materials
+    Ge = material('Ge')()
+    GaAs = material('GaAs')()
+    GaInP = material('GaInP')(In=0.5)
+    SiN = material('Si3N4')()
+    Air = material('Air')()
+    Ta2O5 = material('TaOx1')() # Ta2O5 (SOPRA database)
+    MgF2 = material('MgF2')() # MgF2 (SOPRA database)
+
+    front_materials = [Layer(120e-9, MgF2), Layer(74e-9, Ta2O5), Layer(464e-9, GaInP),
+                       Layer(1682e-9, GaAs)]
+
+    size = ((500,0), (0,500))
+
+    full_mat, A_mat = RCWA(front_materials, size, 2, options, 'test', Air, Ge, False, None, 'front', 'RCWA_test', False, False)
