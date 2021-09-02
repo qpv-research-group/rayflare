@@ -690,8 +690,10 @@ def calc_R(n1, n2, theta, pol):
     Rs = np.abs((n1*np.cos(theta)-n2*np.cos(theta_t))/(n1*np.cos(theta)+n2*np.cos(theta_t)))**2
     Rp = np.abs((n1 * np.cos(theta_t) - n2 * np.cos(theta)) / (n1 * np.cos(theta_t) + n2 * np.cos(theta)))**2
     if pol == 's':
+        # print(n1, n2, theta, pol, Rs)
         return Rs
     if pol == 'p':
+        # print(n1, n2, theta, pol, Rp)
         return Rp
     else:
         return (Rs+Rp)/2
@@ -744,20 +746,16 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
     stop = False
     I = 1
 
-
-
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array([x, y, 0])
 
-    d = 0.1*(r_b - r_a) / np.linalg.norm(r_b - r_a) # direction (unit vector) of ray
+    d = (r_b - r_a) / np.linalg.norm(r_b - r_a) # direction (unit vector) of ray
 
     # want to translate along d so r_a is right below the surface
     n_d = 1.001*r_a[2]/np.abs(d[2])
 
     r_a = r_a + n_d*d
     # print(r_a)
-    r_b = r_a + d
-
 
     # plt.plot([r_a[0], r_b[0]], [r_a[1], r_b[1]], [r_a[2], r_b[2]])
 
@@ -773,21 +771,23 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
 
     n_interactions = 0
 
-    while not stop:
+    # print('New stack interaction r_a, d', r_a, d)
+    # print(r_a, r_a_0)
 
+    while not stop:
 
         surf = surfaces[surf_index]
 
-        if randomize and (n_passes > 0):
-            h = surf.z_max - surf.z_min + 0.1
-            r_b = [np.random.rand()*surf.Lx, np.random.rand()*surf.Ly, surf.zcov]
-            n_z = np.ceil(abs(h/d[2]))
-            r_a = r_b - n_z*d
-
-        else:
-
-            r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
-            r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
+        # if randomize and (n_passes > 0):
+        #     h = surf.z_max - surf.z_min + 0.1
+        #     r_b = [np.random.rand()*surf.Lx, np.random.rand()*surf.Ly, surf.zcov]
+        #     n_z = np.ceil(abs(h/d[2]))
+        #     r_a = r_b - n_z*d
+        #
+        # else:
+        #
+        #     r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
+        #     r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
 
 
         if direction == 1:
@@ -798,9 +798,11 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
             ni = nks[mat_index-1]
             nj = nks[mat_index]
 
-        res, theta, phi, r_a, d, _, n_interactions = single_interface_check(r_a, d, ni,
+        res, theta, phi, r_a, d, _, n_interactions, side = single_interface_check(r_a, d, ni,
                                      nj, surf, surf.Lx, surf.Ly, direction,
                                      surf.zcov, pol, n_interactions)
+
+        # print(n_interactions)
 
         if res == 0:  # reflection
 
@@ -810,15 +812,35 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
             surf_index = surf_index + direction
 
 
-            # print('Reflect', surf_index, direction)
+            # print('Reflect, theta, surf, dirn, r_a, d, side', theta, surf_index, direction, r_a, d, side)
 
         if res == 1:  # transmission
 
             surf_index = surf_index + direction
             mat_index = mat_index + direction  # is this right?
-            # print('Transmit', surf_index, direction)
+            # print('Transmit, theta, surf, dirn, r_a, d, side', theta, surf_index, direction, r_a, d, side)
 
-        I_b = I
+        # build in check for if things go wrong; ray escapes lens travelling towards the plane, but will miss the plane
+        r_circle = 0.7625195079471739
+        # if (r_a[0]**2 + r_a[1]**2 > r_circle**2) and surf_index == 0 and direction == -1 and side == -1:
+        if surf_index == 0 and direction == -1 and side == -1:
+            stop = True
+            # print('Ray will escape backwards')
+            # print('SPECIAL REFLECTION 1')
+
+        if surf_index == 1 and direction == 1 and side == -1 and np.abs(r_a[2] < 0.05) and (r_a[0]**2 + r_a[1]**2 > 0.99*r_circle**2):
+            stop = True
+            # print('SPECIAL REFLECTION 2')
+
+        if theta == 100:
+            print('FUDGE - ray stack')
+            stop = True
+            direction =  -1
+            mat_index = 0
+            theta = 0
+            phi = 0
+
+
         # DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
         #                               depths[mat_index], I_thresh, direction)
         #
@@ -832,10 +854,12 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
         # plt.plot([r_a[0], r_a[0]+d[0]], [r_a[1], r_a[1]+d[1]], [r_a[2], r_a[2]+d[2]])
 
         if direction == 1 and mat_index == (len(widths) - 1):
+
             stop = True  # have ended with transmission
             # print('OVERALL TRANSMISSION')
 
         elif direction == -1 and mat_index == 0:
+
             stop = True  # have ended with reflection
             # print('OVERALL REFLECTION')
 
@@ -927,13 +951,13 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl = None, lookuptabl
     # print('R', R, n0, n1)
 
     if rnd <= R:  # REFLECTION
-        # print('R')
+        # print('R', n0, n1)
         d = np.real(d - 2 * np.dot(d, N) * N)
 
     else:  # TRANSMISSION)
         # transmission, refraction
         # for now, ignore effect of k on refraction
-        # print('T')
+        # print('T', n0, n1, theta*180/np.pi)
         tr_par = (np.real(n0) / np.real(n1))  * (d - np.dot(d, N) * N)
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
         side = -side
@@ -979,6 +1003,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
     # weird stuff happens around edges; can get transmission counted as reflection
     d0 = d
     intersect = True
+    n_ints_loop = 0
     # [top, right, bottom, left]
     n_misses = 0
     i1 = 0
@@ -987,12 +1012,10 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
         with np.errstate(divide='ignore', invalid='ignore'): # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
             result = check_intersect(r_a, d, tri)
 
-            # print('result', result)
-
-
-
 
         if result == False:
+
+            n_misses += 1
 
             o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
             o_p = np.real(atan2(d[1], d[0]))
@@ -1005,20 +1028,45 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
                 intersect = False
                 final_res = 0
 
-            if r_a[0] > Lx or r_a[0] < 0:
-                r_a[0] = r_a[0] % Lx  # translate back into until cell before next ray
-            if r_a[1] > Ly or r_a[1] < 0:
-                r_a[1] = r_a[1] % Ly  # translate back into until cell before next ray
+            # if r_a[0] > Lx or r_a[0] < 0:
+            #     r_a[0] = r_a[0] % Lx  # translate back into until cell before next ray
+            # if r_a[1] > Ly or r_a[1] < 0:
+            #     r_a[1] = r_a[1] % Ly  # translate back into until cell before next ray
 
-            if i1 == 0:
-                print('No intersections', r_a, d, ni, nj)
+            # if i1 == 1:
+            #     print('No intersections', r_a, d, ni, nj)
 
-            return final_res, o_t, o_p, r_a, d, 0, n_interactions  # theta is LOCAL incidence angle (relative to texture)
+            # if n_ints_loop == 1 and n_misses == 1:
+            # #     no interactions -- miss surface through edge of lens. Fudge solution.
+            #     print('FUDGE', r_a, d, ni, nj, len(tri.crossP))
+            #     return final_res, 0, 0, np.array([0, 0, 0.1]), np.array([0, 0, -1]), 0, n_interactions
+
+            # else:
+            # print(n_misses, n_interactions, n_ints_loop)
+
+            if n_ints_loop == 0:
+                # r_cut = 0.7625195079471739
+                # aq = d[0]**2 + d[1]**2
+                # bq = 2*(r_a[0]*d[0] + r_a[1]*d[1])
+                # cq = r_a[0]**2 + r_a[1]**2 - r_cut**2
+                #
+                # x = (-bq + np.sqrt(bq**2-4*aq*cq))/(2*aq)
+
+                print('FUDGE', r_a, d, ni, nj, len(tri.crossP))
+                # print('cross', r_a + x*d)
+
+                return final_res, 100, 0, np.array([0, 0, 0.1]), np.array([0, 0, -1]), 0, n_interactions, side
+
+            else:
+
+                return final_res, o_t, o_p, r_a, d, theta, n_interactions, side  # theta is LOCAL incidence angle (relative to texture)
 
         else:
 
+            # print('internal result', side, r_a, d, result)
             # there has been an intersection
             n_interactions += 1
+            n_ints_loop += 1
 
             intersn = result[0] # coordinate of the intersection (3D)
 
@@ -1036,20 +1084,23 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
 
             rnd = random()
 
+            # print('d before decide', d, side)
 
             d, side, A = decide[Fr_or_TMM](n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable)
+
+            # print('d after decide', d, side)
 
             r_a = np.real(intersn + d / 1e9) # this is to make sure the raytracer doesn't immediately just find the same intersection again
 
             # print(r_a, d, side)
 
-            if A is not None:
-                intersect = False
-                final_res = 2
-                o_t = A
-                o_p = 0
-
-                return final_res, o_t, o_p, r_a, d, theta, n_interactions  # theta is LOCAL incidence angle (relative to texture)
+            # if A is not None:
+            #     intersect = False
+            #     final_res = 2
+            #     o_t = A
+            #     o_p = 0
+            #
+            #     return final_res, o_t, o_p, r_a, d, theta, n_interactions  # theta is LOCAL incidence angle (relative to texture)
 
 
 def check_intersect(r_a, d, tri):

@@ -73,11 +73,10 @@ flat_surf = planar_surface(size=0.8) # pyramid size in microns
 # ax.set_zlabel('z')
 # plt.show()
 
-
-
 options = default_options()
 
-n_spheres = np.arange(8, 15)
+n_spheres = np.arange(8, 16)
+# n_spheres = [16, 17]
 
 nx = 50
 
@@ -87,7 +86,11 @@ times = np.zeros(len(n_spheres))
 
 minimum_angle = np.pi - np.pi * 17.5 / 180
 
-thetas = np.linspace(0, np.pi / 2 - 0.05, 15)
+thetas = np.linspace(0, np.pi / 2 - 0.1, 10)
+
+# thetas = thetas[thetas > 0.95]
+
+n_fudges = []
 
 plt.figure()
 
@@ -111,12 +114,7 @@ for i1, ns in enumerate(n_spheres):
     colors = np.array([average_g([Triples[idx] for idx in triangle]) for
                        triangle in triangles_back])
 
-    # collec = ax.plot_trisurf(mtri.Triangulation(X, Y, triangles),
-    # #         Z, shade=False, cmap=plt.get_cmap('Blues'), array=colors,
-    # #         edgecolors='none')
-    # # collec.autoscale()
-    #
-    # plt.show()
+
 
     [front, back] = xyz_texture(X, Y, Z)
 
@@ -203,6 +201,25 @@ for i1, ns in enumerate(n_spheres):
 
     back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 
+    # fig = plt.figure()
+    #
+    # ax = plt.subplot(111, projection='3d')
+    # ax.view_init(elev=30., azim=60)
+    # ax.plot_trisurf(back.Points[:, 0], back.Points[:, 1], back.Points[:, 2],
+    #                 triangles=back.simplices, shade=False, cmap=plt.get_cmap('Blues'), array=colors,
+    #                 edgecolors='none')
+    # # ax.plot_trisurf(flat_surf[0].Points[:,0], flat_surf[0].Points[:,1], flat_surf[0].Points[:,2],
+    # #                 triangles=flat_surf[0].simplices)
+    # #
+    #
+    # ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:, 0], back.crossP[:, 1], back.crossP[:, 2], length=0.1,
+    #           normalize=True)
+    # ax.set_xlabel('x')
+    # ax.set_ylabel('y')
+    # ax.set_zlabel('z')
+    # plt.title(ns)
+    # plt.show()
+
     hyperhemi = [back, front]
 
     rtstr = rt_structure(textures=[flat_surf, hyperhemi],
@@ -223,11 +240,14 @@ for i1, ns in enumerate(n_spheres):
     T_values = np.zeros(len(thetas))
     T_total = np.zeros(len(thetas))
     n_interactions = np.zeros(len(thetas))
+    theta_distribution = np.zeros((len(thetas), options.n_rays))
 
-    if os.path.isfile('sphere_raytrace_2e' + str(ns) + '_' + str(nx**2) + 'rays.txt'):
+    if os.path.isfile('results/sphere_raytrace_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt'):
 
-        T_values = np.loadtxt('sphere_raytrace_2e' + str(ns) + '_' + str(nx**2) + 'rays.txt')
-        T_total = np.loadtxt('sphere_raytrace_totalT_2e' + str(ns) + '_' + str(nx**2) + 'rays.txt')
+        T_values = np.loadtxt('results/sphere_raytrace_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt')
+        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt')
+        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt')
+        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt')
 
     else:
 
@@ -241,26 +261,58 @@ for i1, ns in enumerate(n_spheres):
             T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
             T_total[j1] = result['T']
             n_interactions[j1] = np.mean(result['n_interactions'])
+            theta_distribution[j1] = result['thetas']
 
         print(time() - start)
 
         times[i1] = time() - start
 
 
-        np.savetxt('sphere_raytrace_2e' + str(ns) + '_' + str(nx**2) + 'rays.txt', T_values)
-        np.savetxt('sphere_raytrace_totalT_2e' + str(ns) + '_' + str(nx**2) + 'rays.txt', T_total)
+        np.savetxt('results/sphere_raytrace_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt', T_values)
+        np.savetxt('results/sphere_raytrace_totalT_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt', T_total)
+        np.savetxt('results/sphere_raytrace_ninter_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt', n_interactions)
+        np.savetxt('results/sphere_raytrace_thetas_2e' + str(ns) + '_' + str(nx**2) + 'rays2.txt', theta_distribution)
 
-
+    n_fudges.append(np.sum(theta_distribution == 0))
     plt.plot(thetas*180/np.pi, T_values, '-', label=r'$2^{%i}$' %ns, color=pal[i1])
     plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[i1], facecolors='none')
     # plt.plot(thetas*180/np.pi, T_total, 'o--', color=pal[i1])
 
-    plt.xlim(0, 90)
-    plt.xlabel(r'$\beta$ (rads)')
-    plt.ylabel('Transmission')
+
+plt.xlim(0, 90)
+plt.xlabel(r'$\beta$ (rads)')
+plt.ylabel('Transmission')
 
 plt.title("Convergence with number of surface triangles ($n_{rays} = 2500$)")
 plt.legend(title="Number of triangles")
+plt.show()
+
+N = 200
+bottom = 0
+
+pal_bar = sns.color_palette("rocket", len(thetas))
+
+plt.figure()
+ax = plt.subplot(111, polar=True)
+ax.set_theta_zero_location("N")
+
+theta_bins = np.linspace(0.0, np.pi, N, endpoint=False)
+theta_centre = (theta_bins[1:] + theta_bins[:-1]) / 2
+width = (np.pi) / N
+
+for k1 in range(len(thetas)):
+
+    radii = np.histogram(theta_distribution[k1], theta_bins)
+
+    bars = ax.bar(theta_centre, radii[0], width=width, bottom=bottom, color=pal_bar[k1], label=str(np.round(thetas[k1]*180/np.pi, 1)))
+    # ax.set_ylim(0, 100)
+
+    # Use custom colors and opacity
+    for bar in bars:
+        bar.set_alpha(0.8)
+
+
+plt.legend()
 plt.show()
 
     #
@@ -274,8 +326,12 @@ plt.show()
 
 from rayflare.ray_tracing.rt import calc_R
 
-thetas = np.linspace(0, np.pi/2, 200)
+# thetas = np.linspace(0, np.pi/2, 200)
+#
+# plt.plot(thetas, calc_R(3.324, 1, thetas, 's'))
+# plt.plot(thetas, calc_R(3.324, 1, thetas, 'p'))
+# plt.show()
 
-plt.plot(thetas, calc_R(3.324, 1, thetas, 's'))
-plt.plot(thetas, calc_R(3.324, 1, thetas, 'p'))
+plt.figure()
+plt.plot(2**n_spheres, n_fudges, 'o-')
 plt.show()

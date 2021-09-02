@@ -38,9 +38,7 @@ def average_g(triples):
 
 # fig = plt.figure()
 # ax = fig.add_subplot(111, projection='3d')
-X, Y, Z = points_on_sphere(2**12, radius=0.8, h=0.242)
-
-
+X, Y, Z = points_on_sphere(2**13, radius=0.8, h=0.242)
 
 X = X[Z >= 0]
 Y = Y[Z >= 0]
@@ -67,6 +65,7 @@ colors = np.array([average_g([Triples[idx] for idx in triangle]) for
 
 [front, back] = xyz_texture(X, Y, Z)
 
+
 front.simplices = triangles
 front.P_0s = front.Points[triangles[:,0]]
 front.P_1s = front.Points[triangles[:,1]]
@@ -90,18 +89,11 @@ bottom_surface = np.all((back.P_0s[:,2] > -0.1, back.P_1s[:,2] > -0.1, back.P_2s
 bottom_planar = np.all((flat, bottom_surface), axis=0)
 
 
-back.simplices = triangles_back[~bottom_planar]
-back.P_0s = back.P_0s[~bottom_planar]
-back.P_1s = back.P_1s[~bottom_planar]
-back.P_2s = back.P_2s[~bottom_planar]
-back.crossP = back.crossP[~bottom_planar]
-back.size = back.P_0s.shape[0]
-
 
 from solcore import material
 from rayflare.ray_tracing import rt_structure
 from rayflare.options import default_options
-from rayflare.textures import planar_surface, regular_pyramids
+from rayflare.textures import planar_surface
 
 hyperhemi = [back, front]
 
@@ -111,87 +103,27 @@ Air = material('Air')()
 
 flat_surf = planar_surface(size=0.8) # pyramid size in microns
 
-reg_pyr = regular_pyramids()
-
-
-X_norm = np.mean([back.P_0s[:,0], back.P_1s[:,0], back.P_2s[:,0]], 0)
-Y_norm = np.mean([back.P_0s[:,1], back.P_1s[:,1], back.P_2s[:,1]], 0)
-Z_norm = np.mean([back.P_0s[:,2], back.P_1s[:,2], back.P_2s[:,2]], 0)
-
-
-# make all the normals points inwards/"upwards":
-from copy import deepcopy
-
-for index in np.arange(len(X_norm)):
-    current_N = back.crossP[index, :]
-    X_sign = -np.sign(X_norm[index])
-    # N[2] should be < 0
-    if np.sign(current_N[0]) != X_sign:
-        P1_current = deepcopy(back.P_1s[index, :])
-        P2_current = deepcopy(back.P_2s[index, :])
-        back.P_1s[index, :] = P2_current
-        back.P_2s[index, :] = P1_current
-
-back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
-
-for index in np.arange(len(X_norm)):
-    current_N = back.crossP[index, :]
-    Y_sign = -np.sign(Y_norm[index])
-    # N[2] should be < 0
-    if np.sign(current_N[1]) != Y_sign:
-        P1_current = deepcopy(back.P_1s[index, :])
-        P2_current = deepcopy(back.P_2s[index, :])
-        back.P_1s[index, :] = P2_current
-        back.P_2s[index, :] = P1_current
-
-back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
-
-above_middle = np.where(Z_norm > -0.2)[0]
-below_middle = np.where(Z_norm < -0.3)[0]
-
-
-for index in above_middle:
-    current_N = back.crossP[index, :]
-
-    # N[2] should be < 0
-    if current_N[2] > 0:
-        P1_current = deepcopy(back.P_1s[index, :])
-        P2_current = deepcopy(back.P_2s[index, :])
-        back.P_1s[index, :] = P2_current
-        back.P_2s[index, :] = P1_current
-
-for index in below_middle:
-    current_N = back.crossP[index, :]
-
-    # N[2] should be > 0
-    if current_N[2] < 0:
-        P1_current = deepcopy(back.P_1s[index, :])
-        P2_current = deepcopy(back.P_2s[index, :])
-        back.P_1s[index, :] = P2_current
-        back.P_2s[index, :] = P1_current
-
-back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
-
-
-
-X_norm = np.mean([back.P_0s[:,0], back.P_1s[:,0], back.P_2s[:,0]], 0)
-Y_norm = np.mean([back.P_0s[:,1], back.P_1s[:,1], back.P_2s[:,1]], 0)
-Z_norm = np.mean([back.P_0s[:,2], back.P_1s[:,2], back.P_2s[:,2]], 0)
-
 
 fig = plt.figure()
-
+# ax = plt.subplot(121, projection='3d')
+# ax.view_init(elev=30., azim=60)
+# #ax.set_aspect('equal')
+# ax.plot_trisurf(front.Points[:,0], front.Points[:,1], front.Points[:,2],
+#                 triangles=front.simplices[~bottom_planar, :],  shade=False, cmap=plt.get_cmap('Blues'), array=colors,
+#         edgecolors='none')
+# ax.set_xlabel('x')
+# ax.set_ylabel('y')
+# ax.set_zlabel('z')
 
 ax = plt.subplot(111, projection='3d')
 ax.view_init(elev=30., azim=60)
+#ax.set_aspect('equal')
 ax.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
-                triangles=back.simplices,  shade=False, cmap=plt.get_cmap('Blues'), array=colors,
+                triangles=back.simplices[~bottom_planar, :],  shade=False, cmap=plt.get_cmap('Blues'), array=colors,
         edgecolors='none')
+#
 # ax.plot_trisurf(flat_surf[0].Points[:,0], flat_surf[0].Points[:,1], flat_surf[0].Points[:,2],
 #                 triangles=flat_surf[0].simplices)
-#
-
-ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:,0], back.crossP[:,1], back.crossP[:,2], length=0.1, normalize=True)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
@@ -203,9 +135,7 @@ rtstr = rt_structure(textures=[flat_surf, hyperhemi],
 
 options = default_options()
 
-nxs = [5, 10, 20, 30, 40, 45, 50, 55, 60, 65, 70]
-nxs = [40, 45, 50, 55, 60, 65, 70]
-
+nxs = [34]
 
 pal = sns.color_palette("rocket", len(nxs))
 
@@ -226,26 +156,22 @@ for i1, nx in enumerate(nxs):
 
     minimum_angle = np.pi - np.pi*17.5/180
 
-    thetas = np.linspace(0, np.pi/2-0.05, 40)
+    thetas = np.linspace(0, np.pi/2-0.02, 75)
 
     T_values = np.zeros(len(thetas))
     T_total = np.zeros(len(thetas))
     n_interactions = np.zeros(len(thetas))
-    theta_distribution = np.zeros((len(thetas), options.n_rays))
 
-    if os.path.isfile('sphere_raytrace_2e12_' + str(options.n_rays) + 'rays2.txt'):
+    if os.path.isfile('sphere_raytrace_2e13_' + str(options.n_rays) + 'rays.txt'):
 
-        T_values = np.loadtxt('sphere_raytrace_2e12_' + str(options.n_rays) + 'rays2.txt')
-        T_total = np.loadtxt('sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays2.txt')
-        n_interactions = np.loadtxt('sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays2.txt')
-        theta_distribution = np.loadtxt('sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays2.txt')
+        T_values = np.loadtxt('sphere_raytrace_2e13_' + str(options.n_rays) + 'rays.txt')
+        T_total = np.loadtxt('sphere_raytrace_totalT_2e13_' + str(options.n_rays) + 'rays.txt')
 
     else:
 
-        start = time()
-
         for j1, th in enumerate(thetas):
             print(j1, th)
+            start = time()
 
             options.theta_in = th
             result = rtstr.calculate(options)
@@ -253,28 +179,25 @@ for i1, nx in enumerate(nxs):
             T_total[j1] = result['T']
             n_interactions[j1] = np.mean(result['n_interactions'])
 
-        print(time() - start)
+            print(time() - start)
 
 
-        np.savetxt('sphere_raytrace_2e12_' + str(options.n_rays) + 'rays2.txt', T_values)
-        np.savetxt('sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays2.txt', T_total)
-        np.savetxt('sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays2.txt', n_interactions)
-        np.savetxt('sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays2.txt', theta_distribution)
+        np.savetxt('sphere_raytrace_2e13_' + str(options.n_rays) + 'rays.txt', T_values)
+        np.savetxt('sphere_raytrace_totalT_2e13_' + str(options.n_rays) + 'rays.txt', T_total)
 
 
-    plt.plot(thetas*180/np.pi, T_values, label=str(options.n_rays), color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[i1], facecolors='none')
-    plt.plot(thetas*180/np.pi, T_total, color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_total, edgecolors=pal[i1], facecolors='none')
-    plt.legend(title="Number of rays")
+
+    plt.plot(thetas*180/np.pi, T_values, 'o-', label=str(options.n_rays), color=pal[i1])
+    plt.plot(thetas*180/np.pi, T_total, 'o--', color=pal[i1])
+    plt.legend()
     plt.xlim(0, 90)
     plt.xlabel(r'$\beta$ (rads)')
     plt.ylabel('Transmission')
+    plt.title(str(options.n_rays))
 
-#
 # for ln in [17.5, 2*17.5, 3*17.5, 4*17.5]:
 #     plt.axvline(x=ln)
-plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
+#
 
 plt.show()
 

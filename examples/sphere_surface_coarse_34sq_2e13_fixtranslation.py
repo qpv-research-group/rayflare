@@ -38,7 +38,7 @@ def average_g(triples):
 
 # fig = plt.figure()
 # ax = fig.add_subplot(111, projection='3d')
-X, Y, Z = points_on_sphere(2**12, radius=0.8, h=0.242)
+X, Y, Z = points_on_sphere(2**13, radius=0.8, h=0.242)
 
 
 
@@ -98,6 +98,9 @@ back.crossP = back.crossP[~bottom_planar]
 back.size = back.P_0s.shape[0]
 
 
+
+
+
 from solcore import material
 from rayflare.ray_tracing import rt_structure
 from rayflare.options import default_options
@@ -145,6 +148,7 @@ for index in np.arange(len(X_norm)):
         back.P_2s[index, :] = P1_current
 
 back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
+
 
 above_middle = np.where(Z_norm > -0.2)[0]
 below_middle = np.where(Z_norm < -0.3)[0]
@@ -203,11 +207,12 @@ rtstr = rt_structure(textures=[flat_surf, hyperhemi],
 
 options = default_options()
 
-nxs = [5, 10, 20, 30, 40, 45, 50, 55, 60, 65, 70]
-nxs = [40, 45, 50, 55, 60, 65, 70]
-
+nxs = [34]
 
 pal = sns.color_palette("rocket", len(nxs))
+
+thetas = np.linspace(0, np.pi / 2 - 0.07, 20)
+# thetas = thetas[thetas > 1.18]
 
 plt.figure()
 
@@ -222,59 +227,53 @@ for i1, nx in enumerate(nxs):
     options.nx = nx
     options.ny = nx
 
-    print(options.n_rays)
-
     minimum_angle = np.pi - np.pi*17.5/180
-
-    thetas = np.linspace(0, np.pi/2-0.05, 40)
 
     T_values = np.zeros(len(thetas))
     T_total = np.zeros(len(thetas))
     n_interactions = np.zeros(len(thetas))
     theta_distribution = np.zeros((len(thetas), options.n_rays))
 
-    if os.path.isfile('sphere_raytrace_2e12_' + str(options.n_rays) + 'rays2.txt'):
+    if os.path.isfile('sphere_raytrace_2e13_' + str(options.n_rays) + 'rays2.txt'):
 
-        T_values = np.loadtxt('sphere_raytrace_2e12_' + str(options.n_rays) + 'rays2.txt')
-        T_total = np.loadtxt('sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays2.txt')
-        n_interactions = np.loadtxt('sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays2.txt')
-        theta_distribution = np.loadtxt('sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays2.txt')
+        T_values = np.loadtxt('sphere_raytrace_2e13_' + str(options.n_rays) + 'rays2.txt')
+        T_total = np.loadtxt('sphere_raytrace_totalT_2e13_' + str(options.n_rays) + 'rays2.txt')
+        n_interactions = np.loadtxt('sphere_raytrace_ninter_2e13_' + str(options.n_rays) + 'rays2.txt')
+        theta_distribution = np.loadtxt('sphere_raytrace_thetas_2e13_' + str(options.n_rays) + 'rays2.txt')
 
     else:
 
-        start = time()
-
         for j1, th in enumerate(thetas):
             print(j1, th)
+            start = time()
 
             options.theta_in = th
             result = rtstr.calculate(options)
             T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
             T_total[j1] = result['T']
             n_interactions[j1] = np.mean(result['n_interactions'])
+            theta_distribution[j1] = result['thetas']
 
-        print(time() - start)
-
-
-        np.savetxt('sphere_raytrace_2e12_' + str(options.n_rays) + 'rays2.txt', T_values)
-        np.savetxt('sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays2.txt', T_total)
-        np.savetxt('sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays2.txt', n_interactions)
-        np.savetxt('sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays2.txt', theta_distribution)
+            print(time() - start)
 
 
-    plt.plot(thetas*180/np.pi, T_values, label=str(options.n_rays), color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[i1], facecolors='none')
-    plt.plot(thetas*180/np.pi, T_total, color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_total, edgecolors=pal[i1], facecolors='none')
-    plt.legend(title="Number of rays")
+        np.savetxt('sphere_raytrace_2e13_' + str(options.n_rays) + 'rays2.txt', T_values)
+        np.savetxt('sphere_raytrace_totalT_2e13_' + str(options.n_rays) + 'rays2.txt', T_total)
+        np.savetxt('sphere_raytrace_ninter_2e13_' + str(options.n_rays) + 'rays2.txt', n_interactions)
+        np.savetxt('sphere_raytrace_thetas_2e13_' + str(options.n_rays) + 'rays2.txt', theta_distribution)
+
+
+    plt.plot(thetas*180/np.pi, T_values, 'o-', color=pal[i1], label='Within 17.5 degrees')
+    plt.plot(thetas*180/np.pi, T_total, 'o--', color=pal[i1], label='Total transmission')
+    plt.legend()
     plt.xlim(0, 90)
     plt.xlabel(r'$\beta$ (rads)')
     plt.ylabel('Transmission')
+    # plt.title(str(options.n_rays))
 
-#
 # for ln in [17.5, 2*17.5, 3*17.5, 4*17.5]:
 #     plt.axvline(x=ln)
-plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
+#
 
 plt.show()
 
