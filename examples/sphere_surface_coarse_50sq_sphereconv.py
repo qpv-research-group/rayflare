@@ -311,7 +311,7 @@ for k1 in range(len(thetas)):
     for bar in bars:
         bar.set_alpha(0.8)
 
-
+ax.plot((0, (180-17.5)*np.pi/180), (0, 400), c = 'grey')
 plt.legend()
 plt.show()
 
@@ -333,5 +333,5 @@ from rayflare.ray_tracing.rt import calc_R
 # plt.show()
 
 plt.figure()
-plt.plot(2**n_spheres, n_fudges, 'o-')
+plt.semilogy(2**n_spheres, n_fudges, 'o-')
 plt.show()

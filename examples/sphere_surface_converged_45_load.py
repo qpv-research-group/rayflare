@@ -175,25 +175,25 @@ back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 X_norm = np.mean([back.P_0s[:,0], back.P_1s[:,0], back.P_2s[:,0]], 0)
 Y_norm = np.mean([back.P_0s[:,1], back.P_1s[:,1], back.P_2s[:,1]], 0)
 Z_norm = np.mean([back.P_0s[:,2], back.P_1s[:,2], back.P_2s[:,2]], 0)
-
-
-fig = plt.figure()
-
-
-ax = plt.subplot(111, projection='3d')
-ax.view_init(elev=30., azim=60)
-ax.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
-                triangles=back.simplices,  shade=False, cmap=plt.get_cmap('Blues'), array=colors,
-        edgecolors='none')
-# ax.plot_trisurf(flat_surf[0].Points[:,0], flat_surf[0].Points[:,1], flat_surf[0].Points[:,2],
-#                 triangles=flat_surf[0].simplices)
 #
-
-ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:,0], back.crossP[:,1], back.crossP[:,2], length=0.1, normalize=True)
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
-plt.show()
+#
+# fig = plt.figure()
+#
+#
+# ax = plt.subplot(111, projection='3d')
+# ax.view_init(elev=30., azim=60)
+# ax.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
+#                 triangles=back.simplices,  shade=False, cmap=plt.get_cmap('Blues'), array=colors,
+#         edgecolors='none')
+# # ax.plot_trisurf(flat_surf[0].Points[:,0], flat_surf[0].Points[:,1], flat_surf[0].Points[:,2],
+# #                 triangles=flat_surf[0].simplices)
+# #
+#
+# ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:,0], back.crossP[:,1], back.crossP[:,2], length=0.1, normalize=True)
+# ax.set_xlabel('x')
+# ax.set_ylabel('y')
+# ax.set_zlabel('z')
+# plt.show()
 
 rtstr = rt_structure(textures=[flat_surf, hyperhemi],
                     materials = [GaAs],
@@ -201,93 +201,104 @@ rtstr = rt_structure(textures=[flat_surf, hyperhemi],
 
 options = default_options()
 
-nxs = [50]
+nx = 70
 
-thetas = np.linspace(0, np.pi / 2 - 0.1, 100)
+thetas = np.linspace(0, np.pi / 2 - 0.05, 100)
 
-thetas_1 = thetas[0:20]
-thetas_2 = thetas[20:40]
-thetas_3 = thetas[40:60]
-thetas_4 = thetas[60:80]
-thetas_5 = thetas[80:100]
 
-thetas = thetas_5
+thetas_1 = thetas[0:25]
+thetas_2 = thetas[25:50]
+thetas_3 = thetas[50:75]
+thetas_4 = thetas[75:100]
 
-thetas_min = np.int(10*np.round(180*np.min(thetas)/np.pi, 1))
-thetas_max = np.int(10*np.round(180*np.max(thetas)/np.pi, 1))
 
-pal = sns.color_palette("rocket", len(nxs))
+thetas_min = []
+thetas_max = []
 
-plt.figure()
+for theta_g in [thetas_1, thetas_2, thetas_3, thetas_4]:
 
-for i1, nx in enumerate(nxs):
+    thetas_min.append(np.int(10*np.round(180*np.min(theta_g)/np.pi, 1)))
+    thetas_max.append(np.int(10*np.round(180*np.max(theta_g)/np.pi, 1)))
+
+T_v = []
+T_t = []
+n_int = []
+theta_dist = []
+
+
+
+for i1 in range(4):
+
+    theta_min = thetas_min[i1]
+    theta_max = thetas_max[i1]
 
     options.wavelengths = np.array([6e-6])
     options.parallel = False
     options.n_rays = nx**2
     options.xlim = 0.05
     options.ylim = 0.05
-
+    
     options.theta = 0.1
     options.nx = nx
     options.ny = nx
 
-    print(options.n_rays)
 
-    minimum_angle = np.pi - np.pi*17.5/180
+    if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + '45.txt'):
 
-    T_values = np.zeros(len(thetas))
-    T_total = np.zeros(len(thetas))
-    n_interactions = np.zeros(len(thetas))
-    theta_distribution = np.zeros((len(thetas), options.n_rays))
+        T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + '45.txt')
+        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + '45.txt')
+        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + '45.txt')
+        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + '45.txt')
 
-    if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt'):
-
-        T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-
-    else:
-
-        start = time()
-
-        for j1, th in enumerate(thetas):
-            print(j1, th)
-
-            options.theta_in = th
-            result = rtstr.calculate(options)
-            T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
-            T_total[j1] = result['T']
-            n_interactions[j1] = np.mean(result['n_interactions'])
-            theta_distribution[j1] = result['thetas']
-
-        print(time() - start)
+        T_v.append(T_values)
+        T_t.append(T_total)
+        n_int.append(n_interactions)
+        theta_dist.append(theta_distribution)
 
 
-        np.savetxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', T_values)
-        np.savetxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', T_total)
-        np.savetxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', n_interactions)
-        np.savetxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', theta_distribution)
+T_all = np.hstack(T_v)
+T_tot_all = np.hstack(T_t)
+n_int_all = np.hstack(n_int)
+th_dist_all = np.vstack(theta_dist)
+
+minimum_angle = np.pi - 44.5*np.pi/180
+
+min_30 = np.pi - 30*np.pi/180
+min_25 = np.pi - 25*np.pi/180
+min_20 = np.pi - 20*np.pi/180
+
+min_angle_old = np.pi - 17.5 * np.pi / 180
+
+T_175 = np.array([np.sum(x > min_angle_old) / options.n_rays for x in th_dist_all])
+T_45 = np.array([np.sum(x > minimum_angle) / options.n_rays for x in th_dist_all])
+T_30 = np.array([np.sum(x > min_30) / options.n_rays for x in th_dist_all])
+T_25 = np.array([np.sum(x > min_25) / options.n_rays for x in th_dist_all])
+T_20 = np.array([np.sum(x > min_20) / options.n_rays for x in th_dist_all])
+
+cols = sns.color_palette('rocket', 6)
+
+plt.figure()
+plt.plot(thetas*180/np.pi, T_tot_all, color=cols[0], label=r'$\theta_c = 90^\circ$', alpha=0.5)
+plt.scatter(thetas*180/np.pi, T_tot_all, edgecolors=cols[0], facecolors='none', alpha=0.5)
+plt.plot(thetas*180/np.pi, T_45, color=cols[1], label=r'$\theta_c = 44.5^\circ$')
+plt.scatter(thetas*180/np.pi, T_45, edgecolors=cols[1], facecolors='none')
+plt.plot(thetas*180/np.pi, T_30, color=cols[2], label=r'$\theta_c = 30^\circ$')
+plt.scatter(thetas*180/np.pi, T_30, edgecolors=cols[2], facecolors='none')
+plt.plot(thetas*180/np.pi, T_25, color=cols[3], label=r'$\theta_c = 25^\circ$')
+plt.scatter(thetas*180/np.pi, T_25, edgecolors=cols[3], facecolors='none')
+plt.plot(thetas*180/np.pi, T_20, color=cols[4], label=r'$\theta_c = 20^\circ$')
+plt.scatter(thetas*180/np.pi, T_20, edgecolors=cols[4], facecolors='none')
+plt.plot(thetas*180/np.pi, T_175, color=cols[5], label=r'$\theta_c = 17.5^\circ$')
+plt.scatter(thetas*180/np.pi, T_175, edgecolors=cols[5], facecolors='none')
+# plt.legend(title="Number of rays")
+plt.xlim(0, 90)
+plt.xlabel(r'$\beta$ (rads)')
+plt.ylabel('Transmission')
+plt.legend()
 
 
-    plt.plot(thetas*180/np.pi, T_values, label=str(options.n_rays), color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[i1], facecolors='none')
-    plt.plot(thetas*180/np.pi, T_total, color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_total, edgecolors=pal[i1], facecolors='none')
-    plt.legend(title="Number of rays")
-    plt.xlim(0, 90)
-    plt.xlabel(r'$\beta$ (rads)')
-    plt.ylabel('Transmission')
-
-#
-# for ln in [17.5, 2*17.5, 3*17.5, 4*17.5]:
-#     plt.axvline(x=ln)
-plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
+# plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
 
 plt.show()
 
-    #
-    # plt.figure()
-    # plt.plot(thetas, n_interactions)
-    # plt.show()
+np.savetxt('hyperhemi_T_withinangle_u.txt', np.vstack([thetas, T_all, T_tot_all]).T)

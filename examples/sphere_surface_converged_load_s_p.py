@@ -201,93 +201,142 @@ rtstr = rt_structure(textures=[flat_surf, hyperhemi],
 
 options = default_options()
 
-nxs = [50]
+nx = 70
 
 thetas = np.linspace(0, np.pi / 2 - 0.1, 100)
 
-thetas_1 = thetas[0:20]
-thetas_2 = thetas[20:40]
-thetas_3 = thetas[40:60]
-thetas_4 = thetas[60:80]
-thetas_5 = thetas[80:100]
+thetas_1 = thetas[0:25]
+thetas_2 = thetas[25:50]
+thetas_3 = thetas[50:75]
+thetas_4 = thetas[75:100]
 
-thetas = thetas_5
+thetas_min = []
+thetas_max = []
 
-thetas_min = np.int(10*np.round(180*np.min(thetas)/np.pi, 1))
-thetas_max = np.int(10*np.round(180*np.max(thetas)/np.pi, 1))
+for theta_g in [thetas_1, thetas_2, thetas_3, thetas_4]:
 
-pal = sns.color_palette("rocket", len(nxs))
+    thetas_min.append(np.int(10*np.round(180*np.min(theta_g)/np.pi, 1)))
+    thetas_max.append(np.int(10*np.round(180*np.max(theta_g)/np.pi, 1)))
+
+
+pal = sns.color_palette('husl', 2)
+
+T_v_pol = []
+T_t_pol = []
+n_int_pol = []
 
 plt.figure()
 
-for i1, nx in enumerate(nxs):
+for k1, pol in enumerate(['s', 'p']):
 
-    options.wavelengths = np.array([6e-6])
-    options.parallel = False
-    options.n_rays = nx**2
-    options.xlim = 0.05
-    options.ylim = 0.05
+    T_v = []
+    T_t = []
+    n_int = []
+    theta_dist = []
 
-    options.theta = 0.1
-    options.nx = nx
-    options.ny = nx
+    for i1 in range(4):
 
-    print(options.n_rays)
+        theta_min = thetas_min[i1]
+        theta_max = thetas_max[i1]
 
-    minimum_angle = np.pi - np.pi*17.5/180
+        options.wavelengths = np.array([6e-6])
+        options.parallel = False
+        options.n_rays = nx**2
+        options.xlim = 0.05
+        options.ylim = 0.05
+        options.pol = pol
 
-    T_values = np.zeros(len(thetas))
-    T_total = np.zeros(len(thetas))
-    n_interactions = np.zeros(len(thetas))
-    theta_distribution = np.zeros((len(thetas), options.n_rays))
-
-    if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt'):
-
-        T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-
-    else:
-
-        start = time()
-
-        for j1, th in enumerate(thetas):
-            print(j1, th)
-
-            options.theta_in = th
-            result = rtstr.calculate(options)
-            T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
-            T_total[j1] = result['T']
-            n_interactions[j1] = np.mean(result['n_interactions'])
-            theta_distribution[j1] = result['thetas']
-
-        print(time() - start)
+        options.theta = 0.1
+        options.nx = nx
+        options.ny = nx
 
 
-        np.savetxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', T_values)
-        np.savetxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', T_total)
-        np.savetxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', n_interactions)
-        np.savetxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', theta_distribution)
+        if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + str(options.pol)  + '.txt'):
+
+            T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + str(options.pol) + '.txt')
+            T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + str(options.pol) + '.txt')
+            n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + str(options.pol) + '.txt')
+            theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(theta_min) + str(theta_max) + str(options.pol) + '.txt')
+
+        T_v.append(T_values)
+        T_t.append(T_total)
+        n_int.append(n_interactions)
+        theta_dist.append(theta_distribution)
 
 
-    plt.plot(thetas*180/np.pi, T_values, label=str(options.n_rays), color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[i1], facecolors='none')
-    plt.plot(thetas*180/np.pi, T_total, color=pal[i1])
-    plt.scatter(thetas*180/np.pi, T_total, edgecolors=pal[i1], facecolors='none')
-    plt.legend(title="Number of rays")
-    plt.xlim(0, 90)
-    plt.xlabel(r'$\beta$ (rads)')
-    plt.ylabel('Transmission')
+    T_all = np.hstack(T_v)
+    T_tot_all = np.hstack(T_t)
+    n_int_all = np.hstack(n_int)
+    th_dist_all = np.vstack(theta_dist)
 
-#
-# for ln in [17.5, 2*17.5, 3*17.5, 4*17.5]:
-#     plt.axvline(x=ln)
-plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
+    plt.plot(thetas*180/np.pi, T_all, color=pal[k1], label=pol)
+    plt.scatter(thetas*180/np.pi, T_all, edgecolors=pal[k1], facecolors='none')
+    plt.plot(thetas*180/np.pi, T_tot_all, '--', color=pal[k1])
+    plt.scatter(thetas*180/np.pi, T_tot_all, edgecolors=pal[k1], facecolors='none')
 
+    T_v_pol.append(T_all)
+    T_t_pol.append(T_tot_all)
+    n_int_pol.append(n_int_all)
+    # plt.legend(title="Number of rays")
+
+
+# plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
+plt.xlim(0, 90)
+plt.xlabel(r'$\beta$ (rads)')
+plt.ylabel('Transmission')
+
+u_rays = np.loadtxt('hyperhemi_T_withinangle_u.txt')
+
+plt.plot(thetas * 180 / np.pi, u_rays[:,1], color='black', label='u')
+plt.scatter(thetas * 180 / np.pi, u_rays[:,1], edgecolors='black', facecolors='none')
+
+plt.plot(thetas * 180 / np.pi, u_rays[:,2], '--', color='black')
+plt.scatter(thetas * 180 / np.pi, u_rays[:,2], edgecolors='black', facecolors='none')
+
+T_avg = np.mean(T_v_pol, axis=0)
+T_tot_avg = np.mean(T_t_pol, axis=0)
+
+plt.plot(thetas * 180 / np.pi, T_avg, color='grey', label='average of s & p')
+plt.scatter(thetas * 180 / np.pi, T_avg, edgecolors='grey', facecolors='none')
+
+plt.plot(thetas * 180 / np.pi, T_tot_avg, '--', color='grey')
+plt.scatter(thetas * 180 / np.pi, T_tot_avg, edgecolors='grey', facecolors='none')
+plt.legend()
 plt.show()
 
-    #
-    # plt.figure()
-    # plt.plot(thetas, n_interactions)
-    # plt.show()
+
+np.savetxt('hyperhemi_T_withinangle_s_p_avg.txt', np.vstack([thetas, T_avg, T_tot_avg]).T)
+
+
+
+N = 200
+bottom = 0
+
+pal_bar = sns.color_palette("rocket", len(thetas))
+
+plt.figure()
+ax = plt.subplot(111, polar=True)
+ax.set_theta_zero_location("N")
+
+theta_bins = np.linspace(0.0, np.pi, N, endpoint=False)
+theta_centre = (theta_bins[1:] + theta_bins[:-1]) / 2
+width = (np.pi) / N
+
+for k1 in range(len(thetas)):
+
+    radii = np.histogram(th_dist_all[k1], theta_bins)
+
+    bars = ax.bar(theta_centre, radii[0], width=width, bottom=bottom, color=pal_bar[k1], label=str(np.round(thetas[k1]*180/np.pi, 1)))
+    # ax.set_ylim(0, 100)
+
+    # Use custom colors and opacity
+    for bar in bars:
+        bar.set_alpha(0.8)
+
+
+plt.legend()
+plt.show()
+
+
+
+

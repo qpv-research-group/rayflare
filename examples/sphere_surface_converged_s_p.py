@@ -201,17 +201,16 @@ rtstr = rt_structure(textures=[flat_surf, hyperhemi],
 
 options = default_options()
 
-nxs = [50]
+nxs = [70]
 
 thetas = np.linspace(0, np.pi / 2 - 0.1, 100)
 
-thetas_1 = thetas[0:20]
-thetas_2 = thetas[20:40]
-thetas_3 = thetas[40:60]
-thetas_4 = thetas[60:80]
-thetas_5 = thetas[80:100]
+thetas_1 = thetas[0:25]
+thetas_2 = thetas[25:50]
+thetas_3 = thetas[50:75]
+thetas_4 = thetas[75:100]
 
-thetas = thetas_5
+thetas = thetas_4
 
 thetas_min = np.int(10*np.round(180*np.min(thetas)/np.pi, 1))
 thetas_max = np.int(10*np.round(180*np.max(thetas)/np.pi, 1))
@@ -231,6 +230,7 @@ for i1, nx in enumerate(nxs):
     options.theta = 0.1
     options.nx = nx
     options.ny = nx
+    options.pol = 'p'
 
     print(options.n_rays)
 
@@ -241,12 +241,12 @@ for i1, nx in enumerate(nxs):
     n_interactions = np.zeros(len(thetas))
     theta_distribution = np.zeros((len(thetas), options.n_rays))
 
-    if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt'):
+    if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt'):
 
-        T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
-        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt')
+        T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt')
+        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt')
+        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt')
+        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt')
 
     else:
 
@@ -265,10 +265,10 @@ for i1, nx in enumerate(nxs):
         print(time() - start)
 
 
-        np.savetxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', T_values)
-        np.savetxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', T_total)
-        np.savetxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', n_interactions)
-        np.savetxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '.txt', theta_distribution)
+        np.savetxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt', T_values)
+        np.savetxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt', T_total)
+        np.savetxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt', n_interactions)
+        np.savetxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + str(options.pol) + '.txt', theta_distribution)
 
 
     plt.plot(thetas*180/np.pi, T_values, label=str(options.n_rays), color=pal[i1])
@@ -280,14 +280,9 @@ for i1, nx in enumerate(nxs):
     plt.xlabel(r'$\beta$ (rads)')
     plt.ylabel('Transmission')
 
-#
-# for ln in [17.5, 2*17.5, 3*17.5, 4*17.5]:
-#     plt.axvline(x=ln)
+
+
 plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
 
 plt.show()
 
-    #
-    # plt.figure()
-    # plt.plot(thetas, n_interactions)
-    # plt.show()
