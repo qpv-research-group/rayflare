@@ -153,20 +153,16 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
             nks[i1] = mat.n(wavelengths) + 1j*mat.k(wavelengths)
 
         h = max(surfaces[0].Points[:, 2])
-        x_lim = options.xlim
-        y_lim = options.ylim
+        x_limits = options['x_limits'] if hasattr(options, 'x_limits') else [-surfaces[0].Lx, surfaces[0].Lx]
+        y_limits = options['y_limits'] if hasattr(options, 'y_limits') else [-surfaces[0].Ly, surfaces[0].Ly]
 
         if options['random_ray_position']:
-            xs = np.random.uniform(0, x_lim, nx)
-            ys = np.random.uniform(0, y_lim, ny)
+            xs = np.random.uniform(x_limits[0], x_limits[1], nx)
+            ys = np.random.uniform(y_limits[0], y_limits[1], ny)
 
         else:
-            if options['avoid_edges']:
-                xs = np.linspace(x_lim / 4, x_lim - (x_lim / 4), nx)
-                ys = np.linspace(y_lim / 4, y_lim - (y_lim / 4), ny)
-            else:
-                xs = np.linspace(0, x_lim, nx)
-                ys = np.linspace(0, y_lim, ny)
+            xs = np.linspace(x_limits[0], x_limits[1], nx)
+            ys = np.linspace(y_limits[0], y_limits[1], ny)
 
 
         if options['parallel']:
@@ -372,19 +368,25 @@ class rt_structure:
         self.mats = mats
 
         surfs_no_offset = [x[0] for x in textures]
-        #
-        # cum_width = np.cumsum([0] + widths) * 1e6
-        #
-        # surfaces = []
-        #
-        # for i1, text in enumerate(surfs_no_offset):
-        #     # points_loop = deepcopy(text.Points)
-        #     # points_loop[:, 2] = points_loop[:, 2] - cum_width[i1]
-        #     surfaces.append(text)
+        print('b', surfs_no_offset[1].Points[:,2])
+        # self.surfaces = surfs_no_offset
+        cum_width = np.cumsum([0] + widths) * 1e6
 
-        self.surfaces = surfs_no_offset
-        self.surfs_no_offset= surfs_no_offset
-        # self.cum_width = cum_width
+        # THIS MODIFIES surfs_no_offset, presumably input surfaces too. Don't want this.
+
+        print(cum_width)
+
+        surfaces = []
+
+        for i1, text in enumerate(surfs_no_offset):
+            text.shift(cum_width[i1])
+            surfaces.append(text)
+
+        self.surfaces = surfaces
+        self.surfs_no_offset = surfs_no_offset
+        print('a', self.surfaces[1].Points[:,2])
+
+        self.cum_width = cum_width
 
     def calculate(self, options):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
@@ -440,26 +442,22 @@ class rt_structure:
         r = abs((h + 1) / cos(theta))
         r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
 
-    
-        x_lim = options.xlim
-        y_lim = options.ylim
+        x_limits = options['x_limits'] if hasattr(options, 'x_limits') else [-surfaces[0].Lx, surfaces[0].Lx]
+        y_limits = options['y_limits'] if hasattr(options, 'y_limits') else [-surfaces[0].Ly, surfaces[0].Ly]
     
         nx = options['nx']
         ny = options['ny']
 
         if options['random_ray_position']:
-            xs = np.random.uniform(0, x_lim, nx)
-            ys = np.random.uniform(0, y_lim, ny)
+            xs = np.random.uniform(x_limits[0], x_limits[1], nx)
+            ys = np.random.uniform(y_limits[0], y_limits[1], ny)
 
         else:
+            xs = np.linspace(x_limits[0], x_limits[1], nx)
+            ys = np.linspace(y_limits[0], y_limits[1], ny)
 
-            if options['avoid_edges']:
-                xs = np.linspace(x_lim / 4, x_lim - (x_lim / 4), nx)
-                ys = np.linspace(y_lim / 4, y_lim - (y_lim / 4), ny)
+        # print(xs, ys)
 
-            else:
-                xs = np.linspace(-x_lim, x_lim, nx)
-                ys = np.linspace(-y_lim, y_lim, ny)
 
         # need to calculate r_a and r_b
         # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
@@ -476,6 +474,9 @@ class rt_structure:
         pol = options['pol']
         randomize = options['randomize_surface']
 
+        initial_mat = options['initial_material'] if hasattr(options, 'initial_material') else 0
+        initial_dir = options['initial_direction'] if hasattr(options, 'initial_direction') else 1
+
         if not options['parallel']:
             for j1 in range(n_reps):
 
@@ -486,7 +487,7 @@ class rt_structure:
                     for i1 in range(len(wavelengths)):
                         I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1], nks[:, i1],
                                                                                           alphas[:, i1], r_a_0,
-                                                                                          surfaces, widths, z_pos, I_thresh, pol, randomize)
+                                                                                          surfaces, widths, z_pos, I_thresh, pol, randomize, initial_mat, initial_dir)
                         absorption_profiles[i1] = absorption_profiles[i1] + profile/(n_reps*nx*ny)
                         thetas[c+offset, i1] = th_o
                         Is[c + offset, i1] = np.real(I)
@@ -519,7 +520,8 @@ class rt_structure:
         else:
 
             allres = Parallel(n_jobs=options['n_jobs'])(delayed(parallel_inner)(nks[:, i1], alphas[:, i1], r_a_0, theta, phi,
-                                                                  surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys, randomize) for
+                                                                  surfaces, widths, z_pos, I_thresh, pol, nx, ny,
+                                                                                n_reps, xs, ys, randomize, initial_mat, initial_dir) for
                                         i1 in range(len(wavelengths)))
 
 
@@ -684,6 +686,18 @@ class RTSurface:
         self.area = np.sum((0.5*np.linalg.norm(xyz[0] - xyz[1], axis =1)*np.linalg.norm(xyz[2] - xyz[1], axis=1)*np.sin(theta)))/(self.Lx*self.Ly)
 
 
+    def shift(self, z_shift):
+        self.Points[:,2] = self.Points[:,2] - z_shift
+        self.P_0s = self.Points[self.simplices[:, 0]]
+        self.P_1s = self.Points[self.simplices[:, 1]]
+        self.P_2s = self.Points[self.simplices[:, 2]]
+        self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
+        self.z_min = min(self.Points[:, 2])
+        self.z_max = max(self.Points[:, 2])
+
+        self.zcov= self.Points[:,2][np.all(np.array([self.Points[:,0] == min(self.Points[:,0]), self.Points[:,1] == min(self.Points[:,1])]), axis = 0)]
+
+
 
 def calc_R(n1, n2, theta, pol):
     theta_t = np.arcsin((n1/n2)*np.sin(theta))
@@ -717,7 +731,7 @@ def calc_angle(x):
     return np.math.atan2(np.linalg.det([x, v1]), np.dot(x, v1))  # - 180 to 180
 
 def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
-                     z_pos, I_thresh, pol = 'u', randomize = False):
+                     z_pos, I_thresh, pol = 'u', randomize = False, mat_i = 0, direction_i = 1):
     # final_res = 0: reflection
     # final_res = 1: transmission
     # This should get a list of surfaces and materials (optical constants, alpha + widths); there is one less surface than material
@@ -739,10 +753,16 @@ def single_ray_stack(x, y,  nks, alphas, r_a_0, surfaces, widths,
     # do everything in microns
     A_per_layer = np.zeros(len(widths))
 
-    direction = 1   # start travelling downwards; 1 = down, -1 = up
+    direction = direction_i   # start travelling downwards; 1 = down, -1 = up
     # CHANGE: START IN GAAS!
-    mat_index = 1   # start in first medium
-    surf_index = 1
+    mat_index = mat_i   # start in first medium
+
+    if direction_i == 1:
+        surf_index = mat_i
+
+    if direction_i == -1:
+        surf_index = mat_i - 1
+
     stop = False
     I = 1
 
