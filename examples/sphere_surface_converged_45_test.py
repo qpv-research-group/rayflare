@@ -9,7 +9,7 @@ from time import time
 import os
 import seaborn as sns
 
-d_bulk = 1e-16
+d_bulk = 0
 # going to get converted to um (multiplied by 1e6)
 
 def points_on_sphere(N, radius, h):
@@ -46,7 +46,7 @@ Z = Z[Z >= 0]
 
 Triples = np.array(list(zip(X, Y, Z)))
 
-Triples_back = np.array(list(zip(X, Y, -Z )))
+Triples_back = np.array(list(zip(X, Y, -Z - d_bulk)))
 
 hull = ConvexHull(Triples)
 hull_back = ConvexHull(Triples_back)
@@ -107,7 +107,7 @@ hyperhemi = [back, front]
 GaAs = material('GaAs')()
 Air = material('Air')()
 
-flat_surf = planar_surface(size=0.8) # pyramid size in microns
+flat_surf = planar_surface(size=10) # size in microns
 
 reg_pyr = regular_pyramids()
 
@@ -130,6 +130,12 @@ for index in np.arange(len(X_norm)):
         back.P_1s[index, :] = P2_current
         back.P_2s[index, :] = P1_current
 
+        s1_current = back.simplices[index, 1]
+        s2_current = back.simplices[index, 2]
+        back.simplices[index, 1] = s2_current
+        back.simplices[index, 2] = s1_current
+
+
 back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 
 for index in np.arange(len(X_norm)):
@@ -141,6 +147,12 @@ for index in np.arange(len(X_norm)):
         P2_current = deepcopy(back.P_2s[index, :])
         back.P_1s[index, :] = P2_current
         back.P_2s[index, :] = P1_current
+
+        s1_current = back.simplices[index, 1]
+        s2_current = back.simplices[index, 2]
+        back.simplices[index, 1] = s2_current
+        back.simplices[index, 2] = s1_current
+
 
 back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 
@@ -158,6 +170,12 @@ for index in above_middle:
         back.P_1s[index, :] = P2_current
         back.P_2s[index, :] = P1_current
 
+        s1_current = back.simplices[index, 1]
+        s2_current = back.simplices[index, 2]
+        back.simplices[index, 1] = s2_current
+        back.simplices[index, 2] = s1_current
+
+
 for index in below_middle:
     current_N = back.crossP[index, :]
 
@@ -167,6 +185,12 @@ for index in below_middle:
         P2_current = deepcopy(back.P_2s[index, :])
         back.P_1s[index, :] = P2_current
         back.P_2s[index, :] = P1_current
+
+        s1_current = back.simplices[index, 1]
+        s2_current = back.simplices[index, 2]
+        back.simplices[index, 1] = s2_current
+        back.simplices[index, 2] = s1_current
+
 
 back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 
@@ -184,9 +208,9 @@ ax.view_init(elev=30., azim=60)
 ax.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
                 triangles=back.simplices,  shade=False, cmap=plt.get_cmap('Blues'), array=colors,
         edgecolors='none')
-# ax.plot_trisurf(flat_surf[0].Points[:,0], flat_surf[0].Points[:,1], flat_surf[0].Points[:,2],
-#                 triangles=flat_surf[0].simplices)
-#
+ax.plot_trisurf(flat_surf[0].Points[:,0], flat_surf[0].Points[:,1], flat_surf[0].Points[:,2],
+                triangles=flat_surf[0].simplices)
+
 
 ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:,0], back.crossP[:,1], back.crossP[:,2], length=0.1, normalize=True)
 ax.set_xlabel('x')
@@ -200,14 +224,19 @@ rtstr = rt_structure(textures=[flat_surf, hyperhemi],
 
 options = default_options()
 
-options.x_limits = [0, 0.05]
-
-options.y_limits = [0, 0.05]
+options.x_limits = [-0.05, 0.05]
+options.y_limits = [-0.05, 0.05]
 
 options.initial_material = 1
 options.initial_direction = 1
 
-nxs = [70]
+options.xlim = 0.05
+options.ylim = 0.05
+
+
+options.periodic = 0
+
+nxs = [20]
 
 thetas = np.linspace(0, np.pi / 2 - 0.05, 10)
 
@@ -300,4 +329,3 @@ plt.show()
 # np.savetxt('results/ref_T_45.txt',  T_45)
 # np.savetxt('results/ref_n_interactions.txt', n_interactions)
 
-flat_surf = planar_surface(size=0.8)
