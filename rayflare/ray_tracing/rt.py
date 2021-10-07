@@ -810,6 +810,8 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     # print('New stack interaction r_a, d', r_a, d)
     # print(r_a, r_a_0)
 
+    special = False
+
     while not stop:
 
         surf = surfaces[surf_index]
@@ -859,24 +861,19 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
         r_circle = 0.7625195079471739
         # if (r_a[0]**2 + r_a[1]**2 > r_circle**2) and surf_index == 0 and direction == -1 and side == -1:
         if surf_index == 0 and direction == -1 and side == -1:
-            stop = True
-            # print('Ray will escape backwards')
-            print(r_a, d)
-            print('A SPECIAL REFLECTION 1')
+            # stop = True
+            # # print('Ray will escape backwards')
+            # print(r_a, d)
+            # print('A SPECIAL REFLECTION 1')
+            special = True
 
         if surf_index == 1 and direction == 1 and side == -1 and np.abs(r_a[2] < 0.05) and (
                 r_a[0] ** 2 + r_a[1] ** 2 > 0.99 * r_circle ** 2):
-            stop = True
-            print(r_a, d)
-            print('B SPECIAL REFLECTION 2')
+            # stop = True
+            # print(r_a, d)
+            # print('B SPECIAL REFLECTION 2')
+            special = True
 
-        if theta == 100:
-            print('FUDGE - ray stack')
-            stop = True
-            direction = -1
-            mat_index = 0
-            theta = 0
-            phi = 0
 
         # DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
         #                               depths[mat_index], I_thresh, direction)
@@ -897,6 +894,10 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
 
             stop = True  # have ended with reflection
             # print('OVERALL REFLECTION')
+
+        if special:
+            if theta > np.pi/2:
+                print(direction, r_a, d, theta, phi)
 
     return I, profile, A_per_layer, theta, phi, n_passes, n_interactions
 
@@ -1146,6 +1147,8 @@ def single_cell_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_interacti
                       lookuptable=None):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
+    theta = 0 # needs to be assigned so no issue with return in case of miss
+
     d0 = d
     intersect = True
     n_ints_loop = 0
@@ -1176,15 +1179,15 @@ def single_cell_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_interacti
                 intersect = False
                 final_res = 0
 
-            if n_ints_loop == 0:
+            # if n_ints_loop == 0:
+            #
+            #     print('FUDGE', r_a, d, ni, nj, len(tri.crossP))
+            #
+            #     return final_res, 100, 0, np.array([0, 0, 0.1]), np.array([0, 0, -1]), 0, n_interactions, side
 
-                print('FUDGE', r_a, d, ni, nj, len(tri.crossP))
+            # else:
 
-                return final_res, 100, 0, np.array([0, 0, 0.1]), np.array([0, 0, -1]), 0, n_interactions, side
-
-            else:
-
-                return final_res, o_t, o_p, r_a, d, theta, n_interactions, side  # theta is LOCAL incidence angle (relative to texture)
+            return final_res, o_t, o_p, r_a, d, theta, n_interactions, side  # theta is LOCAL incidence angle (relative to texture)
 
         else:
 
