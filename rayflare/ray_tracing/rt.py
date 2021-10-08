@@ -219,7 +219,7 @@ def RT_wl(i1, wl, n_angles, nx, ny, widths, thetas_in, phis_in, h, xs, ys, nks, 
 
         theta = thetas_in[i2]
         phi = phis_in[i2]
-        r = abs((h + 1) / cos(theta))
+        r = abs((h + 1e-6) / cos(theta))
         r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
         for c, vals in enumerate(product(xs, ys)):
             _, th_o, phi_o, surface_A = \
@@ -755,14 +755,14 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     A_per_layer = np.zeros(len(widths))
 
     direction = direction_i  # start travelling downwards; 1 = down, -1 = up
-    # CHANGE: START IN GAAS!
+
     mat_index = mat_i  # start in first medium
 
     surf_below = mat_i
     surf_above = mat_i - 1
 
-    max_below = np.max(surfaces[surf_below].Points[:, 2])
-    min_above = np.min(surfaces[surf_above].Points[:, 2])
+    # max_below = np.max(surfaces[surf_below].Points[:, 2])
+    # min_above = np.min(surfaces[surf_above].Points[:, 2])
 
     # print(max_below, min_above)
     cum_width = np.cumsum([0] + widths)
@@ -789,6 +789,13 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a)  # direction (unit vector) of ray. Always downwards!
 
     # want to translate along d so r_a is in between the correct surfaces
+    # first translate to z = 0:
+
+    nd = -r_a[2]/d[2]
+
+    # print(r_a[2], d[2], nd)
+
+    r_a = r_a + nd*d
 
     r_a[2] = z_offset
 
@@ -804,7 +811,7 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
 
     # plt.plot([r_a[0], r_b[0]], [r_a[1], r_b[1]], [r_a[2], r_b[2]])
 
-    # print('START', r_a, d)
+    # print('START', x, y, r_a_0, r_a, d)
     n_passes = 0
 
     depths = []
@@ -965,25 +972,30 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
 def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl=None, lookuptable=None):
     ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
 
+    # print(n0, n1)
+
     if abs(theta) > np.arcsin(ratio):
         R = 1
     else:
         R = calc_R(n0, n1, abs(theta), pol)
 
+    # print(theta, R, rnd)
+
     # print('R', R, n0, n1)
+    # print('d before', d)
 
     if rnd <= R:  # REFLECTION
-        # print('R', n0, n1)
+        # print('R')
         d = np.real(d - 2 * np.dot(d, N) * N)
 
     else:  # TRANSMISSION)
         # transmission, refraction
         # for now, ignore effect of k on refraction
-        # print('T', n0, n1, theta*180/np.pi)
         tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
         side = -side
         d = np.real(tr_par + tr_perp)
+        # print('T', d)
 
     d = d / np.linalg.norm(d)
 
@@ -1141,7 +1153,7 @@ def single_cell_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_interacti
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
     theta = 0 # needs to be assigned so no issue with return in case of miss
-
+    # print('side', side)
     d0 = d
     intersect = True
     n_ints_loop = 0

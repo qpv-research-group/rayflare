@@ -52,8 +52,8 @@ hyperhemi = [back, front]
 # ax.plot_trisurf(front.Points[:,0], front.Points[:,1], front.Points[:,2],
 #                 triangles=front.simplices,  shade=False, cmap=plt.get_cmap('Blues'),# array=colors,
 #         edgecolors='none')
-# ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
-#                 triangles=flat_surf_2[0].simplices)
+# # ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
+# #                 triangles=flat_surf_2[0].simplices)
 #
 # #
 # ax.quiver(X_norm, Y_norm, Z_norm, front.crossP[:,0], front.crossP[:,1], front.crossP[:,2], length=0.1, normalize=True,
@@ -75,8 +75,8 @@ ax.view_init(elev=30., azim=60)
 ax.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
                 triangles=back.simplices,  shade=False, cmap=plt.get_cmap('Blues'),# array=colors,
         edgecolors='none')
-ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
-                triangles=flat_surf_2[0].simplices)
+# ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
+#                 triangles=flat_surf_2[0].simplices)
 
 
 ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:,0], back.crossP[:,1], back.crossP[:,2], length=0.1, normalize=True,
@@ -104,6 +104,9 @@ options.pol = 'u'
 nxs = [20]
 
 thetas = np.linspace(0, np.pi / 2 - 0.05, 10)
+
+#
+# thetas = thetas[6:]
 
 pal = sns.color_palette("rocket", 4)
 

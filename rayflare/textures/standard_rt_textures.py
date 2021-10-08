@@ -132,10 +132,12 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0):
         surface.simplices[index, 1] = s2_current
         surface.simplices[index, 2] = s1_current
 
-    def switch_xy(surface, X_or_Y, x_y_ind):
+    def switch_xy(surface, X_or_Y, x_y_ind, direction):
+        # direction = 1, point OUT of sphere
+        # direction = -1, point IN to sphere
         for index in np.arange(len(X_norm_back)):
             current_N = surface.crossP[index, :]
-            sign = -np.sign(X_or_Y[index])
+            sign = direction*np.sign(X_or_Y[index])
             # N[2] should be < 0
             if np.sign(current_N[x_y_ind]) != sign:
                 switch_points(surface, index)
@@ -258,14 +260,14 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0):
     # To keep things consistent, also need to switch the indices for the simplices if you are switching points around
 
 
-    switch_xy(back, X_norm_back, 0)
-    switch_xy(front, X_norm, 0)
+    switch_xy(back, X_norm_back, 0, -1)
+    switch_xy(front, X_norm, 0, 1)
 
     back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
     front.crossP = np.cross(front.P_1s - front.P_0s, front.P_2s - front.P_0s)
 
-    switch_xy(back, Y_norm_back, 1)
-    switch_xy(front, Y_norm, 1)
+    switch_xy(back, Y_norm_back, 1, -1)
+    switch_xy(front, Y_norm, 1, 1)
 
     back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
     front.crossP = np.cross(front.P_1s - front.P_0s, front.P_2s - front.P_0s)
@@ -277,14 +279,14 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0):
         current_N = front.crossP[index, :]
 
         # N[2] should be < 0
-        if current_N[2] > 0:
+        if current_N[2] < 0:
             switch_points(front, index)
 
     for index in below_middle:
         current_N = front.crossP[index, :]
 
         # N[2] should be > 0
-        if current_N[2] < 0:
+        if current_N[2] > 0:
             switch_points(front, index)
 
     front.crossP = np.cross(front.P_1s - front.P_0s, front.P_2s - front.P_0s)

@@ -60,8 +60,10 @@ rtstr = rt_structure(textures=[hyperhemi, flat_surf_2],
 
 options = default_options()
 
-options.x_limits = [0, 0.05]
-options.y_limits = [0, 0.05]
+# hang at r_a = [-7.89473684e-03  3.94736842e-02  1.00000000e-06]
+
+options.x_limits = [-0.05, 0.05]
+options.y_limits = [-0.05, 0.05]
 
 options.initial_material = 1
 options.initial_direction = -1
@@ -75,6 +77,8 @@ options.pol = 'u'
 nxs = [20]
 
 thetas = np.linspace(0, np.pi / 2 - 0.05, 10)
+#
+# thetas = thetas[6:]
 
 pal = sns.color_palette("rocket", 4)
 
@@ -101,7 +105,7 @@ for i1, nx in enumerate(nxs):
 
         options.theta_in = th
         result = rtstr.calculate(options)
-        T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
+        T_values[j1] = np.sum(result['thetas'] < minimum_angle)/options.n_rays
         T_total[j1] = result['R']
         n_interactions[j1] = np.mean(result['n_interactions'])
         theta_distribution[j1] = result['thetas']
@@ -110,8 +114,8 @@ for i1, nx in enumerate(nxs):
 
     min_angle_old = np.pi - 17.5*np.pi/180
 
-    T_175 = np.array([np.sum(x > min_angle_old) / options.n_rays for x in theta_distribution])
-    T_45 = np.array([np.sum(x > minimum_angle) / options.n_rays for x in theta_distribution])
+    T_175 = np.array([np.sum(x < min_angle_old) / options.n_rays for x in theta_distribution])
+    T_45 = np.array([np.sum(x < minimum_angle) / options.n_rays for x in theta_distribution])
 
 # T_v_ref = np.loadtxt('results/ref_T_values.txt')
 T_tot_ref = np.loadtxt('results/ref_T_total.txt')
@@ -156,4 +160,6 @@ plt.show()
 # np.savetxt('results/ref_T_175.txt',  T_175)
 # np.savetxt('results/ref_T_45.txt',  T_45)
 # np.savetxt('results/ref_n_interactions.txt', n_interactions)
+
+
 
