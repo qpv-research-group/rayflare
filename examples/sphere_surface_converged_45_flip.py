@@ -28,7 +28,6 @@ Air = material('Air')()
 
 flat_surf_2 = xyz_texture(np.hstack([0,X_new]), np.hstack([0,Y_new]), np.hstack([0,Z_new]))
 
-
 [front, back] = hyperhemisphere(2**exp_points, r, h)
 
 hyperhemi = [front, back]
@@ -45,31 +44,10 @@ ax.view_init(elev=30., azim=60)
 ax.plot_trisurf(front.Points[:,0], front.Points[:,1], front.Points[:,2],
                 triangles=front.simplices,  shade=False, cmap=plt.get_cmap('Blues'),# array=colors,
         edgecolors='none')
-# ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
-#                 triangles=flat_surf_2[0].simplices)
+ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
+                triangles=flat_surf_2[0].simplices)
 
 ax.quiver(X_norm, Y_norm, Z_norm, front.crossP[:,0], front.crossP[:,1], front.crossP[:,2], length=0.1, normalize=True,
-          color='k')
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
-plt.show()
-
-X_norm = np.mean([back.P_0s[:, 0], back.P_1s[:, 0], back.P_2s[:, 0]], 0)
-Y_norm = np.mean([back.P_0s[:, 1], back.P_1s[:, 1], back.P_2s[:, 1]], 0)
-Z_norm = np.mean([back.P_0s[:, 2], back.P_1s[:, 2], back.P_2s[:, 2]], 0)
-
-fig = plt.figure()
-
-ax = plt.subplot(111, projection='3d')
-ax.view_init(elev=30., azim=60)
-ax.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
-                triangles=back.simplices,  shade=False, cmap=plt.get_cmap('Blues'),# array=colors,
-        edgecolors='none')
-# ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
-#                 triangles=flat_surf_2[0].simplices)
-
-ax.quiver(X_norm, Y_norm, Z_norm, back.crossP[:,0], back.crossP[:,1], back.crossP[:,2], length=0.1, normalize=True,
           color='k')
 ax.set_xlabel('x')
 ax.set_ylabel('y')
@@ -82,8 +60,8 @@ rtstr = rt_structure(textures=[hyperhemi, flat_surf_2],
 
 options = default_options()
 
-options.x_limits = [-0.05, 0.05]
-options.y_limits = [-0.05, 0.05]
+options.x_limits = [0, 0.05]
+options.y_limits = [0, 0.05]
 
 options.initial_material = 1
 options.initial_direction = -1

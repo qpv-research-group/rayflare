@@ -45,8 +45,8 @@ ax.view_init(elev=30., azim=60)
 ax.plot_trisurf(front.Points[:,0], front.Points[:,1], front.Points[:,2],
                 triangles=front.simplices,  shade=False, cmap=plt.get_cmap('Blues'),# array=colors,
         edgecolors='none')
-# ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
-#                 triangles=flat_surf_2[0].simplices)
+ax.plot_trisurf(flat_surf_2[0].Points[:,0], flat_surf_2[0].Points[:,1], flat_surf_2[0].Points[:,2],
+                triangles=flat_surf_2[0].simplices)
 
 ax.quiver(X_norm, Y_norm, Z_norm, front.crossP[:,0], front.crossP[:,1], front.crossP[:,2], length=0.1, normalize=True,
           color='k')

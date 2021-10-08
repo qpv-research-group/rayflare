@@ -795,7 +795,7 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     if direction_i != 1:
         d[2] = -d[2]
 
-    print(surf_index, mat_index, r_a, r_a_0, d, x, y, 'new ray')
+    # print(surf_index, mat_index, r_a, r_a_0, d, x, y, 'new ray')
 
     # n_d = 1.001*r_a[2]/np.abs(d[2])
     #
@@ -912,7 +912,7 @@ def single_ray_interface(x, y, nks, r_a_0, theta, phi, surfaces, pol, wl, Fr_or_
         r_a[0] = r_a[0] - surf.Lx * ((r_a[0] + d[0] * (surf.zcov - r_a[2]) / d[2]) // surf.Lx)
         r_a[1] = r_a[1] - surf.Ly * ((r_a[1] + d[1] * (surf.zcov - r_a[2]) / d[2]) // surf.Ly)
 
-        res, theta, phi, r_a, d, theta_loc, _ = single_interface_check(r_a, d, nks[mat_index],
+        res, theta, phi, r_a, d, theta_loc, _, _ = single_interface_check(r_a, d, nks[mat_index],
                                                                        nks[mat_index + 1], surf, surf.Lx, surf.Ly,
                                                                        direction,
                                                                        surf.zcov, pol, 0, wl, Fr_or_TMM, lookuptable)
