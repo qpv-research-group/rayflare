@@ -153,8 +153,8 @@ def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM
             nks[i1] = mat.n(wavelengths) + 1j * mat.k(wavelengths)
 
         h = max(surfaces[0].Points[:, 2])
-        x_limits = options['x_limits'] if hasattr(options, 'x_limits') else [-surfaces[0].Lx, surfaces[0].Lx]
-        y_limits = options['y_limits'] if hasattr(options, 'y_limits') else [-surfaces[0].Ly, surfaces[0].Ly]
+        x_limits = options['x_limits'] if 'x_limits' in options else [-0.99*surfaces[0].Lx, 0.99*surfaces[0].Lx]
+        y_limits = options['y_limits'] if 'y_limits' in options else [-0.99*surfaces[0].Ly, 0.99*surfaces[0].Ly]
 
         if options['random_ray_position']:
             xs = np.random.uniform(x_limits[0], x_limits[1], nx)
@@ -365,12 +365,10 @@ class rt_structure:
 
         self.mats = mats
 
-        surfs_no_offset = [x[0] for x in textures]
+        surfs_no_offset = [deepcopy(x[0]) for x in textures]
         # self.surfaces = surfs_no_offset
 
         cum_width = np.cumsum([0] + widths) * 1e6  # convert to um
-
-        print(cum_width)
 
         surfaces = []
 
@@ -379,6 +377,7 @@ class rt_structure:
             surfaces.append(text)
 
         self.surfaces = surfaces
+        print(self.surfaces)
         self.surfs_no_offset = surfs_no_offset
         # print('a', self.surfaces[1].Points[:,2])
         self.cum_width = cum_width
@@ -409,7 +408,7 @@ class rt_structure:
         theta = options['theta_in']
         phi = options['phi_in']
         I_thresh = options['I_thresh']
-        periodic = options['periodic'] if hasattr(options, 'periodic') else 1
+        periodic = options['periodic'] if 'periodic' in options else 1
 
         widths = self.widths[:]
         widths.insert(0, 0)
@@ -435,11 +434,11 @@ class rt_structure:
             alphas[i1] = mat.k(wavelengths) * 4 * np.pi / (wavelengths * 1e6)
 
         h = max(surfaces[0].Points[:, 2])
-        r = abs((h + 1) / cos(theta))
+        r = abs((h + 1e-6) / cos(theta))
         r_a_0 = np.real(np.array([r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]))
 
-        x_limits = options['x_limits'] if hasattr(options, 'x_limits') else [-surfaces[0].Lx, surfaces[0].Lx]
-        y_limits = options['y_limits'] if hasattr(options, 'y_limits') else [-surfaces[0].Ly, surfaces[0].Ly]
+        x_limits = options['x_limits'] if 'x_limits' in options else [-0.99*surfaces[0].Lx, 0.99*surfaces[0].Lx]
+        y_limits = options['y_limits'] if 'y_limits' in options else [-0.99*surfaces[0].Ly, 0.99*surfaces[0].Ly]
 
         nx = options['nx']
         ny = options['ny']
@@ -467,8 +466,8 @@ class rt_structure:
         pol = options['pol']
         randomize = options['randomize_surface']
 
-        initial_mat = options['initial_material'] if hasattr(options, 'initial_material') else 0
-        initial_dir = options['initial_direction'] if hasattr(options, 'initial_direction') else 1
+        initial_mat = options['initial_material'] if 'initial_material' in options else 0
+        initial_dir = options['initial_direction'] if 'initial_direction' in options else 1
 
         if not options['parallel']:
             for j1 in range(n_reps):
@@ -555,7 +554,7 @@ class rt_structure:
 
 
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys,
-                   randomize):
+                   randomize, initial_mat, initial_dir, periodic):
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -573,7 +572,8 @@ def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_th
             I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1], nks, alphas,
                                                                                         r_a_0,
                                                                                         surfaces, widths, z_pos,
-                                                                                        I_thresh, pol, randomize)
+                                                                                        I_thresh, pol, randomize,
+                                                                                        initial_mat, initial_dir, periodic)
 
             profiles = profiles + profile / (n_reps * nx * ny)
             thetas[c + offset] = th_o
@@ -765,14 +765,20 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     min_above = np.min(surfaces[surf_above].Points[:, 2])
 
     # print(max_below, min_above)
+    cum_width = np.cumsum([0] + widths)
 
-    if direction_i == 1:
+    if direction_i == 1 and mat_i > 0:
         surf_index = mat_i
-        start_z = min_above - 1e-9
+        z_offset = -cum_width[surf_above] - 1e-6
+        # print('z_offset', z_offset, r_a_0)
 
-    if direction_i == -1:
+    elif direction == 1 and mat_i == 0:
+        surf_index = 0
+        z_offset = r_a_0[2]
+
+    else:
         surf_index = mat_i - 1
-        start_z = max_below + 1e-9
+        z_offset = -cum_width[surf_below] + 1e-6
 
     stop = False
     I = 1
@@ -780,13 +786,16 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array([x, y, 0])
 
-    d = (r_b - r_a) / np.linalg.norm(r_b - r_a)  # direction (unit vector) of ray
+    d = (r_b - r_a) / np.linalg.norm(r_b - r_a)  # direction (unit vector) of ray. Always downwards!
 
     # want to translate along d so r_a is in between the correct surfaces
 
-    if not (direction_i == 1 and mat_i == 0):
-        n_d = (start_z - r_a_0[2]) / d[2]
-        r_a = r_a + n_d * d
+    r_a[2] = z_offset
+
+    if direction_i != 1:
+        d[2] = -d[2]
+
+    print(surf_index, mat_index, r_a, r_a_0, d, x, y, 'new ray')
 
     # n_d = 1.001*r_a[2]/np.abs(d[2])
     #
@@ -816,16 +825,18 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
 
         surf = surfaces[surf_index]
 
-        # if randomize and (n_passes > 0):
-        #     h = surf.z_max - surf.z_min + 0.1
-        #     r_b = [np.random.rand()*surf.Lx, np.random.rand()*surf.Ly, surf.zcov]
-        #     n_z = np.ceil(abs(h/d[2]))
-        #     r_a = r_b - n_z*d
-        #
-        # else:
-        #
-        #     r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
-        #     r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
+        if periodic:
+
+            if randomize and (n_passes > 0):
+                h = surf.z_max - surf.z_min + 0.1
+                r_b = [np.random.rand()*surf.Lx, np.random.rand()*surf.Ly, surf.zcov]
+                n_z = np.ceil(abs(h/d[2]))
+                r_a = r_b - n_z*d
+
+            else:
+
+                r_a[0] = r_a[0]-surf.Lx*((r_a[0]+d[0]*(surf.zcov-r_a[2])/d[2])//surf.Lx)
+                r_a[1] = r_a[1]-surf.Ly*((r_a[1]+d[1]*(surf.zcov-r_a[2])/d[2])//surf.Ly)
 
         if direction == 1:
             ni = nks[mat_index]
@@ -857,29 +868,13 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
             mat_index = mat_index + direction  # is this right?
             # print('Transmit, theta, surf, dirn, r_a, d, side', theta, surf_index, direction, r_a, d, side)
 
-        # build in check for if things go wrong; ray escapes lens travelling towards the plane, but will miss the plane
-        r_circle = 0.7625195079471739
-        # if (r_a[0]**2 + r_a[1]**2 > r_circle**2) and surf_index == 0 and direction == -1 and side == -1:
-        if surf_index == 0 and direction == -1 and side == -1:
-            # stop = True
-            # # print('Ray will escape backwards')
-            # print(r_a, d)
-            # print('A SPECIAL REFLECTION 1')
-            special = True
 
-        if surf_index == 1 and direction == 1 and side == -1 and np.abs(r_a[2] < 0.05) and (
-                r_a[0] ** 2 + r_a[1] ** 2 > 0.99 * r_circle ** 2):
-            # stop = True
-            # print(r_a, d)
-            # print('B SPECIAL REFLECTION 2')
-            special = True
+        I_b = I
+        DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
+                                      depths[mat_index], I_thresh, direction)
 
-
-        # DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
-        #                               depths[mat_index], I_thresh, direction)
-        #
-        # A_per_layer[mat_index] = np.real(A_per_layer[mat_index] + I_b - I)
-        # profile[depth_indices[mat_index]] = np.real(profile[depth_indices[mat_index]] + DA)
+        A_per_layer[mat_index] = np.real(A_per_layer[mat_index] + I_b - I)
+        profile[depth_indices[mat_index]] = np.real(profile[depth_indices[mat_index]] + DA)
 
         n_passes = n_passes + 1
 
@@ -894,10 +889,6 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
 
             stop = True  # have ended with reflection
             # print('OVERALL REFLECTION')
-
-        if special:
-            if theta > np.pi/2:
-                print(direction, r_a, d, theta, phi)
 
     return I, profile, A_per_layer, theta, phi, n_passes, n_interactions
 
@@ -1033,6 +1024,8 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
                            lookuptable=None):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
+    # print('interface')
+
     # weird stuff happens around edges; can get transmission counted as reflection
     d0 = d
     intersect = True
@@ -1069,7 +1062,7 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
                     d[2] = -d[2]
                     o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
                     o_p = np.real(atan2(d[1], d[0]))
-                    return 0, o_t, o_p, r_a, d, 0, n_interactions
+                    return 0, o_t, o_p, r_a, d, 0, n_interactions, side
 
         elif result == False and checked_translation:
 

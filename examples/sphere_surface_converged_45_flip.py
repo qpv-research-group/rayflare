@@ -31,7 +31,7 @@ flat_surf_2 = xyz_texture(np.hstack([0,X_new]), np.hstack([0,Y_new]), np.hstack(
 
 [front, back] = hyperhemisphere(2**exp_points, r, h)
 
-hyperhemi = [back, front]
+hyperhemi = [front, back]
 
 X_norm = np.mean([front.P_0s[:, 0], front.P_1s[:, 0], front.P_2s[:, 0]], 0)
 Y_norm = np.mean([front.P_0s[:, 1], front.P_1s[:, 1], front.P_2s[:, 1]], 0)
@@ -76,7 +76,7 @@ ax.set_ylabel('y')
 ax.set_zlabel('z')
 plt.show()
 
-rtstr = rt_structure(textures=[flat_surf_2, hyperhemi],
+rtstr = rt_structure(textures=[hyperhemi, flat_surf_2],
                     materials = [GaAs],
                     widths=[d_bulk], incidence=Air, transmission=Air)
 
@@ -86,7 +86,7 @@ options.x_limits = [-0.05, 0.05]
 options.y_limits = [-0.05, 0.05]
 
 options.initial_material = 1
-options.initial_direction = 1
+options.initial_direction = -1
 
 options.periodic = 0
 
@@ -124,7 +124,7 @@ for i1, nx in enumerate(nxs):
         options.theta_in = th
         result = rtstr.calculate(options)
         T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
-        T_total[j1] = result['T']
+        T_total[j1] = result['R']
         n_interactions[j1] = np.mean(result['n_interactions'])
         theta_distribution[j1] = result['thetas']
 
