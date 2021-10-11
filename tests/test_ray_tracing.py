@@ -103,4 +103,48 @@ def test_flip():
     assert result_up['A_per_layer'][:,0] == approx(result_down['A_per_layer'][:,2], rel_error)
     assert result_up['A_per_layer'][:,1] == approx(result_down['A_per_layer'][:,1], rel_error)
     assert result_up['A_per_layer'][:,2] == approx(result_down['A_per_layer'][:,0], rel_error)
+    
+
+def test_periodic():
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import regular_pyramids
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+
+    Air = material('Air')()
+    Si = material('Si')()
+
+    triangle_surf = regular_pyramids(30)
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1700, 8) * 1e-9
+    options.nx = 5
+    options.ny = 5
+    options.pol = 's'
+    options.n_rays = 200
+    options.parallel = True
+    options.periodic = True
+
+    rtstr_1 = rt_structure(textures=[triangle_surf],
+                           materials=[],
+                           widths=[], incidence=Air, transmission=Si)
+    result_periodic = rtstr_1.calculate(options)
+
+    options.periodic = False
+
+    rtstr_2 = rt_structure(textures=[triangle_surf],
+                           materials=[],
+                           widths=[], incidence=Air, transmission=Si)
+
+    result_single = rtstr_2.calculate(options)
+
+    assert result_periodic['R'] + result_periodic['T'] + np.sum(result_periodic['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
+    assert result_single['R'] + result_single['T'] + np.sum(result_single['A_per_layer'], 1) == approx(1,
+                                                                                                 rel=options.I_thresh)
+
+    assert np.all(result_periodic['R'] >= result_single['R'])
+
+    
 
