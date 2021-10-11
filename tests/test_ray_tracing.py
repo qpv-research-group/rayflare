@@ -51,3 +51,56 @@ def test_parallel():
     # assert np.nanmean(result_new['phis'], 1) == approx(np.nanmean(result_old['phis'], 1), rel=rel_error)
     assert np.nanmean(result_new['n_interactions'], 1) == approx(np.nanmean(result_old['n_interactions'], 1), rel=rel_error)
     assert np.nanmean(result_new['n_passes'], 1) == approx(np.nanmean(result_old['n_passes'], 1), rel=rel_error)
+    assert result_new['R'] + result_new['T'] + np.sum(result_new['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
+    assert result_old['R'] + result_old['T'] + np.sum(result_old['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
+
+
+
+def test_flip():
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import regular_pyramids
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+
+    Air = material('Air')()
+    Si = material('Si')()
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+
+    triangle_surf = regular_pyramids(70)
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1700, 8)*1e-9
+    options.nx = 5
+    options.ny = 5
+    options.pol = 's'
+    options.n_rays = 200
+    options.parallel = True
+
+    rtstr_1 = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
+                        materials = [GaAs, Si, Ge],
+                        widths=[si('100um'), si('70um'), si('50um')], incidence=Air, transmission=Air)
+    result_up = rtstr_1.calculate(options)
+
+    options.initial_direction = -1
+    options.initial_material = 4
+    triangle_surf = regular_pyramids(70, upright=False)
+
+    rtstr_2 = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
+                        materials = [Ge, Si, GaAs],
+                        widths=[si('50um'), si('70um'), si('100um')], incidence=Air, transmission=Air)
+
+    result_down = rtstr_2.calculate(options)
+
+    rel_error = 0.3
+
+    assert result_up['R'] + result_up['T'] + np.sum(result_up['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
+    assert result_down['R'] + result_down['T'] + np.sum(result_down['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
+
+    assert result_up['T'] == approx(result_down['R'], rel_error)
+    assert result_up['A_per_layer'][:,0] == approx(result_down['A_per_layer'][:,2], rel_error)
+    assert result_up['A_per_layer'][:,1] == approx(result_down['A_per_layer'][:,1], rel_error)
+    assert result_up['A_per_layer'][:,2] == approx(result_down['A_per_layer'][:,0], rel_error)
+

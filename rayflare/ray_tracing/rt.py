@@ -377,9 +377,7 @@ class rt_structure:
             surfaces.append(text)
 
         self.surfaces = surfaces
-        print(self.surfaces)
         self.surfs_no_offset = surfs_no_offset
-        # print('a', self.surfaces[1].Points[:,2])
         self.cum_width = cum_width
 
     def calculate(self, options):
@@ -495,7 +493,7 @@ class rt_structure:
                         n_passes[c + offset, i1] = n_pass
                         n_interactions[c + offset, i1] = n_interact
                         if th_o is not None:
-                            if np.real(th_o) < np.pi / 2:
+                            if np.real(th_o) <= np.pi / 2:
                                 R[i1] = np.real(R[i1] + I / (n_reps * nx * ny))
                             else:
                                 T[i1] = np.real(T[i1] + I / (n_reps * nx * ny))
@@ -507,7 +505,7 @@ class rt_structure:
             Is = Is.T
 
             non_abs = ~np.isnan(thetas)
-            refl_0 = non_abs * np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
+            refl_0 = non_abs * np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
             R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
             R0 = np.sum(R0, 0)
 
@@ -533,7 +531,7 @@ class rt_structure:
 
             non_abs = ~np.isnan(thetas)
 
-            refl = np.logical_and(non_abs, np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
+            refl = np.logical_and(non_abs, np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
             trns = np.logical_and(non_abs, np.greater(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)))
 
             R = np.real(Is * refl).T / (n_reps * nx * ny)
@@ -541,7 +539,7 @@ class rt_structure:
             R = np.sum(R, 0)
             T = np.sum(T, 0)
 
-            refl_0 = non_abs * np.less(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
+            refl_0 = non_abs * np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
             R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
             R0 = np.sum(R0, 0)
 
@@ -695,8 +693,6 @@ class RTSurface:
 
         self.zcov = self.zcov - z_shift
 
-        print('Shifted', z_shift)
-
 
 def calc_R(n1, n2, theta, pol):
     theta_t = np.arcsin((n1 / n2) * np.sin(theta))
@@ -802,16 +798,6 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
     if direction_i != 1:
         d[2] = -d[2]
 
-    # print(surf_index, mat_index, r_a, r_a_0, d, x, y, 'new ray')
-
-    # n_d = 1.001*r_a[2]/np.abs(d[2])
-    #
-    # r_a = r_a + n_d*d
-    # print(r_a)
-
-    # plt.plot([r_a[0], r_b[0]], [r_a[1], r_b[1]], [r_a[2], r_b[2]])
-
-    # print('START', x, y, r_a_0, r_a, d)
     n_passes = 0
 
     depths = []
@@ -822,11 +808,6 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
                       np.cumsum(widths)[i1 - 1])
 
     n_interactions = 0
-
-    # print('New stack interaction r_a, d', r_a, d)
-    # print(r_a, r_a_0)
-
-    special = False
 
     while not stop:
 
@@ -858,7 +839,6 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
                                                                                     direction,
                                                                                     surf.zcov, pol, n_interactions)
 
-        # print(n_interactions)
 
         if res == 0:  # reflection
 
@@ -867,13 +847,11 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
             # staying in the same material, so mat_index does not change, but surf_index does
             surf_index = surf_index + direction
 
-            # print('Reflect, theta, surf, dirn, r_a, d, side', theta, surf_index, direction, r_a, d, side)
 
         if res == 1:  # transmission
 
             surf_index = surf_index + direction
             mat_index = mat_index + direction  # is this right?
-            # print('Transmit, theta, surf, dirn, r_a, d, side', theta, surf_index, direction, r_a, d, side)
 
 
         I_b = I
@@ -885,17 +863,14 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
 
         n_passes = n_passes + 1
 
-        # plt.plot([r_a[0], r_a[0]+d[0]], [r_a[1], r_a[1]+d[1]], [r_a[2], r_a[2]+d[2]])
 
         if direction == 1 and mat_index == (len(widths) - 1):
-
             stop = True  # have ended with transmission
-            # print('OVERALL TRANSMISSION')
+
 
         elif direction == -1 and mat_index == 0:
-
             stop = True  # have ended with reflection
-            # print('OVERALL REFLECTION')
+
 
     return I, profile, A_per_layer, theta, phi, n_passes, n_interactions
 
@@ -972,20 +947,12 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
 def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl=None, lookuptable=None):
     ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
 
-    # print(n0, n1)
-
     if abs(theta) > np.arcsin(ratio):
         R = 1
     else:
         R = calc_R(n0, n1, abs(theta), pol)
 
-    # print(theta, R, rnd)
-
-    # print('R', R, n0, n1)
-    # print('d before', d)
-
     if rnd <= R:  # REFLECTION
-        # print('R')
         d = np.real(d - 2 * np.dot(d, N) * N)
 
     else:  # TRANSMISSION)
@@ -995,7 +962,6 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl=None, lookuptable=
         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
         side = -side
         d = np.real(tr_par + tr_perp)
-        # print('T', d)
 
     d = d / np.linalg.norm(d)
 
@@ -1035,8 +1001,6 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
 def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_interactions=0, wl=None, Fr_or_TMM=0,
                            lookuptable=None):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
-
-    # print('interface')
 
     # weird stuff happens around edges; can get transmission counted as reflection
     d0 = d
@@ -1183,14 +1147,6 @@ def single_cell_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_interacti
             else:
                 intersect = False
                 final_res = 0
-
-            # if n_ints_loop == 0:
-            #
-            #     print('FUDGE', r_a, d, ni, nj, len(tri.crossP))
-            #
-            #     return final_res, 100, 0, np.array([0, 0, 0.1]), np.array([0, 0, -1]), 0, n_interactions, side
-
-            # else:
 
             return final_res, o_t, o_p, r_a, d, theta, n_interactions, side  # theta is LOCAL incidence angle (relative to texture)
 
