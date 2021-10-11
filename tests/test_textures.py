@@ -1,4 +1,5 @@
 import numpy as np
+from pytest import approx
 
 def text_regular_pryramids():
     from rayflare.textures import regular_pyramids
@@ -99,4 +100,81 @@ def test_heights_texture():
     assert isinstance(back, RTSurface)
 
     assert np.all(front.Points[:,2] == -back.Points[:,2])
+
+
+def test_hyperhemisphere():
+    from rayflare.textures import hyperhemisphere
+    from rayflare.textures import xyz_texture
+    from solcore import material
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.options import default_options
+
+    n_points = 2**10
+
+    hh = hyperhemisphere(n_points, 1, 1.01)
+
+    assert len(hh[0].Points == n_points)
+    assert len(hh[1].Points == n_points)
+
+    d_bulk = 0
+
+    r = 1.6
+    h = 0.484
+
+    GaAs = material('GaAs')()
+    Air = material('Air')()
+
+    [front, back] = hyperhemisphere(n_points, r, h)
+
+    hyperhemi = [back, front]
+
+    # now want to make closed, flat top surface: find z == 0 points of hyperhemisphere surface
+
+    edge_points = back.Points[back.Points[:, 2] == 0]
+
+    edge_points = np.vstack([edge_points, [0, 0, 0]])  # add point at centre
+
+    flat_surf = xyz_texture(edge_points[:, 0], edge_points[:, 1], edge_points[:, 2])
+    # this is a flat surface which extends to the edges of the sphere but not beyond.
+
+    rtstr = rt_structure(textures=[flat_surf, hyperhemi],
+                         materials=[GaAs],
+                         widths=[d_bulk], incidence=Air, transmission=Air)
+
+    # structure:
+
+    # Air above lens
+    # ----------- planar interface between air and GaAs
+    # |         |
+    # |        |
+    #  \_____/     hyperhemisphere pointing down
+    # Air below lens.
+
+    options = default_options()
+
+    options.x_limits = [-0.1, 0.1]  # area of the 'diode'
+    options.y_limits = [-0.1, 0.1]
+
+    options.initial_material = 1  # the rays start in the GaAs (material index 1) rather than in the air above the cell (material index 0)
+    options.initial_direction = 1  # default initial direction, which is 1 (downwards)
+
+    options.periodic = 0
+
+    options.wavelengths = np.array([6e-6])
+    options.parallel = False
+
+    options.theta_in = 0.1
+    options.nx = 30
+    options.ny = 30
+    options.pol = 'u'
+    options.n_rays = 30**2
+
+    result = rtstr.calculate(options)
+
+    assert result['R'] + result['T'] == approx(1)
+    assert result['T'] == approx(0.8, rel=0.075)
+
+
+
+
 

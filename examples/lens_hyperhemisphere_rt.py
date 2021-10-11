@@ -21,8 +21,6 @@ exp_points = 13 # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used
 nxs = 30 # 70 points used for paper data
 thetas = np.linspace(0, np.pi / 2 - 0.05, n_thetas) # 100 angles used for paper data
 
-r_cross = np.sqrt(0.8**2 - 0.242**2) # radius of the sphere at points where it gets cut
-
 GaAs = material('GaAs')()
 Air = material('Air')()
 
