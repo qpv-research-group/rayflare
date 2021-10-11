@@ -94,16 +94,16 @@ def test_flip():
 
     result_down = rtstr_2.calculate(options)
 
-    rel_error = 0.3
+    abs_error = 0.1
 
     assert result_up['R'] + result_up['T'] + np.sum(result_up['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
     assert result_down['R'] + result_down['T'] + np.sum(result_down['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
 
-    assert result_up['T'] == approx(result_down['R'], rel_error)
-    assert result_up['A_per_layer'][:,0] == approx(result_down['A_per_layer'][:,2], rel_error)
-    assert result_up['A_per_layer'][:,1] == approx(result_down['A_per_layer'][:,1], rel_error)
-    assert result_up['A_per_layer'][:,2] == approx(result_down['A_per_layer'][:,0], rel_error)
-    
+    assert result_up['T'] == approx(result_down['R'], abs=abs_error)
+    assert result_up['A_per_layer'][:,0] == approx(result_down['A_per_layer'][:,2], abs=abs_error)
+    assert result_up['A_per_layer'][:,1] == approx(result_down['A_per_layer'][:,1], abs=abs_error)
+    assert result_up['A_per_layer'][:,2] == approx(result_down['A_per_layer'][:,0], abs=abs_error)
+
 
 def test_periodic():
     from rayflare.ray_tracing import rt_structure
