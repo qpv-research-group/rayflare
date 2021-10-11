@@ -233,7 +233,6 @@ def test_RAT_angle_pol_ninc():
             assert RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1) == approx(1)
 
 
-
 @mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_shapes():
     from solcore import material
@@ -456,4 +455,45 @@ def test_plotting_funcs():
 
 
 
+@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+def test_matrix_generation():
+    from rayflare.rigorous_coupled_wave_analysis import RCWA
+    from solcore.structure import Layer
+    from solcore import material
 
+    # rayflare imports
+    from rayflare.options import default_options
+
+    # Thickness of bottom Ge layer
+
+    wavelengths = np.linspace(300, 1850, 50) * 1e-9
+
+    # set options
+    options = default_options()
+    options.wavelengths = wavelengths
+    options.project_name = 'method_comparison_test'
+    options.n_rays = 250
+    options.n_theta_bins = 3
+    options.lookuptable_angles = 100
+    options.parallel = False
+    options.c_azimuth = 0.001
+    options.I_thresh = 1e-8
+    options.bulk_profile = False
+
+    # set up Solcore materials
+    Ge = material('Ge')()
+    GaAs = material('GaAs')()
+    GaInP = material('GaInP')(In=0.5)
+    Air = material('Air')()
+    Ta2O5 = material('TaOx1')() # Ta2O5 (SOPRA database)
+    MgF2 = material('MgF2')() # MgF2 (SOPRA database)
+
+    front_materials = [Layer(120e-9, MgF2), Layer(74e-9, Ta2O5), Layer(464e-9, GaInP),
+                       Layer(1682e-9, GaAs)]
+
+    size = ((500,0), (0,500))
+
+    full_mat, A_mat = RCWA(front_materials, size, 2, options, 'test', Air, Ge, False, None, 'front', 'RCWA_test', False, False)
+
+    assert full_mat.shape == (len(wavelengths), 6, options.n_theta_bins)
+    assert A_mat.shape == (len(wavelengths), 4, options.n_theta_bins)

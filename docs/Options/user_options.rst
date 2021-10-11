@@ -61,6 +61,22 @@ Options used only by the ray-tracer
   to make sure the whole matrix is populated. This is assuming you are not choosing *random_ray_angles* = True, in which case
   there is no guarantee the whole matrix will be populated.
 
+The following options are not set by default, but can be supplied by the user for certain unusual situations:
+
+- **x_limits** and **y_limits**: By default, the ray-tracer
+  will scan over the whole surface of the unit cell, but if these options are provided in the form of a list/tuple as [minimum, maximum],
+  the ray-tracer will generate x and y points between those limits instead.
+- **periodic**: By default, the ray-tracer assumes that
+  the unit cell that is provided is periodic, i.e. the surface is made up of an infinite number of these unit cells (square/rectangular tesselation).
+  However, in some cases (e.g. ray-tracing for a single lens) you want to consider the unit cell in isolation. Setting this options to False
+  achieves this. Note that this option currently only works with rt_structure and not to generate redistribution matrices.
+- **initial_material**: The default starting position for the rays is outside the structure, i.e. incident from the incident medium above
+  (usually, but not necessarily, this will be air) on the first material in the stack. However, if you want the rays to start inside a different
+  material the initial_material options can be set. The incident medium has index 0, the first layer in the stack has index 1, etc. Changing
+  this option currently only works for rt_structure and not to generate redistribution matrices.
+- **initial_direction**: The default starting direction for the rays is downwards, from medium 0 to medium 1, corresponding to
+  initial_direction = 1. If you want to start in the other direction, you can set initial_direction = -1.
+
 
 Options used only by the TMM
 ---------------------------------------------
