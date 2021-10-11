@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from rayflare.textures import xyz_texture
-from time import time
 import seaborn as sns
 from solcore import material
 from rayflare.ray_tracing import rt_structure

@@ -80,7 +80,7 @@ def test_planar_structure():
     options.n_rays = 250
     options.n_theta_bins = 3
     options.lookuptable_angles = 100
-    options.parallel = False
+    options.parallel = True
     options.c_azimuth = 0.001
     options.I_thresh = 1e-8
     options.bulk_profile = False
@@ -213,7 +213,7 @@ def test_planar_structure_45deg():
     options.n_rays = 500
     options.n_theta_bins = 20
     options.lookuptable_angles = 100
-    options.parallel = False
+    options.parallel = True
     options.c_azimuth = 0.001
     options.theta_in = 0.6*np.pi/2
     options.nx = 1
@@ -346,7 +346,7 @@ def test_tmm_rcwa_pol_angle():
     options.project_name = 'method_comparison_test_angle_pol'
     options.n_theta_bins = 50
     options.lookuptable_angles = 100
-    options.parallel = False
+    options.parallel = True
     options.c_azimuth = 0.001
     options.I_thresh = 1e-8
     options.only_incidence_angle = False
@@ -558,7 +558,6 @@ def test_absorption_profile_incoh_angles():
     assert rt_profile_u == approx(tmm_profile_u, rel=0.2)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
 def test_absorption_profile_coh_angles():
     from rayflare.ray_tracing import rt_structure
     from rayflare.textures import planar_surface
@@ -896,7 +895,7 @@ def test_rcwa_tmm_matrix_profiles():
     options.n_rays = 4000
     options.n_theta_bins = 20
     options.lookuptable_angles = 100
-    options.parallel = False
+    options.parallel = True
     options.c_azimuth = 0.25
     options.depth_spacing = 1e-9
     options.only_incidence_angle = False

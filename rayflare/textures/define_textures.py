@@ -46,8 +46,3 @@ def heights_texture(z_points, x_width, y_width):
     z = z_points.flatten()
 
     return xyz_texture(x, y, z)
-
-
-def triangulation_texture(points, triangles):
-
-    surf_fi = RTSurface(Points)

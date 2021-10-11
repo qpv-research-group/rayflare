@@ -21,8 +21,6 @@ from warnings import warn
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths
 
-import matplotlib.pyplot as plt
-
 
 def RT(group, incidence, transmission, surf_name, options, structpath, Fr_or_TMM=0,
        front_or_rear='front', n_absorbing_layers=0, calc_profile=None,
@@ -834,7 +832,7 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
             ni = nks[mat_index - 1]
             nj = nks[mat_index]
 
-        res, theta, phi, r_a, d, _, n_interactions, side = single_surface[periodic](r_a, d, ni,
+        res, theta, phi, r_a, d, _, n_interactions, _ = single_surface[periodic](r_a, d, ni,
                                                                                     nj, surf, surf.Lx, surf.Ly,
                                                                                     direction,
                                                                                     surf.zcov, pol, n_interactions)
@@ -1124,8 +1122,6 @@ def single_cell_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_interacti
     # [top, right, bottom, left]
     n_misses = 0
     i1 = 0
-
-    checked_translation = False
 
     while intersect:
         i1 = i1 + 1

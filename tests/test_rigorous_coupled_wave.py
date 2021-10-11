@@ -33,7 +33,7 @@ def test_RAT():
                'pol': 'u',
                'wavelengths': RCWA_wl,
                'theta_in': 0, 'phi_in': 0,
-               'parallel': False, 'n_jobs': -1,
+               'parallel': True, 'n_jobs': -1,
                'phi_symmetry': np.pi / 2,
                'project_name': 'ultrathin',
                'A_per_order': True,
@@ -460,16 +460,11 @@ def test_matrix_generation():
     from rayflare.rigorous_coupled_wave_analysis import RCWA
     from solcore.structure import Layer
     from solcore import material
-    from solcore.absorption_calculator import calculate_rat, OptiStack
 
     # rayflare imports
-    from rayflare.textures.standard_rt_textures import planar_surface
-    from rayflare.structure import Interface, BulkLayer, Structure
-    from rayflare.matrix_formalism import process_structure, calculate_RAT
     from rayflare.options import default_options
 
     # Thickness of bottom Ge layer
-    bulkthick = 300e-6
 
     wavelengths = np.linspace(300, 1850, 50) * 1e-9
 
@@ -489,7 +484,6 @@ def test_matrix_generation():
     Ge = material('Ge')()
     GaAs = material('GaAs')()
     GaInP = material('GaInP')(In=0.5)
-    SiN = material('Si3N4')()
     Air = material('Air')()
     Ta2O5 = material('TaOx1')() # Ta2O5 (SOPRA database)
     MgF2 = material('MgF2')() # MgF2 (SOPRA database)
@@ -500,3 +494,6 @@ def test_matrix_generation():
     size = ((500,0), (0,500))
 
     full_mat, A_mat = RCWA(front_materials, size, 2, options, 'test', Air, Ge, False, None, 'front', 'RCWA_test', False, False)
+
+    assert full_mat.shape == (len(wavelengths), 6, options.n_theta_bins)
+    assert A_mat.shape == (len(wavelengths), 4, options.n_theta_bins)
