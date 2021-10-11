@@ -105,7 +105,7 @@ for i1, nx in enumerate(nxs):
 
         options.theta_in = th
         result = rtstr.calculate(options)
-        T_values[j1] = np.sum(result['thetas'] < minimum_angle)/options.n_rays
+        T_values[j1] = np.sum(result['thetas'] < (np.pi-minimum_angle))/options.n_rays
         T_total[j1] = result['R']
         n_interactions[j1] = np.mean(result['n_interactions'])
         theta_distribution[j1] = result['thetas']
@@ -114,8 +114,8 @@ for i1, nx in enumerate(nxs):
 
     min_angle_old = np.pi - 17.5*np.pi/180
 
-    T_175 = np.array([np.sum(x < min_angle_old) / options.n_rays for x in theta_distribution])
-    T_45 = np.array([np.sum(x < minimum_angle) / options.n_rays for x in theta_distribution])
+    T_175 = np.array([np.sum(x < (np.pi-min_angle_old))/ options.n_rays for x in theta_distribution])
+    T_45 = np.array([np.sum(x < (np.pi-minimum_angle)) / options.n_rays for x in theta_distribution])
 
 # T_v_ref = np.loadtxt('results/ref_T_values.txt')
 T_tot_ref = np.loadtxt('results/ref_T_total.txt')

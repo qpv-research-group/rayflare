@@ -7,6 +7,7 @@ from solcore import material
 from rayflare.ray_tracing import rt_structure
 from rayflare.options import default_options
 from rayflare.textures.standard_rt_textures import hyperhemisphere
+import os
 
 d_bulk = 0
 
@@ -92,16 +93,22 @@ options.initial_material = 1
 options.initial_direction = 1
 
 options.periodic = 0
-options.pol = 'u'
 
-nxs = [20]
+nxs = [70]
 
-thetas = np.linspace(0, np.pi / 2 - 0.05, 10)
+thetas = np.linspace(0, np.pi / 2 - 0.05, 100)
 
-#
-# thetas = thetas[6:]
+thetas_1 = thetas[0:25]
+thetas_2 = thetas[25:50]
+thetas_3 = thetas[50:75]
+thetas_4 = thetas[75:100]
 
-pal = sns.color_palette("rocket", 4)
+thetas = thetas_4
+
+thetas_min = np.int(10*np.round(180*np.min(thetas)/np.pi, 1))
+thetas_max = np.int(10*np.round(180*np.max(thetas)/np.pi, 1))
+
+pal = sns.color_palette("rocket", len(nxs))
 
 plt.figure()
 
@@ -111,8 +118,10 @@ for i1, nx in enumerate(nxs):
     options.parallel = False
     options.n_rays = nx**2
 
+    options.theta = 0.1
     options.nx = nx
     options.ny = nx
+    options.pol = 'u'
 
     print(options.n_rays)
 
@@ -123,68 +132,59 @@ for i1, nx in enumerate(nxs):
     n_interactions = np.zeros(len(thetas))
     theta_distribution = np.zeros((len(thetas), options.n_rays))
 
+    if os.path.isfile('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt'):
 
-    start = time()
+        T_values = np.loadtxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt')
+        T_total = np.loadtxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt')
+        n_interactions = np.loadtxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt')
+        theta_distribution = np.loadtxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt')
 
-    for j1, th in enumerate(thetas):
-        print(j1, th)
+    else:
 
-        options.theta_in = th
-        result = rtstr.calculate(options)
-        T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
-        T_total[j1] = result['T']
-        n_interactions[j1] = np.mean(result['n_interactions'])
-        theta_distribution[j1] = result['thetas']
+        start = time()
 
-    print(time() - start)
+        for j1, th in enumerate(thetas):
+            print(j1, th)
+
+            options.theta_in = th
+            result = rtstr.calculate(options)
+            T_values[j1] = np.sum(result['thetas'] > minimum_angle)/options.n_rays
+            T_total[j1] = result['T']
+            n_interactions[j1] = np.mean(result['n_interactions'])
+            theta_distribution[j1] = result['thetas']
+
+        print(time() - start)
+
+
+        np.savetxt('results/sphere_raytrace_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt', T_values)
+        np.savetxt('results/sphere_raytrace_totalT_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt', T_total)
+        np.savetxt('results/sphere_raytrace_ninter_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt', n_interactions)
+        np.savetxt('results/sphere_raytrace_thetas_2e12_' + str(options.n_rays) + 'rays_' + str(thetas_min) + str(thetas_max) + '45_2.txt', theta_distribution)
 
     min_angle_old = np.pi - 17.5*np.pi/180
 
     T_175 = np.array([np.sum(x > min_angle_old) / options.n_rays for x in theta_distribution])
     T_45 = np.array([np.sum(x > minimum_angle) / options.n_rays for x in theta_distribution])
 
+    plt.plot(thetas*180/np.pi, T_values, '--', label=str(options.n_rays), color=pal[i1])
+    plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[i1], facecolors='none')
+    plt.plot(thetas*180/np.pi, T_total, color=pal[i1])
+    plt.scatter(thetas*180/np.pi, T_total, edgecolors=pal[i1], facecolors='none')
+    plt.plot(thetas*180/np.pi, T_175, color='grey')
+    plt.scatter(thetas*180/np.pi, T_175, edgecolors='grey', facecolors='none')
+    plt.legend(title="Number of rays")
+    plt.xlim(0, 90)
+    plt.xlabel(r'$\beta$ (rads)')
+    plt.ylabel('Transmission')
 
-# T_v_ref = np.loadtxt('results/ref_T_values.txt')
-T_tot_ref = np.loadtxt('results/ref_T_total.txt')
-T_175_ref = np.loadtxt('results/ref_T_175.txt')
-T_45_ref = np.loadtxt('results/ref_T_45.txt')
-n_int_ref = np.loadtxt('results/ref_n_interactions.txt')
-
-plt.figure()
-plt.plot(thetas*180/np.pi, T_total, '-', label=str(options.n_rays), color=pal[0])
-plt.scatter(thetas*180/np.pi, T_total, edgecolors=pal[0], facecolors='none')
-plt.plot(thetas*180/np.pi, T_tot_ref, '--', label=str(options.n_rays), color=pal[0])
-
-# plt.plot(thetas*180/np.pi, T_values, '-', label=str(options.n_rays), color=pal[1])
-# plt.scatter(thetas*180/np.pi, T_values, edgecolors=pal[1], facecolors='none')
-# plt.plot(thetas*180/np.pi, T_v_ref, '--', label=str(options.n_rays), color=pal[1])
-
-plt.plot(thetas*180/np.pi, T_45, '-', color=pal[2])
-plt.scatter(thetas*180/np.pi, T_45, edgecolors=pal[2], facecolors='none')
-plt.plot(thetas*180/np.pi, T_45_ref, '--', color=pal[2])
-
-plt.plot(thetas*180/np.pi, T_175, '-', color=pal[3])
-plt.scatter(thetas*180/np.pi, T_175, edgecolors=pal[3], facecolors='none')
-plt.plot(thetas*180/np.pi, T_175_ref, '--', color=pal[3])
-
-plt.xlim(0, 90)
-plt.xlabel(r'$\beta$ (rads)')
-plt.ylabel('Transmission')
-plt.show()
 #
 # for ln in [17.5, 2*17.5, 3*17.5, 4*17.5]:
 #     plt.axvline(x=ln)
-
+plt.title(r'Convergence with number of rays ($N_{triangles} = 2^{12}$)')
 
 plt.show()
 
-plt.figure()
-plt.plot(thetas*180/np.pi, n_interactions)
-plt.show()
-
-# np.savetxt('results/ref_T_values.txt',  T_values)
-# np.savetxt('results/ref_T_total.txt',  T_total)
-# np.savetxt('results/ref_T_175.txt',  T_175)
-# np.savetxt('results/ref_T_45.txt',  T_45)
-# np.savetxt('results/ref_n_interactions.txt', n_interactions)
-
+    #
+    # plt.figure()
+    # plt.plot(thetas, n_interactions)
+    # plt.show()
