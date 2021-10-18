@@ -37,6 +37,7 @@ jobs:
     - name: Install system dependencies in MacOS
       if: matrix.os == 'macos-latest'
       run: |
+        xcode-select --install
         brew install fftw suite-sparse openblas lapack
 
     - name: Install python dependencies
@@ -58,7 +59,7 @@ jobs:
       run: |
         git clone https://github.com/phoebe-p/S4
         cd S4
-        make boost
+        make boost > /dev/null
         make S4_pyext
         cd ..
 
