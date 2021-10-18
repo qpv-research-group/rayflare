@@ -44,15 +44,23 @@ jobs:
         python -m pip install --upgrade setuptools wheel pip twine numpy
         pip install -e .[dev]
 
-    - name: Install S4 in Linux and MacOS
-      if: matrix.os != 'windows-latest'
+    - name: Install S4 in Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        git clone https://github.com/phoebe-p/S4
+        cd S4
+        make S4_pyext
+        cd ..
+        rm -rf S4
+
+    - name: Install S4 in MacOS
+      if: matrix.os == 'macos-latest'
       run: |
         git clone https://github.com/phoebe-p/S4
         cd S4
         make boost
         make S4_pyext
         cd ..
-        rm -rf S4
 
     - name: Install on Linux and MacOS
       if: matrix.os != 'windows-latest'
