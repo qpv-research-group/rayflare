@@ -39,6 +39,8 @@ jobs:
       run: |
         brew install gcc
         brew install fftw suite-sparse openblas lapack
+        which clang
+        which gcc
 
     - name: Install python dependencies
       run: |
@@ -59,7 +61,7 @@ jobs:
       run: |
         git clone https://github.com/phoebe-p/S4
         cd S4
-        make boost > /dev/null
+        make boost
         make S4_pyext
         cd ..
 
