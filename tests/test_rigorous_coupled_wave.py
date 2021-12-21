@@ -2,7 +2,7 @@ from pytest import approx, mark
 import numpy as np
 import sys
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_RAT():
 
     from solcore import si, material
@@ -93,7 +93,7 @@ def test_RAT():
 
 
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_RAT_angle_pol():
 
     from solcore import si, material
@@ -164,7 +164,7 @@ def test_RAT_angle_pol():
 
 
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_RAT_angle_pol_ninc():
 
     from solcore import si, material
@@ -233,7 +233,7 @@ def test_RAT_angle_pol_ninc():
             assert RAT['R'] + RAT['T'] + np.sum(RAT['A_per_layer'], 1) == approx(1)
 
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_shapes():
     from solcore import material
     from solcore.structure import Layer
@@ -320,7 +320,7 @@ def test_shapes():
         assert np.all(A_back[i1] > A_back[-1])
 
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_reciprocal_lattice():
     from rayflare.rigorous_coupled_wave_analysis.rcwa import get_reciprocal_lattice
 
@@ -332,7 +332,7 @@ def test_reciprocal_lattice():
     assert a[1] == approx((0, 1/200))
 
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_plotting_funcs():
 
     from solcore import si, material
@@ -455,7 +455,7 @@ def test_plotting_funcs():
 
 
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_matrix_generation():
     from rayflare.rigorous_coupled_wave_analysis import RCWA
     from solcore.structure import Layer

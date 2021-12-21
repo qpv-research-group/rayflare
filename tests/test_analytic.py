@@ -2,7 +2,7 @@ import numpy as np
 from pytest import approx, mark
 import sys
 
-@mark.skipif(sys.platform == "windows", reason="S4 (RCWA) only installed for tests under Linux and MacOS")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_get_order_directions():
     from rayflare.analytic.diffraction import get_order_directions
     from solcore import material
