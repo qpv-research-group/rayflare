@@ -37,8 +37,6 @@ jobs:
     - name: Install system dependencies in MacOS
       if: matrix.os == 'macos-latest'
       run: |
-        sudo rm -rf /Library/Developer/CommandLineTools
-        xcode-select --install
         brew install fftw suite-sparse openblas lapack boost
 
     - name: Install python dependencies
