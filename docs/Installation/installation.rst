@@ -33,7 +33,7 @@ First, we need to install some compilers and some libraries which S4 uses.
 .. code-block:: console
 
     sudo apt install make git gcc g++ gfortran
-    sudo apt-get install libopenblas-dev libfftw3-dev libsuitesparse-dev
+    sudo apt-get install libopenblas-dev libfftw3-dev libsuitesparse-dev libboost-all-dev
 
 In the first line, we install the 'make' command which is needed to install S4, as well as git and compilers we
 will need for both Fortran (in the PDD solver in Solcore) and C++ (in S4). Then we install some external libraries which
@@ -58,7 +58,7 @@ you can again use homebrew:
 
 .. code-block:: console
 
-    brew install fftw suite-sparse openblas lapack
+    brew install fftw suite-sparse openblas lapack boost
 
 
 Installing S4 (Ubuntu and MacOS)
@@ -76,13 +76,10 @@ Downloading and installing S4 (start from the directory in which you want to dow
 
     git clone https://github.com/phoebe-p/S4.git
     cd S4
-    make boost
     make S4_pyext
 
-Here we download my fork of S4 (modified to be compatible with Python3), move to the downloaded directory, make boost
-which downloads and compiles the boost libraries required, and then we make the Python extension. Note that
-make boost will download and build the boost packages, it may take quite a long time and you will get a lot of output
-on the terminal screen. If you activated the virtual environment, this should automatically install into that virtual environment.
+Here we download my fork of S4 (modified to be compatible with Python3), move to the downloaded directory, and then we make the Python extension.
+If you activated the virtual environment before running this, S4 should automatically install into that virtual environment.
 
 .. _install:
 
