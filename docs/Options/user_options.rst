@@ -34,7 +34,8 @@ Options used only by RCWA (S4)
 - **A_per_order**: whether or not to calculate absorption per diffraction order (Boolean)
 - **S4_options**: options which are passed to S4. See S4 documentation for details
 - **orders**: the number of Fourier orders to retain. The actual number of orders used may be different, depending on
-the lattice truncation rule used.
+  the lattice truncation rule used.
+
 
 Options used only by the ray-tracer
 ---------------------------------------------
