@@ -34,6 +34,11 @@ jobs:
         sudo apt-get update
         sudo apt install -y python3-tk libboost-all-dev libopenblas-dev libfftw3-dev libsuitesparse-dev
 
+    - name: Install system dependencies in MacOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install fftw suite-sparse openblas lapack boost
+
     - name: Install python dependencies
       run: |
         python -m pip install --upgrade setuptools wheel pip twine numpy
@@ -41,6 +46,15 @@ jobs:
 
     - name: Install S4 in Linux
       if: matrix.os == 'ubuntu-latest'
+      run: |
+        git clone https://github.com/phoebe-p/S4
+        cd S4
+        make S4_pyext
+        cd ..
+        rm -rf S4
+
+    - name: Install S4 in MacOS
+      if: matrix.os == 'macos-latest'
       run: |
         git clone https://github.com/phoebe-p/S4
         cd S4

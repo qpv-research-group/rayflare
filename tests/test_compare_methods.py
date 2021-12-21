@@ -2,7 +2,7 @@ from pytest import approx, mark
 import numpy as np
 import sys
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_tmm_rcwa_structure_comparison():
     from solcore import si, material
     from solcore.structure import Layer
@@ -55,7 +55,7 @@ def test_tmm_rcwa_structure_comparison():
             assert np.sum(rcwa_result['A_per_layer'], 1) + rcwa_result['R'] + rcwa_result['T'] == approx(1)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_planar_structure():
     # solcore imports
     from solcore.structure import Layer
@@ -187,7 +187,7 @@ def test_planar_structure():
             results_RT[0].A_bulk[0]).data == approx(1)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_planar_structure_45deg():
 
     # solcore imports
@@ -323,7 +323,7 @@ def test_planar_structure_45deg():
             results_RT[0].A_bulk[0]).data == approx(1)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_tmm_rcwa_pol_angle():
     # solcore imports
     from solcore.structure import Layer
@@ -627,7 +627,7 @@ def test_absorption_profile_coh_angles():
     assert rt_profile_u == approx(tmm_profile_u, rel=0.4)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_rcwa_tmm_profiles_coh():
     from rayflare.options import default_options
     from solcore import material
@@ -703,7 +703,7 @@ def test_rcwa_tmm_profiles_coh():
     assert rcwa_profile_u == approx(tmm_profile_u, rel=0.02)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_rcwa_tmm_matrix_check_sums():
     from solcore.structure import Layer
     from solcore import material
@@ -871,7 +871,7 @@ def test_rcwa_tmm_matrix_check_sums():
         assert results_per_layer_back_RCWA[c_i] == approx(results_per_layer_back_TMM_ref[c_i], rel=0.05)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_rcwa_tmm_matrix_profiles():
     from solcore.structure import Layer
     from solcore import material
@@ -1044,7 +1044,7 @@ def test_rcwa_tmm_matrix_profiles():
         assert prof_plot_RCWA_back.data[c_i] == approx(back_profile_TMM[c_i], rel=0.15)
 
 
-@mark.skipif(sys.platform != "linux", reason="S4 (RCWA) only installed for tests under Linux")
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_profile_integration():
     from rayflare.matrix_formalism.process_structure import get_savepath
     import os
