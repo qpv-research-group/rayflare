@@ -68,7 +68,7 @@ Install some packages we will need:
 
 .. code-block:: console
 
-    pip install numpy setuptools
+    pip install wheel setuptools numba
 
 Downloading and installing S4 (start from the directory in which you want to download the S4 folder):
 
@@ -90,7 +90,7 @@ To do a normal installation from PyPI (using :literal:`pip`):
 
 .. code-block:: console
 
-    pip install wheel numpy
+    pip install setuptools wheel numba
     pip install rayflare
 
 This will install install the most recent version uploaded to PyPI (currently 1.0.1), which is not necessarily the most
@@ -100,13 +100,17 @@ To install RayFlare from source (GitHub):
 
 .. code-block:: console
 
-    pip install wheel numpy
+    pip install setuptools wheel numba
     git clone https://github.com/qpv-research-group/rayflare.git
     cd rayflare
     pip install .
 
 If you want to install in development (so that changes you make to the directory where you downloaded RayFlare are
-reflected in the installed version without having to reinstall), change the last line to :literal:`pip install -e .[dev]`.
+reflected in the installed version without having to reinstall), change the last line to:
+
+.. code-block:: console
+
+    pip install -e .'[dev]'
 
 
 Setting things up to use/develop
