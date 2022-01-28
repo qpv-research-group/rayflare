@@ -64,6 +64,10 @@ html_sidebars = {
     ]
 }
 
+html_theme_options = {
+    'navigation_depth': 1
+}
+
 autodoc_mock_imports = ["S4"]
 nbsphinx_allow_errors = True
 
