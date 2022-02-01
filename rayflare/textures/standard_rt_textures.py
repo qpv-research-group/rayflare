@@ -169,7 +169,7 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0):
 
     r_cross = np.sqrt(radius ** 2 - h ** 2)
 
-    n_points = np.int(np.sum(
+    n_points = int(np.sum(
         np.all([np.sqrt(X ** 2 + Y ** 2) < r_cross + 0.01, np.sqrt(X ** 2 + Y ** 2) > r_cross - 0.01], axis=0) / 2))
 
     # new points
