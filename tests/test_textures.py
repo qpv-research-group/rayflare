@@ -111,7 +111,7 @@ def test_hyperhemisphere():
 
     n_points = 2**10
 
-    hh = hyperhemisphere(n_points, 1, 1.01)
+    hh = hyperhemisphere(n_points, 1, 0.8)
 
     assert len(hh[0].Points == n_points)
     assert len(hh[1].Points == n_points)

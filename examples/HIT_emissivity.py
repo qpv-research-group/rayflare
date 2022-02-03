@@ -17,12 +17,12 @@ import seaborn as sns
 from cycler import cycler
 
 
-# import os
+import os
 
 # new materials from data - uncomment to add to database
 
 # from solcore.material_system import create_new_material
-#cur_path = os.path.dirname(os.path.abspath(__file__))
+# cur_path = os.path.dirname(os.path.abspath(__file__))
 # create_new_material('aSi_i', os.path.join(cur_path, 'data/model_i_a_silicon_n.txt'),os.path.join(cur_path, 'data/model_i_a_silicon_k.txt'))
 # create_new_material('aSi_p', os.path.join(cur_path, 'data/model_p_a_silicon_n.txt'), os.path.join(cur_path, 'data/model_p_a_silicon_k.txt'))
 # create_new_material('aSi_n', os.path.join(cur_path, 'data/model_n_a_silicon_n.txt'), os.path.join(cur_path, 'data/model_n_a_silicon_k.txt'))

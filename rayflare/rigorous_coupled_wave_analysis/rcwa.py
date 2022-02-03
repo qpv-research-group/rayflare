@@ -338,7 +338,7 @@ def RCWA_wl(wl, geom_list, l_oc, s_oc, s_names, pol, theta, phi, widths, size, o
                         data_p = rcwa_position_resolved(S, layer_name, d_in_layer, np.sum(Ap), th, np.sqrt(l_oc[0]))
                         S.SetExcitationPlanewave((th, ph), 1, 0, 0)  # p-polarization
                         data_s = rcwa_position_resolved(S, layer_name, d_in_layer, np.sum(As), th, np.sqrt(l_oc[0]))
-                        mat_prof[j, in_bin[i1]] = 0.5 * (data_s + data_p)
+                        mat_prof[j, in_bin[i1]] = np.real(0.5 * (data_s + data_p))
 
                     mat_intgr[in_bin[i1]] = 0.5 * (np.sum(Ap) + np.sum(As))
 

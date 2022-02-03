@@ -162,7 +162,8 @@ def dot_wl_u2d(mat, vec):
 def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
     per_bin = v_1 - v_2
     abscos = np.abs(np.cos(thetas))
-    norm = per_bin/(1-np.exp(-alphas[:, None]*d/abscos[None, :]))
+    denom = (1-np.exp(-alphas[:, None]*d/abscos[None, :]))
+    norm = np.divide(per_bin, denom, where=denom!=0)
 
     result = np.empty((v_1.shape[0], len(depths)))
 
@@ -175,11 +176,12 @@ def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
     # but at short wavelengths this causes an issue where the integrated depth profile
     # is not equal to the total absorption. Scale the profile to fix this and make things
     # consistent.
-    scale = np.nan_to_num(A/check)
+    scale = np.divide(A, check, where=check!=0)
 
     corrected = scale[:,None]*result
 
     return corrected
+
 
 
 def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof_list, save_location):

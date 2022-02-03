@@ -450,7 +450,7 @@ class rt_structure:
         # need to calculate r_a and r_b
         # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
         # how many times we need to repeat
-        n_reps = np.int(np.ceil(options['n_rays'] / (nx * ny)))
+        n_reps = int(np.ceil(options['n_rays'] / (nx * ny)))
 
         # thetas and phis divided into
         thetas = np.zeros((n_reps * nx * ny, len(wavelengths)))
@@ -1025,9 +1025,9 @@ def single_interface_check(r_a, d, ni, nj, tri, Lx, Ly, side, z_cov, pol, n_inte
                 if n_misses < 100:
                     # misses surface. Try again
                     if d[2] < 0:  # coming from above
-                        r_a = [np.random.rand() * Lx, np.random.rand() * Ly, tri.z_max + 0.01]
+                        r_a = np.array([np.random.rand() * Lx, np.random.rand() * Ly, tri.z_max + 0.01])
                     else:
-                        r_a = [np.random.rand() * Lx, np.random.rand() * Ly, tri.z_min - 0.01]
+                        r_a = np.array([np.random.rand() * Lx, np.random.rand() * Ly, tri.z_min - 0.01])
                     n_misses += 1
                     i1 = 0
                 else:
