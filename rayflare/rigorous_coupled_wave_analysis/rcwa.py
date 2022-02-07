@@ -695,6 +695,7 @@ class rcwa_structure:
         widths = stack_OS.get_widths()
 
         self.widths = widths
+        self.width = np.sum(self.widths[1:-1])/1e9
         self.shapes_oc = shapes_oc
         self.layers_oc = layers_oc
         self.current_wavelengths = wavelengths
@@ -1248,6 +1249,6 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
                 data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
-                profile_data[j] = 0.5*(data_s + data_p)
+                profile_data[j] = np.real(0.5*(data_s + data_p))
 
     return profile_data

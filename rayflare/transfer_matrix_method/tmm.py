@@ -323,6 +323,7 @@ class tmm_structure:
 
         self.stack = stack
         self.no_back_reflection = no_back_reflection
+        self.width = np.sum(stack.widths)/1e9
 
 
     def calculate(self, options, profile=False, layers=None):
