@@ -3,11 +3,13 @@
 # This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
 # Please see the LICENSE.txt file included as part of this package.
 #
-# Contact: pmp31@cam.ac.uk
+# Contact: p.pearce@unsw.edu.au
 
+import numpy as np
 import os
 from sparse import load_npz
 import xarray as xr
+from solcore.interpolate import interp1d
 
 def get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers=None):
 
@@ -41,3 +43,17 @@ def get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers=None
 
         else:
             return [False, [savepath_RT, savepath_A]]
+
+
+def make_absorption_function(profile_result, cell_width, depth_spacing):
+    """
+    :param profile:
+    :param options:
+
+    :return diff_absorb_fn:
+    """
+
+    positions = np.arange(0, cell_width, depth_spacing)
+    diff_absorb_fn = interp1d(positions, 1e9 * profile_result)
+
+    return diff_absorb_fn

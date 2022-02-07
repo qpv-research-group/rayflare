@@ -59,7 +59,7 @@ ax.set_zlabel('z')
 # fig = plt.figure()
 ax2 = plt.subplot(122, projection='3d')
 #ax.set_aspect('equal')
-ax2.view_init(elev=30., azim=60)
+ax2.view_init(elev=60., azim=60)
 ax2.plot_trisurf(back.Points[:,0], back.Points[:,1], back.Points[:,2],
                 triangles=back.simplices,  linewidth=1, color = (0.5, 0.5, 0.5, 0.5))
 

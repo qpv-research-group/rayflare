@@ -3,7 +3,7 @@
 # This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
 # Please see the LICENSE.txt file included as part of this package.
 #
-# Contact: pmp31@cam.ac.uk
+# Contact: p.pearce@unsw.edu.au
 
 from rayflare.rigorous_coupled_wave_analysis.rcwa import fold_phi, get_reciprocal_lattice
 import numpy as np

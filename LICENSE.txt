@@ -17,4 +17,4 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 The full license text can be found in GNU_GPL_v3.txt
 
-Contact: pmp31@cam.ac.uk
+Contact: p.pearce@unsw.edu.au

@@ -24,7 +24,7 @@ better, more readable, more robust and better documented. Please feel free sugge
 
 This project and everyone participating in it is governed by the [RayFlare Code of Conduct](CODE_OF_CONDUCT.md). 
 By participating, you are expected to uphold this code. Please report unacceptable behavior to 
-[the repository Administrator](mailto:pmp31@cam.ac.uk).
+[the repository Administrator](mailto:p.pearce@unsw.edu.au).
 
 ## How Can I Contribute?
 
