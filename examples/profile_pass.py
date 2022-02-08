@@ -39,6 +39,7 @@ options.ny = nxy
 options.n_rays = 2 * nxy ** 2
 options.depth_spacing = si('5nm')
 options.parallel = True
+options.theta_in = 0.5
 
 GaAs_total_d = si('3um')
 Si_total_d = si('300um')
@@ -102,10 +103,11 @@ options_sc.optics_method = "external"
 options_sc.position = np.arange(0, rtstr.width, options.depth_spacing)
 options_sc.light_iv = True
 options_sc.wavelength = wl
+options_sc.theta = options.theta_in*180/np.pi
 V = np.linspace(0, 2, 200)
 options_sc.voltages = V
 
-diff_absorb_fn = make_absorption_function(profile_rt, rtstr.width, options.depth_spacing)
+_, diff_absorb_fn = make_absorption_function(profile_rt, rtstr, options, matrix_method=False)
 
 solar_cell = SolarCell(
     [
@@ -145,7 +147,7 @@ plt.ylabel('Current (A/m$^2$)')
 plt.xlabel('Voltage (V)') #The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
 plt.show()
 
-diff_absorb_fn = make_absorption_function(profile_tmm, tmmstr.width, options.depth_spacing)
+_, diff_absorb_fn = make_absorption_function(profile_tmm, tmmstr, options)
 
 solar_cell = SolarCell(
     [
@@ -187,7 +189,7 @@ plt.xlabel('Voltage (V)') #The expected values of Isc and Voc are 372 A/m^2 and 
 plt.show()
 
 
-diff_absorb_fn = make_absorption_function(profile_rcwa, rcwastr.width, options.depth_spacing)
+_, diff_absorb_fn = make_absorption_function(profile_rcwa, rcwastr, options, False)
 
 solar_cell = SolarCell(
     [

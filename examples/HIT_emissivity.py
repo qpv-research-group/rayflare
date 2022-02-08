@@ -58,7 +58,7 @@ aSi_n = material('aSi_n')()
 
 # stack based on doi:10.1038/s41563-018-0115-4
 front_materials = [Layer(80e-9, ITO_front), Layer(6.5e-9, aSi_p), Layer(6.5e-9, aSi_i)]
-back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_back)]
+back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_n), Layer(240e-9, ITO_back)]
 
 # whether pyramids are upright or inverted is relative to front incidence.
 # so if the same etch is applied to both sides of a slab of silicon, one surface

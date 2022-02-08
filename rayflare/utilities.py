@@ -45,7 +45,7 @@ def get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers=None
             return [False, [savepath_RT, savepath_A]]
 
 
-def make_absorption_function(profile_result, cell_width, depth_spacing):
+def make_absorption_function(profile_result, structure, options, matrix_method=False):
     """
     :param profile:
     :param options:
@@ -53,7 +53,70 @@ def make_absorption_function(profile_result, cell_width, depth_spacing):
     :return diff_absorb_fn:
     """
 
-    positions = np.arange(0, cell_width, depth_spacing)
-    diff_absorb_fn = interp1d(positions, 1e9 * profile_result)
+    if matrix_method:
 
-    return diff_absorb_fn
+        widths_front = structure[0].widths
+        width_bulk = structure[1].width
+        widths_back = structure[2].widths
+
+        d_ints = options.depth_spacing
+        d_bulk = options.depth_spacing_bulk
+
+        front_positions = np.arange(0, np.sum(widths_front), d_ints)
+        bulk_positions = np.arange(0, width_bulk, d_bulk)
+        back_positions = np.arange(0, np.sum(widths_back), d_ints)
+
+        layer_start = np.insert(np.cumsum(np.insert(widths_front, 0, 0)), 0, 0)
+        layer_end = np.cumsum(np.insert(widths_front, 0, 0))
+
+        prof_front = np.zeros((len(options.wavelengths), len(front_positions)))
+
+        if structure[0].prof_layers is not None:
+
+            index_offset = 0
+
+            for i1 in structure[0].prof_layers:
+                indices = np.logical_and(front_positions >= layer_start[i1], front_positions < layer_end[i1])
+                ind_diff = np.sum(indices)
+                prof_front[:, indices] = 1e9*profile_result[0][:, index_offset:(index_offset+ind_diff)]
+                index_offset = index_offset + ind_diff
+
+        layer_start = np.insert(np.cumsum(np.insert(widths_back, 0, 0)), 0, 0)
+        layer_end = np.cumsum(np.insert(widths_back, 0, 0))
+
+        prof_back = np.zeros((len(options.wavelengths), len(back_positions)))
+
+        if structure[2].prof_layers is not None:
+
+            index_offset = 0
+
+            for i1 in structure[2].prof_layers:
+                indices = np.logical_and(back_positions >= layer_start[i1], back_positions < layer_end[i1])
+                ind_diff = np.sum(indices)
+                prof_back[:, indices] = 1e9*profile_result[2][:, index_offset:(index_offset+ind_diff)]
+                index_offset = index_offset + ind_diff
+
+        if options.bulk_profile:
+
+            prof_bulk = profile_result[1]
+
+        else:
+            prof_bulk = np.zeros_like(bulk_positions)
+
+        all_positions = np.hstack((front_positions,
+                                   bulk_positions + np.sum(widths_front),
+                                   back_positions + np.sum(widths_front) + width_bulk))
+        all_absorption = np.hstack((prof_front, prof_bulk, prof_back))
+
+
+        diff_absorb_fn = interp1d(all_positions, all_absorption)
+
+        return all_positions, diff_absorb_fn
+
+    else:
+
+        positions = np.arange(0, structure.width, options.depth_spacing)
+        diff_absorb_fn = interp1d(positions, 1e9 * profile_result)
+
+        return positions, diff_absorb_fn
+
