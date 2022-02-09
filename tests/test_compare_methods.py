@@ -429,8 +429,6 @@ def test_tmm_rcwa_pol_angle():
             TMM_matrix = np.hstack((results_per_layer_front_TMM_matrix, results_TMM_Matrix[0].A_bulk[0].data[:, None]))
             RCWA_matrix = np.hstack((results_per_layer_front_RCWA, results_RCWA_Matrix[0].A_bulk[0].data[:, None]))
 
-            print(pol, angle)
-
             assert TMM_reference == approx(TMM_matrix, abs=0.05)
             assert TMM_reference == approx(RCWA_matrix, abs=0.05)
 
@@ -509,7 +507,7 @@ def test_absorption_profile_incoh_angles():
     options.nx = 5
     options.ny = 5
     options.n_rays = 2000
-    options.depth_spacing = 1e-6
+    options.depth_spacing = 1e-7
     options.coherent = False
     options.coherency_list = ['c', 'i', 'i']
     options.theta_in = np.pi/4
@@ -727,7 +725,7 @@ def test_rcwa_tmm_matrix_check_sums():
     options.n_rays = 4000
     options.n_theta_bins = 20
     options.lookuptable_angles = 100
-    options.depth_spacing = 1e-9
+    options.depth_spacing = 5e-10
     options.only_incidence_angle = False
     options.nx = 4
     options.ny = 4
@@ -897,7 +895,7 @@ def test_rcwa_tmm_matrix_profiles():
     options.lookuptable_angles = 100
     options.parallel = True
     options.c_azimuth = 0.25
-    options.depth_spacing = 1e-9
+    options.depth_spacing = 5e-10
     options.only_incidence_angle = False
     options.nx = 4
     options.ny = 4
@@ -970,8 +968,8 @@ def test_rcwa_tmm_matrix_profiles():
         depths_back = np.linspace(0, len(prof_plot_TMM_back[0, :]) * options['depth_spacing'] * 1e9, len(prof_plot_TMM_back[0, :]))
         integrated_A_back = np.trapz(prof_plot_TMM_back, depths_back, axis=1)
 
-        assert approx(integrated_A == results_TMM_Matrix[0]['A_interface'][0].data)
-        assert approx(integrated_A_back == results_TMM_Matrix[0]['A_interface'][1].data)
+        assert integrated_A == approx(results_TMM_Matrix[0]['A_interface'][0].data, abs=0.01)
+        assert integrated_A_back == approx(results_TMM_Matrix[0]['A_interface'][1].data, abs=0.01)
 
         ## RT_TMM Matrix method
         surf = planar_surface()  # [texture, flipped texture]
@@ -1000,8 +998,8 @@ def test_rcwa_tmm_matrix_profiles():
                                   len(prof_plot_RT_back[0, :]))
         integrated_A_back = np.trapz(prof_plot_RT_back, depths_back, axis=1)
 
-        assert approx(integrated_A == results_RT[0]['A_interface'][0].data)
-        assert approx(integrated_A_back == results_RT[0]['A_interface'][1].data)
+        assert integrated_A == approx(results_RT[0]['A_interface'][0].data, abs=0.01)
+        assert integrated_A_back == approx(results_RT[0]['A_interface'][1].data, abs=0.01)
 
         ## RCWA Matrix
 
@@ -1028,8 +1026,8 @@ def test_rcwa_tmm_matrix_profiles():
                                   len(prof_plot_RCWA_back[0, :]))
         integrated_A_back = np.trapz(prof_plot_RCWA_back, depths_back, axis=1)
 
-        assert approx(integrated_A == results_RCWA_Matrix[0]['A_interface'][0].data)
-        assert approx(integrated_A_back == results_RCWA_Matrix[0]['A_interface'][1].data)
+        assert integrated_A == approx(results_RCWA_Matrix[0]['A_interface'][0].data, abs=0.01)
+        assert integrated_A_back == approx(results_RCWA_Matrix[0]['A_interface'][1].data, abs=0.01)
 
         front_profile_TMM = TMM_res['profile'][:, :len(depths)]
         c_i  = front_profile_TMM > 1e-4
@@ -1050,6 +1048,8 @@ def test_profile_integration():
     import os
     import xarray as xr
 
+    ds = 0.5
+
     for pol in ['s', 'p', 'u']:
         for method in ['TMM_f', 'RCWA_f']:
             project_name = 'rcwa_tmm_matrix_profiles_' + pol
@@ -1066,8 +1066,8 @@ def test_profile_integration():
             intgr_r = prof_dataset_r['intgr']
             prof_r = prof_dataset_r['profile']
 
-            depths = np.arange(0, len(prof['z']))
-            depths_r = np.arange(0, len(prof_r['z']))
+            depths = np.arange(0, len(prof['z'])*ds, ds)
+            depths_r = np.arange(0, len(prof_r['z'])*ds, ds)
 
             integrated_prof = np.trapz(prof.data, depths, axis=1)
             integrated_prof_r = np.trapz(prof_r.data, depths_r, axis=1)
@@ -1087,7 +1087,7 @@ def test_profile_integration():
             intgr = prof_dataset['intgr']
             prof = prof_dataset['profile']
 
-            depths = np.arange(0, len(prof['z']))
+            depths = np.arange(0, len(prof['z'])*ds, ds)
 
             integrated_prof = np.trapz(prof.data, depths, axis=1)
 

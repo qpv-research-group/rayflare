@@ -199,7 +199,7 @@ def test_tmm_structure_abs():
        [1.44652436, 1.65923102, 8.43831573],
        [1.4234972 , 1.67748004, 7.35621745],
        [1.4009784 , 1.48257709, 6.86029939]])
-    assert approx(integrated == expected)
+    assert integrated == approx(expected)
 
 
 def test_RAT_angle_pol_ninc():
