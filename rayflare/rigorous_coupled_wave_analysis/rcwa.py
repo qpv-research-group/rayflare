@@ -828,6 +828,8 @@ class rcwa_structure:
 
         output = np.real(np.stack(allres))
 
+        output[output < 0] = 0
+
         to_return = self.results
         to_return['profile'] = output
 

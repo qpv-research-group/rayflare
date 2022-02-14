@@ -55,16 +55,16 @@ def make_absorption_function(profile_result, structure, options, matrix_method=F
 
     if matrix_method:
 
-        widths_front = structure[0].widths
-        width_bulk = structure[1].width
-        widths_back = structure[2].widths
+        widths_front = np.array(structure[0].widths)*1e9 # in nm
+        width_bulk = np.array(structure[1].width)*1e6 # in um
+        widths_back = np.array(structure[2].widths)*1e9 # in nm
 
-        d_ints = options.depth_spacing
-        d_bulk = options.depth_spacing_bulk
+        d_ints = options.depth_spacing*1e9 # in nm
+        d_bulk = options.depth_spacing_bulk*1e6 # in um
 
-        front_positions = np.arange(0, np.sum(widths_front), d_ints)
-        bulk_positions = np.arange(0, width_bulk, d_bulk)
-        back_positions = np.arange(0, np.sum(widths_back), d_ints)
+        front_positions = np.arange(0, np.sum(widths_front)-1e-12, d_ints) # in nm
+        bulk_positions = np.arange(0, width_bulk-1e-12, d_bulk) # in um
+        back_positions = np.arange(0, np.sum(widths_back)-1e-12, d_ints) # in nm
 
         layer_start = np.insert(np.cumsum(np.insert(widths_front, 0, 0)), 0, 0)
         layer_end = np.cumsum(np.insert(widths_front, 0, 0))
@@ -98,16 +98,15 @@ def make_absorption_function(profile_result, structure, options, matrix_method=F
 
         if options.bulk_profile:
 
-            prof_bulk = profile_result[1]
+            prof_bulk = profile_result[1][:, :len(bulk_positions)]
 
         else:
             prof_bulk = np.zeros_like(bulk_positions)
 
-        all_positions = np.hstack((front_positions,
-                                   bulk_positions + np.sum(widths_front),
-                                   back_positions + np.sum(widths_front) + width_bulk))
+        all_positions = np.hstack((front_positions/1e9,
+                                   bulk_positions/1e6 + np.sum(widths_front)/1e9,
+                                   back_positions/1e9 + np.sum(widths_front)/1e9 + width_bulk/1e6))
         all_absorption = np.hstack((prof_front, prof_bulk, prof_back))
-
 
         diff_absorb_fn = interp1d(all_positions, all_absorption)
 
