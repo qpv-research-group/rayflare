@@ -3,7 +3,7 @@
 # This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
 # Please see the LICENSE.txt file included as part of this package.
 #
-# Contact: pmp31@cam.ac.uk
+# Contact: p.pearce@unsw.edu.au
 
 import numpy as np
 import os
@@ -377,6 +377,8 @@ class rt_structure:
         self.surfaces = surfaces
         self.surfs_no_offset = surfs_no_offset
         self.cum_width = cum_width
+        self.width = np.sum(widths)
+
 
     def calculate(self, options):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
@@ -465,6 +467,7 @@ class rt_structure:
         initial_mat = options['initial_material'] if 'initial_material' in options else 0
         initial_dir = options['initial_direction'] if 'initial_direction' in options else 1
 
+
         if not options['parallel']:
             for j1 in range(n_reps):
 
@@ -540,6 +543,8 @@ class rt_structure:
             refl_0 = non_abs * np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)) * (n_passes == 1)
             R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
             R0 = np.sum(R0, 0)
+
+            absorption_profiles[absorption_profiles < 0] = 0
 
             return {'R': R, 'T': T, 'A_per_layer': A_layer[:, 1:-1], 'profile': absorption_profiles / 1e3,
                     'thetas': thetas, 'phis': phis, 'R0': R0, 'n_passes': n_passes, 'n_interactions': n_interactions}
@@ -852,22 +857,24 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
             mat_index = mat_index + direction  # is this right?
 
 
-        I_b = I
-        DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
-                                      depths[mat_index], I_thresh, direction)
-
-        A_per_layer[mat_index] = np.real(A_per_layer[mat_index] + I_b - I)
-        profile[depth_indices[mat_index]] = np.real(profile[depth_indices[mat_index]] + DA)
-
-        n_passes = n_passes + 1
-
-
         if direction == 1 and mat_index == (len(widths) - 1):
             stop = True  # have ended with transmission
 
 
         elif direction == -1 and mat_index == 0:
             stop = True  # have ended with reflection
+
+
+        if not stop:
+            I_b = I
+
+            DA, stop, I, theta = traverse(widths[mat_index], theta, alphas[mat_index], x, y, I,
+                                          depths[mat_index], I_thresh, direction)
+
+            A_per_layer[mat_index] = np.real(A_per_layer[mat_index] + I_b - I)
+            profile[depth_indices[mat_index]] = np.real(profile[depth_indices[mat_index]] + DA)
+
+            n_passes = n_passes + 1
 
 
     return I, profile, A_per_layer, theta, phi, n_passes, n_interactions
@@ -929,15 +936,20 @@ def single_ray_interface(x, y, nks, r_a_0, theta, phi, surfaces, pol, wl, Fr_or_
 
 def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     stop = False
-    DA = (alpha / abs(cos(theta))) * I_i * np.exp((-alpha * positions / abs(cos(theta))))
-    I_back = I_i * np.exp(-alpha * width / abs(cos(theta)))
+    ratio = alpha / abs(cos(theta))
+    DA_u = I_i * ratio * np.exp((-ratio*positions))
+    I_back = I_i * np.exp(-ratio * width)
 
     if I_back < I_thresh:
         stop = True
         theta = None
 
     if direction == -1:
-        DA = np.flip(DA)
+        DA_u = np.flip(DA_u)
+
+    intgr = np.trapz(DA_u, positions)
+
+    DA = np.divide((I_i - I_back)*DA_u, intgr, where=intgr>0, out=np.zeros_like(DA_u))
 
     return DA, stop, I_back, theta
 

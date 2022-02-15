@@ -3,7 +3,7 @@
 # This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
 # Please see the LICENSE.txt file included as part of this package.
 #
-# Contact: pmp31@cam.ac.uk
+# Contact: p.pearce@unsw.edu.au
 
 import numpy as np
 import tmm
@@ -695,6 +695,7 @@ class rcwa_structure:
         widths = stack_OS.get_widths()
 
         self.widths = widths
+        self.width = np.sum(self.widths[1:-1])/1e9
         self.shapes_oc = shapes_oc
         self.layers_oc = layers_oc
         self.current_wavelengths = wavelengths
@@ -826,6 +827,8 @@ class rcwa_structure:
                 for i1 in range(len(wl))]
 
         output = np.real(np.stack(allres))
+
+        output[output < 0] = 0
 
         to_return = self.results
         to_return['profile'] = output
@@ -1248,6 +1251,6 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
                 data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
-                profile_data[j] = 0.5*(data_s + data_p)
+                profile_data[j] = np.real(0.5*(data_s + data_p))
 
     return profile_data

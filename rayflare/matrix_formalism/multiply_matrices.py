@@ -3,7 +3,7 @@
 # This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
 # Please see the LICENSE.txt file included as part of this package.
 #
-# Contact: pmp31@cam.ac.uk
+# Contact: p.pearce@unsw.edu.au
 
 import numpy as np
 from sparse import load_npz, dot, COO, stack
@@ -406,6 +406,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         profile = []
         for j1, item in enumerate(a_prof):
             if len(item) > 0:
+                item[item < 0 ] = 0
                 profile.append(xr.DataArray(np.sum(item, 0),
                        dims=['wl', 'z'], coords = {'wl': options['wavelengths']},
                                             name = 'A_profile' + str(j1))) # not necessarily same number of z coords per layer stack
@@ -413,6 +414,7 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         RAT = xr.merge([R, A_bulk, A_interface, T])
 
         bulk_profile = [np.sum(prof_el, 0) for prof_el in A_prof]
+
 
         return RAT, results_per_pass, profile, bulk_profile
 
