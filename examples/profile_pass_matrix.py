@@ -11,7 +11,6 @@ from rayflare.utilities import make_absorption_function
 from solcore import material, si
 from solcore.solar_cell import SolarCell, Layer, Junction
 from solcore.solar_cell_solver import solar_cell_solver
-from solcore.interpolate import interp1d
 from solcore.light_source import LightSource
 from solcore.constants import q
 

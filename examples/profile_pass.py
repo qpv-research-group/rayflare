@@ -10,7 +10,6 @@ from rayflare.utilities import make_absorption_function
 from solcore import material, si
 from solcore.solar_cell import SolarCell, Layer, Junction
 from solcore.solar_cell_solver import solar_cell_solver
-from solcore.interpolate import interp1d
 
 # imports for plotting
 import matplotlib.pyplot as plt

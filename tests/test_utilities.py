@@ -68,7 +68,7 @@ def test_TMM_profile():
     V = np.linspace(0, 2, 200)
     options_sc.voltages = V
 
-    pos, diff_absorb_fn = make_absorption_function(profile_tmm, tmmstr, options, matrix_method=False)
+    _, diff_absorb_fn = make_absorption_function(profile_tmm, tmmstr, options, matrix_method=False)
 
     solar_cell = SolarCell(
         [
