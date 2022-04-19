@@ -24,7 +24,7 @@ wavelengths = np.linspace(250, 1900, 500) * 1e-9
 options = default_options()
 
 options.wavelengths = wavelengths
-options.orders = 2
+options.orders = 1
 
 size = ((100, 0), (0, 100))
 
