@@ -15,4 +15,9 @@ The contributing guidelines are [here](CONTRIBUTING.md) and the Code of Conduct 
 is distributed under a [GNU GPL (version 3) license](GNU_GPL_v3.txt). If you have questions, issues, etc., please check the
 documentation first or open an [issue](https://github.com/qpv-research-group/rayflare/issues) using the relevant template.
 
+If you use RayFlare in your work, please cite the [JOSS paper](https://doi.org/10.21105/joss.03460):
+
+*Pearce, P. M., (2021). RayFlare: flexible optical modelling of solar cells. Journal of Open Source Software, 6(65), 3460. 
+https://doi.org/10.21105/joss.03460*
+
 ![poster](poster.png "RayFlare poster")

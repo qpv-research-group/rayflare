@@ -139,6 +139,15 @@ To date, I have not yet found a way to make S4 work on Windows (although it is c
 the developers state that it was developed on Windows).
 
 
+Citing RayFlare
+----------------
+
+If you use RayFlare in your work, please cite the `JOSS paper`_:
+
+*Pearce, P. M., (2021). RayFlare: flexible optical modelling of solar cells. Journal of Open Source Software, 6(65), 3460.
+https://doi.org/10.21105/joss.03460*
+
+
 Troubleshooting
 -----------------------------------
 
@@ -167,3 +176,4 @@ Troubleshooting
 .. _here: https://itsfoss.com/install-linux-in-virtualbox/
 .. _dual boot: https://linuxconfig.org/how-to-install-ubuntu-20-04-alongside-windows-10-dual-boot
 .. _homebrew: https://brew.sh/
+.. _JOSS paper: https://doi.org/10.21105/joss.03460
