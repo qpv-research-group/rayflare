@@ -12,10 +12,7 @@ import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 
 from rayflare.angles import make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths
-
-# from solcore.absorption_calculator import OptiStack
-from rayflare.utilities import OptiStack
+from rayflare.utilities import get_matrices_or_paths, OptiStack
 
 from sparse import COO, save_npz, stack
 
@@ -50,7 +47,7 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
     :return:
     """
     # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
-    # or if internally it will still do s & p separately
+    #   or if internally it will still do s & p separately
     # TODO: if incidence angle is zero, s and p polarization are the same so no need to do both
 
     existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers)
@@ -650,8 +647,6 @@ class rcwa_structure:
 
         shapes_names = [str(x) for x in shape_mats]
 
-        # depth_spacing = options['depth_spacing']
-
         # RCWA options
         S4_options = dict(LatticeTruncation='Circular',
                             DiscretizedEpsilon=False,
@@ -707,10 +702,8 @@ class rcwa_structure:
             layers_oc = (np.array(layers_oc_list)**2).T
             # at least one element in the structure has a dielectric tensor; convert all to this format
 
-        print(layers_oc.shape)
-
-        # dielectric tensor: can't put in an array because not all same size if not all materials are anisotropic
-        # if ANY are anisotropic: expand all into dielectric tensor? Does this slow down the calculation? Test. (very slightly slower but negligible)
+            # dielectric tensor: can't put in an array because not all same size if not all materials are anisotropic
+            # if ANY are anisotropic: expand all into dielectric tensor.
 
         widths = stack_OS.get_widths()
 
@@ -772,7 +765,7 @@ class rcwa_structure:
 
             A_order = np.real(np.stack([item[3] for item in allres]))
 
-            S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, self.layers_oc[0],
+            S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, np.zeros(len(wl)),
                              self.shapes_oc[0], self.shapes_names, self.widths, options['S4_options'])
 
             basis_set = S_for_orders.GetBasisSet()
@@ -1175,8 +1168,6 @@ class rcwa_structure:
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
 
-    print('a', len(layers_oc.shape))
-
     if len(layers_oc.shape) > 1:
         layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
         n_inc = np.sqrt(layers_oc[0][0][0])
@@ -1228,6 +1219,13 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
 
 def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
 
+    if len(layers_oc.shape) > 1:
+        layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
+        n_inc = np.sqrt(layers_oc[0][0][0])
+
+    else:
+        n_inc = np.sqrt(layers_oc[0])
+
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
     profile_data = np.zeros(len(dist))
 
@@ -1241,7 +1239,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
             layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                d)  # don't need to change this
             layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-            data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
             profile_data[j] = data
 
 
@@ -1263,7 +1261,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+                data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
                 profile_data[j] = data
 
         else:
@@ -1277,9 +1275,9 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
                 S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
                 profile_data[j] = np.real(0.5*(data_s + data_p))
 
     return profile_data

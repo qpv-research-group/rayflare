@@ -46,8 +46,6 @@ class interp1d(interp1d_SC):
         nx = x_new.ndim
         ny = y_new.ndim
 
-        print('n', nx, ny)
-
         # 6. Fill any values that were out of bounds with fill_value.
         # and
         # 7. Rotate the values back to their proper place.
