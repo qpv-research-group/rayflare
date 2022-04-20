@@ -11,10 +11,11 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 
-from solcore.absorption_calculator import OptiStack
-
 from rayflare.angles import make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths
+
+# from solcore.absorption_calculator import OptiStack
+from rayflare.utilities import OptiStack
 
 from sparse import COO, save_npz, stack
 
@@ -691,7 +692,26 @@ class rcwa_structure:
         stack_OS = OptiStack(self.list_for_OS, no_back_reflection=False,
                              substrate=self.transmission, incidence=self.incidence)
 
-        layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
+        layers_oc_list = stack_OS.get_indices(wavelengths*1e9)
+        is_anisotropic = np.array([x.size for x in layers_oc_list]) == 9*len(wavelengths)
+
+        if np.any(is_anisotropic):
+            for i1 in np.where(~is_anisotropic)[0]:
+
+                layers_oc_list[i1] = np.array([np.diag([x,x,x]) for x in layers_oc_list[i1]])
+
+
+            layers_oc = np.transpose(layers_oc_list, [1,0,2,3])**2
+
+        else:
+            layers_oc = (np.array(layers_oc_list)**2).T
+            # at least one element in the structure has a dielectric tensor; convert all to this format
+
+        print(layers_oc.shape)
+
+        # dielectric tensor: can't put in an array because not all same size if not all materials are anisotropic
+        # if ANY are anisotropic: expand all into dielectric tensor? Does this slow down the calculation? Test. (very slightly slower but negligible)
+
         widths = stack_OS.get_widths()
 
         self.widths = widths
@@ -1155,15 +1175,24 @@ class rcwa_structure:
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
 
+    print('a', len(layers_oc.shape))
+
+    if len(layers_oc.shape) > 1:
+        layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
+        n_inc = np.sqrt(layers_oc[0][0][0])
+
+    else:
+        n_inc = np.sqrt(layers_oc[0])
+
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)
-        out = rcwa_rat(S, len(widths), theta, np.sqrt(layers_oc[0]))
+        out = rcwa_rat(S, len(widths), theta, n_inc)
         R = out[0]['R']
         T = out[0]['T']
-        A_layer = rcwa_absorption_per_layer(S, len(widths), theta, np.sqrt(layers_oc[0]))
+        A_layer = rcwa_absorption_per_layer(S, len(widths), theta, n_inc)
         if A_per_order:
-            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), theta, np.sqrt(layers_oc[0]))
+            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), theta, n_inc)
             return R, T, A_layer, A_per_layer_order
         else:
             return R, T, A_layer
