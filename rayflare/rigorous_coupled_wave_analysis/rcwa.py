@@ -1170,10 +1170,10 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
 
     if len(layers_oc.shape) > 1:
         layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
-        n_inc = np.sqrt(layers_oc[0][0][0])
+        n_inc = np.real(np.sqrt(layers_oc[0][0][0]))
 
     else:
-        n_inc = np.sqrt(layers_oc[0])
+        n_inc = np.real(np.sqrt(layers_oc[0]))
 
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
@@ -1221,10 +1221,10 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
 
     if len(layers_oc.shape) > 1:
         layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
-        n_inc = np.sqrt(layers_oc[0][0][0])
+        n_inc = np.real(np.sqrt(layers_oc[0][0][0]))
 
     else:
-        n_inc = np.sqrt(layers_oc[0])
+        n_inc = np.real(np.sqrt(layers_oc[0]))
 
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
     profile_data = np.zeros(len(dist))
