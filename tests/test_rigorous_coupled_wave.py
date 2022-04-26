@@ -528,7 +528,7 @@ def test_rcwa_profile_circ():
     output_rcwa_c = strt_rcwa.calculate_profile(options)['profile']
     # circular pol; not sure what to compare this against?
 
-    assert np.all(output_rcwa_s >= 0)
+    assert np.all(output_rcwa_c >= 0)
 
 
 @mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
