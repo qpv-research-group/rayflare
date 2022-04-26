@@ -500,6 +500,38 @@ def test_matrix_generation():
 
 
 @mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_rcwa_profile_circ():
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from solcore.structure import Layer
+
+    Air = material('Air')()
+    Si = material('Si')()
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1400, 4)*1e-9
+
+    options.depth_spacing = 10e-9
+    options.theta_in = 0
+    options.phi_in = 0
+    options.pol = [0.707+0.707*1j, 0.707-0.707*1j]
+
+    stack = [Layer(si('500nm'), GaAs), Layer(si('1.1um'), Si), Layer(si('0.834um'), Ge)]
+
+    strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
+    strt_rcwa.calculate(options)
+    output_rcwa_c = strt_rcwa.calculate_profile(options)['profile']
+    # circular pol; not sure what to compare this against?
+
+    assert np.all(output_rcwa_s >= 0)
+
+
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_anisotropic_basic():
     from solcore import material
     from solcore.structure import Layer
