@@ -501,7 +501,6 @@ def test_matrix_generation():
 
 @mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_anisotropic_basic():
-    import numpy as np
     from solcore import material
     from solcore.structure import Layer
 
@@ -564,13 +563,12 @@ def test_anisotropic_basic():
         assert RAT_s_AS[key] == approx(np.array(RAT_s[key]))
         assert RAT_p_AS[key] == approx(np.array(RAT_p[key]))
 
-    assert prof["profile"] == approx(prof_AS["profile"], abs=2e-5)
+    assert prof["profile"] == approx(prof_AS["profile"], abs=4e-5)
 
 
 
 @mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_anisotropic_pol():
-    import numpy as np
     from solcore import material
     from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
     from rayflare.options import default_options

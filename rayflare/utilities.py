@@ -76,7 +76,7 @@ class interp1d(interp1d_SC):
             return y_new.transpose(axes)
 
 
-class OptiStack(OptiStack_SC):
+class OptiStack(OptiStack_SC): # pragma: no cover
 
     def _add_raw_nk_layer(self, layer):
         """ Adds a layer to the end (bottom) of the stack. The layer must be defined as a list containing the layer

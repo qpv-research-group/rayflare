@@ -194,3 +194,19 @@ def test_matrix_method_profile():
 
     assert positions == approx(positions_expected)
     assert generated == approx(generated_expected, abs=1e-4)
+
+
+def test_interp1d():
+    from rayflare.utilities import interp1d
+
+    sc = interp1d(np.array([1,2]), np.array([2, 3]), fill_value=8)
+
+    assert sc(1.5) == 2.5
+    assert sc(2.5) == 8
+
+    assert np.all(sc(np.array([1.25, 1.75, 3])) == np.array([2.25, 2.75, 8]))
+
+    sc = interp1d(np.array([1,2]), np.array([2, 3]), kind='zero', fill_value=8)
+
+    assert sc(1.5) == 2
+    assert sc(3) == 8
