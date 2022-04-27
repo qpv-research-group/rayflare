@@ -69,7 +69,7 @@ class interp1d(interp1d_SC):
                 axes = list(range(ny - nx))
                 axes[self.axis:self.axis] = list(range(ny - nx, ny))
                 return y_new.transpose(axes)
-        else:
+        else: # pragma: no cover
             y_new[out_of_bounds] = self.fill_value
             axes = list(range(nx, ny))
             axes[self.axis:self.axis] = list(range(nx))

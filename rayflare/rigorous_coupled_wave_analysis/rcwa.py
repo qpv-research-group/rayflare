@@ -903,7 +903,7 @@ class rcwa_structure:
         a_r = a_r.reshape((len(xs), len(ys)))
         a_i = a_i.reshape((len(xs), len(ys)))
 
-        if plot:
+        if plot: # pragma: no cover
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
             im1 = axs[0].pcolormesh(xs, ys, a_r.T, cmap='magma')
             fig.colorbar(im1, ax=axs[0])
@@ -992,7 +992,7 @@ class rcwa_structure:
         E_mag = np.real(np.sqrt(np.sum(np.abs(E) ** 2, 2)))
         H_mag = np.real(np.sqrt(np.sum(np.abs(H) ** 2, 2)))
 
-        if plot:
+        if plot: # pragma: no cover
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
             im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma', shading='auto')
             fig.colorbar(im1, ax=axs[0])
@@ -1121,7 +1121,7 @@ class rcwa_structure:
         E_mag = np.real(np.sqrt(np.sum(np.abs(E) ** 2, 2)))
         H_mag = np.real(np.sqrt(np.sum(np.abs(H) ** 2, 2)))
 
-        if plot:
+        if plot: # pragma: no cover
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
             im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
             fig.colorbar(im1, ax=axs[0])
