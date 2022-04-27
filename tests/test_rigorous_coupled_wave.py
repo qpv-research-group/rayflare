@@ -661,10 +661,10 @@ def test_list_mats():
     test_mat2 = const_n_mat + [[{'type': 'rectangle', 'mat': GaAs,
                                 'center': (0, 0), 'halfwidths': [300, 300], 'angle': 20}]]
 
-    str = rcwa_structure([test_mat], ((500, 0), (0, 500)), opts, Air, Air)
-    str2 = rcwa_structure([test_mat2], ((500, 0), (0, 500)), opts, Air, Air)
+    strt = rcwa_structure([test_mat], ((500, 0), (0, 500)), opts, Air, Air)
+    strt2 = rcwa_structure([test_mat2], ((500, 0), (0, 500)), opts, Air, Air)
 
-    RAT = str.calculate(opts)
-    RAT2 = str2.calculate(opts)
+    RAT = strt.calculate(opts)
+    RAT2 = strt2.calculate(opts)
 
     assert np.all(RAT2["A_per_layer"] > RAT["A_per_layer"])
