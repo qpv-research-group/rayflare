@@ -643,3 +643,28 @@ def test_anisotropic_pol():
     assert 0.5*(RAT_s_AS["T"] + RAT_p_AS["T"]) == approx(RAT_u_AS["T"])
 
 
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_list_mats():
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from rayflare.options import default_options
+    from solcore import material
+
+    opts = default_options()
+    opts.wavelengths = np.linspace(300, 400, 3)*1e-9
+
+    Air = material("Air")()
+    GaAs = material("GaAs")()
+
+    const_n_mat = [100, 2, 0]
+
+    test_mat = const_n_mat + [[]]
+    test_mat2 = const_n_mat + [[{'type': 'rectangle', 'mat': GaAs,
+                                'center': (0, 0), 'halfwidths': [300, 300], 'angle': 20}]]
+
+    str = rcwa_structure([test_mat], ((500, 0), (0, 500)), opts, Air, Air)
+    str2 = rcwa_structure([test_mat2], ((500, 0), (0, 500)), opts, Air, Air)
+
+    RAT = str.calculate(opts)
+    RAT2 = str2.calculate(opts)
+
+    assert np.all(RAT2["A_per_layer"] > RAT["A_per_layer"])

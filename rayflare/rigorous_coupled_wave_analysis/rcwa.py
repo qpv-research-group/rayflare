@@ -18,7 +18,7 @@ from sparse import COO, save_npz, stack
 
 try:
     import S4
-except Exception as err:
+except Exception as err: # pragma: no cover
     print('WARNING: The RCWA solver will not be available because an S4 installation has not been found.')
 
 
@@ -672,15 +672,15 @@ class rcwa_structure:
         shapes_oc = np.zeros((len(wavelengths), len(self.shape_mats)), dtype=complex)
 
         for i1, x in enumerate(self.shape_mats):
-            if isinstance(x, list):
-                if len(x) == 3:
-                    shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
-
-                if len(x) == 4:
-                    shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
-
-            else:
-                shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
+            # if isinstance(x, list): # this doesn't work (because of necessary_materials)
+            #     if len(x) == 3:
+            #         shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
+            #
+            #     if len(x) == 4:
+            #         shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
+            #
+            # else:
+            shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
 
         # prepare to pass to OptiStack.
 
