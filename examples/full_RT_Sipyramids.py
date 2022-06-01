@@ -6,6 +6,7 @@ from rayflare.options import default_options
 
 from solcore import material
 from solcore import si
+from solcore.absorption_calculator.nk_db import search_db
 
 # imports for plotting
 import matplotlib.pyplot as plt
@@ -17,7 +18,8 @@ pal = sns.color_palette("husl", 4)
 
 # setting up Solcore materials
 Air = material('Air')()
-Si = material('566', nk_db=True)()
+pageid = search_db("Si/Green-1995")[0][0]
+Si = material(str(pageid), nk_db=True)()
 
 # number of x and y points to scan across
 nxy = 25
@@ -31,7 +33,7 @@ options.nx = nxy
 options.ny = nxy
 options.n_rays = 2 * nxy ** 2
 options.depth_spacing = si('1um')
-options.parallel = True
+options.parallel = False
 
 PVlighthouse = np.loadtxt('data/RAT_data_300um_2um_55.csv', delimiter=',', skiprows=1)
 
