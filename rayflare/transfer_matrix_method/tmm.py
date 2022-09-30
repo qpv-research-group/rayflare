@@ -477,6 +477,10 @@ class tmm_structure:
                 output['A'] = 1 - out['R'] - out['T']
                 output['T'] = out['T']
                 output['A_per_layer'] = A_per_layer[1:-1]
+                output['vw_list'] = out['vw_list']
+                output['kz_list'] = out['kz_list']
+                output['th_list'] = out['th_list']
+
             else:
                 out = tmm.inc_tmm(pol, stack.get_indices(wavelength), stack.get_widths(), coherency_list, angle, wavelength)
                 A_per_layer = np.array(tmm.inc_absorp_in_each_layer(out))

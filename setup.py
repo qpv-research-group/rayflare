@@ -24,26 +24,6 @@ default_config = os.path.join(here, "rayflare", "rayflare_config.txt")
 config = ConfigParser()
 config.read([default_config])
 
-# Option for updating the manifest
-if "update_manifest" in sys.argv:
-    # Update the MANIFEST.in file with all the data from within solcore
-    include = "rayflare"
-    exclude = ["__pycache__", "egg", "darwin", "cpython"]
-    with open("MANIFEST.in", "w", encoding="utf-8") as f:
-        for root, dirs, files in os.walk("."):
-            if not any(sub in root for sub in exclude) and root[2:9] == include:
-                try:
-                    files.remove(".DS_Store")
-                except ValueError:
-                    pass
-                for file in files:
-                    if any(sub in file for sub in exclude):
-                        continue
-                    include_line = "include " + os.path.join(root[2:], file) + "\n"
-                    f.write(include_line)
-
-    sys.exit()
-
 # Get the long description from the README file
 with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
