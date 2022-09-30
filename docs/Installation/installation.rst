@@ -81,6 +81,9 @@ Downloading and installing S4 (start from the directory in which you want to dow
 Here we download my fork of S4 (modified to be compatible with Python3), move to the downloaded directory, and then we make the Python extension.
 If you activated the virtual environment before running this, S4 should automatically install into that virtual environment.
 
+**Note for users of new Mac devices with Apple M1/ARM chips:** You can install packages using Homebrew as described above,
+but instead of :literal:`make S4_pyext`, you should run :literal:`make S4_pyext --file="Makefile.m1"`.
+
 .. _install:
 
 Installing RayFlare
@@ -128,8 +131,8 @@ things like 'pip install' will point to the right place.
 
 As an alternative to the venv method above, PyCharm also has built-in support for making a new virtualenv environment
 based on one of your 'system interpreters' (these are the versions of Python installed -- if you followed the
-instructions above and are on Ubuntu 18, these are probably Python2.7, Python3.6 and the newly-installed
-Python3.8). You can create one of those environments by going to Project Interpreter in the same way, adding a new
+instructions above and are on Ubuntu 20, these are probably Python2.7, Python3.8 and possibly the newly-installed
+Python3.10). You can create one of those environments by going to Project Interpreter in the same way, adding a new
 environment and selecting 'Virtualenv environment' with the relevant base interpreter.
 
 Installing S4 on Windows
@@ -137,15 +140,6 @@ Installing S4 on Windows
 
 To date, I have not yet found a way to make S4 work on Windows (although it is certainly possible, because
 the developers state that it was developed on Windows).
-
-
-Citing RayFlare
-----------------
-
-If you use RayFlare in your work, please cite the `JOSS paper`_:
-
-*Pearce, P. M., (2021). RayFlare: flexible optical modelling of solar cells. Journal of Open Source Software, 6(65), 3460.
-https://doi.org/10.21105/joss.03460*
 
 
 Troubleshooting
@@ -176,4 +170,3 @@ Troubleshooting
 .. _here: https://itsfoss.com/install-linux-in-virtualbox/
 .. _dual boot: https://linuxconfig.org/how-to-install-ubuntu-20-04-alongside-windows-10-dual-boot
 .. _homebrew: https://brew.sh/
-.. _JOSS paper: https://doi.org/10.21105/joss.03460
