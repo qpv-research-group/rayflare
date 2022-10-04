@@ -659,8 +659,8 @@ def test_rcwa_tmm_profiles_coh():
 
     output_s = strt.calculate_profile(options)['profile']
 
-    tmm_profile_s = output_s[output_s > 1e-7]
-    rcwa_profile_s = output_rcwa_s[output_s > 1e-7]
+    tmm_profile_s = output_s[output_s > 1e-5]
+    rcwa_profile_s = output_rcwa_s[output_s > 1e-5]
 
     assert rcwa_profile_s == approx(tmm_profile_s, rel=0.02)
 
@@ -677,8 +677,8 @@ def test_rcwa_tmm_profiles_coh():
 
     output_p = strt.calculate_profile(options)['profile']
 
-    tmm_profile_p = output_p[output_p > 1e-7]
-    rcwa_profile_p = output_rcwa_p[output_p > 1e-7]
+    tmm_profile_p = output_p[output_p > 1e-5]
+    rcwa_profile_p = output_rcwa_p[output_p > 1e-5]
 
     assert rcwa_profile_p == approx(tmm_profile_p, rel=0.02)
 
@@ -695,8 +695,8 @@ def test_rcwa_tmm_profiles_coh():
 
     output_u = strt.calculate_profile(options)['profile']
 
-    tmm_profile_u = output_u[output_u > 1e-7]
-    rcwa_profile_u = output_rcwa_u[output_u > 1e-7]
+    tmm_profile_u = output_u[output_u > 1e-5]
+    rcwa_profile_u = output_rcwa_u[output_u > 1e-5]
 
     assert rcwa_profile_u == approx(tmm_profile_u, rel=0.02)
 
