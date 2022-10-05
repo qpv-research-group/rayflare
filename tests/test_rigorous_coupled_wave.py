@@ -89,7 +89,7 @@ def test_RAT():
 
     assert len(RAT['basis_set']) == 19
 
-    assert RAT['reciprocal'] == ((0.002, -0.0011547005383792516), (-0.0, 0.002309401076758503))
+    assert np.array(RAT['reciprocal']) == approx(np.array([[0.002, -0.0011547005383792516], [-0.0, 0.002309401076758503]]))
 
 
 

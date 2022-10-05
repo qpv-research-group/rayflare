@@ -17,13 +17,13 @@ def text_regular_pryramids():
 
     [front, back] = regular_pyramids(char_angle*180/np.pi, True, size)
 
-    assert np.all(front.Points == points)
-    assert np.all(back.Points == points_r)
+    assert front.Points == approx(points)
+    assert back.Points == approx(points_r)
 
     [front, back] = regular_pyramids(char_angle * 180 / np.pi, False, size)
 
-    assert np.all(front.Points == points_r)
-    assert np.all(back.Points == points)
+    assert front.Points == approx(points_r)
+    assert back.Points == approx(points)
 
 
 def test_planar_surface():
@@ -56,16 +56,16 @@ def test_V_grooves():
 
     [f, b] = V_grooves(0.3*180/np.pi, width, 'y')
 
-    assert np.all(f.Points == points)
-    assert np.all(b.Points == points_r)
+    assert f.Points == approx(points)
+    assert b.Points == approx(points_r)
 
     [f, b] = V_grooves(0.3 * 180 / np.pi, width, 'x')
 
     points = np.vstack([y, x, z]).T
     points_r = np.vstack([y, x, -z]).T
 
-    assert np.all(f.Points == points)
-    assert np.all(b.Points == points_r)
+    assert f.Points == approx(points)
+    assert b.Points == approx(points_r)
 
 
 
