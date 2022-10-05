@@ -65,6 +65,7 @@ setup(
     version="1.1.0",
     description="Python-based integrated optical modelling",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://github.com/qpv-research-group/rayflare",
     project_urls={
         "Documentation": "http://rayflare.readthedocs.io",
