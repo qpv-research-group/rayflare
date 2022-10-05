@@ -662,7 +662,7 @@ def test_rcwa_tmm_profiles_coh():
     tmm_profile_s = output_s[output_s > 1e-5]
     rcwa_profile_s = output_rcwa_s[output_s > 1e-5]
 
-    assert rcwa_profile_s == approx(tmm_profile_s, rel=0.02)
+    assert rcwa_profile_s == approx(tmm_profile_s, rel=0.025)
 
     options.pol = 'p'
 
@@ -680,7 +680,7 @@ def test_rcwa_tmm_profiles_coh():
     tmm_profile_p = output_p[output_p > 1e-5]
     rcwa_profile_p = output_rcwa_p[output_p > 1e-5]
 
-    assert rcwa_profile_p == approx(tmm_profile_p, rel=0.02)
+    assert rcwa_profile_p == approx(tmm_profile_p, rel=0.025)
 
     options.pol = 'u'
 
@@ -698,7 +698,7 @@ def test_rcwa_tmm_profiles_coh():
     tmm_profile_u = output_u[output_u > 1e-5]
     rcwa_profile_u = output_rcwa_u[output_u > 1e-5]
 
-    assert rcwa_profile_u == approx(tmm_profile_u, rel=0.02)
+    assert rcwa_profile_u == approx(tmm_profile_u, rel=0.025)
 
 
 @mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
