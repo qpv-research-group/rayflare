@@ -96,7 +96,7 @@ To do a normal installation from PyPI (using :literal:`pip`):
     pip install setuptools wheel numba
     pip install rayflare
 
-This will install install the most recent version uploaded to PyPI (currently 1.0.1), which is not necessarily the most
+This will install install the most recent version uploaded to PyPI (currently 1.1.0), which is not necessarily the most
 up to date version.
 
 To install RayFlare from source (GitHub):
