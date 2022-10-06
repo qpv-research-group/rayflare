@@ -11,16 +11,14 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 
-from solcore.absorption_calculator import OptiStack
-
 from rayflare.angles import make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths
+from rayflare.utilities import get_matrices_or_paths, OptiStack
 
 from sparse import COO, save_npz, stack
 
 try:
     import S4
-except Exception as err:
+except Exception as err: # pragma: no cover
     print('WARNING: The RCWA solver will not be available because an S4 installation has not been found.')
 
 
@@ -49,7 +47,7 @@ def RCWA(structure, size, orders, options, structpath, incidence, transmission, 
     :return:
     """
     # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
-    # or if internally it will still do s & p separately
+    #   or if internally it will still do s & p separately
     # TODO: if incidence angle is zero, s and p polarization are the same so no need to do both
 
     existing_mats, path_or_mats = get_matrices_or_paths(structpath, surf_name, front_or_rear, prof_layers)
@@ -649,8 +647,6 @@ class rcwa_structure:
 
         shapes_names = [str(x) for x in shape_mats]
 
-        # depth_spacing = options['depth_spacing']
-
         # RCWA options
         S4_options = dict(LatticeTruncation='Circular',
                             DiscretizedEpsilon=False,
@@ -676,22 +672,39 @@ class rcwa_structure:
         shapes_oc = np.zeros((len(wavelengths), len(self.shape_mats)), dtype=complex)
 
         for i1, x in enumerate(self.shape_mats):
-            if isinstance(x, list):
-                if len(x) == 3:
-                    shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
-
-                if len(x) == 4:
-                    shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
-
-            else:
-                shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
+            # if isinstance(x, list): # this doesn't work (because of necessary_materials)
+            #     if len(x) == 3:
+            #         shapes_oc[:, i1] = np.ones_like(wavelengths)*(x[1] + 1j*x[2])**2
+            #
+            #     if len(x) == 4:
+            #         shapes_oc[:, i1] = (x[2] + 1j*x[3])**2
+            #
+            # else:
+            shapes_oc[:, i1] = (x.n(wavelengths) + 1j * x.k(wavelengths)) ** 2
 
         # prepare to pass to OptiStack.
 
         stack_OS = OptiStack(self.list_for_OS, no_back_reflection=False,
                              substrate=self.transmission, incidence=self.incidence)
 
-        layers_oc = (np.array(stack_OS.get_indices(wavelengths*1e9))**2).T
+        layers_oc_list = stack_OS.get_indices(wavelengths*1e9)
+        is_anisotropic = np.array([x.size for x in layers_oc_list]) == 9*len(wavelengths)
+
+        if np.any(is_anisotropic):
+            for i1 in np.where(~is_anisotropic)[0]:
+
+                layers_oc_list[i1] = np.array([np.diag([x,x,x]) for x in layers_oc_list[i1]])
+
+
+            layers_oc = np.transpose(layers_oc_list, [1,0,2,3])**2
+
+        else:
+            layers_oc = (np.array(layers_oc_list)**2).T
+            # at least one element in the structure has a dielectric tensor; convert all to this format
+
+            # dielectric tensor: can't put in an array because not all same size if not all materials are anisotropic
+            # if ANY are anisotropic: expand all into dielectric tensor.
+
         widths = stack_OS.get_widths()
 
         self.widths = widths
@@ -752,7 +765,7 @@ class rcwa_structure:
 
             A_order = np.real(np.stack([item[3] for item in allres]))
 
-            S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, self.layers_oc[0],
+            S_for_orders = initialise_S(self.size, options['orders'], self.geom_list, np.zeros(len(wl)),
                              self.shapes_oc[0], self.shapes_names, self.widths, options['S4_options'])
 
             basis_set = S_for_orders.GetBasisSet()
@@ -890,7 +903,7 @@ class rcwa_structure:
         a_r = a_r.reshape((len(xs), len(ys)))
         a_i = a_i.reshape((len(xs), len(ys)))
 
-        if plot:
+        if plot: # pragma: no cover
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
             im1 = axs[0].pcolormesh(xs, ys, a_r.T, cmap='magma')
             fig.colorbar(im1, ax=axs[0])
@@ -979,7 +992,7 @@ class rcwa_structure:
         E_mag = np.real(np.sqrt(np.sum(np.abs(E) ** 2, 2)))
         H_mag = np.real(np.sqrt(np.sum(np.abs(H) ** 2, 2)))
 
-        if plot:
+        if plot: # pragma: no cover
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
             im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma', shading='auto')
             fig.colorbar(im1, ax=axs[0])
@@ -1108,7 +1121,7 @@ class rcwa_structure:
         E_mag = np.real(np.sqrt(np.sum(np.abs(E) ** 2, 2)))
         H_mag = np.real(np.sqrt(np.sum(np.abs(H) ** 2, 2)))
 
-        if plot:
+        if plot: # pragma: no cover
             fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
             im1 = axs[0].pcolormesh(xs, ys, E_mag.T, cmap='magma')
             fig.colorbar(im1, ax=axs[0])
@@ -1155,15 +1168,22 @@ class rcwa_structure:
 def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders,
             A_per_order, S4_options):
 
+    if len(layers_oc.shape) > 1:
+        layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
+        n_inc = np.real(np.sqrt(layers_oc[0][0][0]))
+
+    else:
+        n_inc = np.real(np.sqrt(layers_oc[0]))
+
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)
-        out = rcwa_rat(S, len(widths), theta, np.sqrt(layers_oc[0]))
+        out = rcwa_rat(S, len(widths), theta, n_inc)
         R = out[0]['R']
         T = out[0]['T']
-        A_layer = rcwa_absorption_per_layer(S, len(widths), theta, np.sqrt(layers_oc[0]))
+        A_layer = rcwa_absorption_per_layer(S, len(widths), theta, n_inc)
         if A_per_order:
-            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), theta, np.sqrt(layers_oc[0]))
+            A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), theta, n_inc)
             return R, T, A_layer, A_per_layer_order
         else:
             return R, T, A_layer
@@ -1199,6 +1219,13 @@ def RCWA_structure_wl(wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, 
 
 def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, S4_options):
 
+    if len(layers_oc.shape) > 1:
+        layers_oc = [tuple([tuple(y) for y in array]) for array in layers_oc]
+        n_inc = np.real(np.sqrt(layers_oc[0][0][0]))
+
+    else:
+        n_inc = np.real(np.sqrt(layers_oc[0]))
+
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
     profile_data = np.zeros(len(dist))
 
@@ -1212,7 +1239,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
             layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                d)  # don't need to change this
             layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-            data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+            data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
             profile_data[j] = data
 
 
@@ -1234,7 +1261,7 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                 layer, d_in_layer = tmm.find_in_structure_with_inf(widths,
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
-                data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+                data = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
                 profile_data[j] = data
 
         else:
@@ -1248,9 +1275,9 @@ def RCWA_wl_prof(wl, rat_output_A, dist, geom_list, layers_oc, shapes_oc, s_name
                                                                    d)  # don't need to change this
                 layer_name = 'layer_' + str(layer + 1)  # layer_1 is air above so need to add 1
                 S.SetExcitationPlanewave((theta, phi), 0, 1, 0)  # p-polarization
-                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+                data_p = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
                 S.SetExcitationPlanewave((theta, phi), 1, 0, 0)  # p-polarization
-                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, np.sqrt(layers_oc[0]))
+                data_s = rcwa_position_resolved(S, layer_name, d_in_layer, A, theta, n_inc)
                 profile_data[j] = np.real(0.5*(data_s + data_p))
 
     return profile_data

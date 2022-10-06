@@ -302,7 +302,6 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
 
     len_calcs = np.array([len(x) if x is not None else 0 for x in calc_prof_list])
 
-
     if np.any(len_calcs > 0) or options.bulk_profile:
 
         a = [[] for _ in range(n_interfaces)]
@@ -419,6 +418,8 @@ def matrix_multiplication(bulk_mats, bulk_thick, options, layer_names, calc_prof
         return RAT, results_per_pass, profile, bulk_profile
 
     else:
+
+        print("b")
 
         a = [[] for _ in range(n_interfaces)]
         vr = [[] for _ in range(n_bulks)]

@@ -497,3 +497,174 @@ def test_matrix_generation():
 
     assert full_mat.shape == (len(wavelengths), 6, options.n_theta_bins)
     assert A_mat.shape == (len(wavelengths), 4, options.n_theta_bins)
+
+
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_rcwa_profile_circ():
+    from rayflare.options import default_options
+    from solcore import material
+    from solcore import si
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from solcore.structure import Layer
+
+    Air = material('Air')()
+    Si = material('Si')()
+    GaAs = material('GaAs')()
+    Ge = material('Ge')()
+
+    options = default_options()
+
+    options.wavelengths = np.linspace(700, 1400, 4)*1e-9
+
+    options.depth_spacing = 10e-9
+    options.theta_in = 0
+    options.phi_in = 0
+    options.pol = [0.707+0.707*1j, 0.707-0.707*1j]
+
+    stack = [Layer(si('500nm'), GaAs), Layer(si('1.1um'), Si), Layer(si('0.834um'), Ge)]
+
+    strt_rcwa = rcwa_structure(stack, ((100, 0), (0, 100)), options, Air, Air)
+    strt_rcwa.calculate(options)
+    output_rcwa_c = strt_rcwa.calculate_profile(options)['profile']
+    # circular pol; not sure what to compare this against?
+
+    assert np.all(output_rcwa_c >= 0)
+
+
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_anisotropic_basic():
+    from solcore import material
+    from solcore.structure import Layer
+
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from rayflare.options import default_options
+
+    wavelengths = np.linspace(300, 1000, 25) * 1e-9
+
+    options = default_options()
+
+    options.wavelengths = wavelengths
+    options.orders = 10
+    options.A_per_order = True
+    options.theta_in = 1.3
+    options.phi_in = 0.9
+
+    Air = material('Air')()
+    GaAs = material("GaAs")()
+    Si = material("Si")()
+    Ag = material("Ag")()
+
+    GaAs_n = GaAs.n(wavelengths)
+    GaAs_k = GaAs.k(wavelengths)
+
+    Si_n = Si.n(wavelengths)
+    Si_k = Si.k(wavelengths)
+
+    GaAs_n_tensor = np.array([np.diag([x, x, x]) for x in GaAs_n])
+    GaAs_k_tensor = np.array([np.diag([x, x, x]) for x in GaAs_k])
+
+    Si_n_tensor = np.array([np.diag([x, x, x]) for x in Si_n])
+    Si_k_tensor = np.array([np.diag([x, x, x]) for x in Si_k])
+
+    test_mat = [100, wavelengths * 1e9, GaAs_n_tensor, GaAs_k_tensor, [{'type': 'rectangle', 'mat': Air,
+                                                                        'center': (0, 0), 'angle': 0,
+                                                                        'halfwidths': (150, 150)}]]
+    test_mat2 = [1000, wavelengths * 1e9, Si_n_tensor, Si_k_tensor, []]
+
+    rcwa_setup = rcwa_structure([Layer(100e-9, GaAs, geometry=[{'type': 'rectangle', 'mat': Air,
+                                                                'center': (0, 0), 'angle': 0,
+                                                                'halfwidths': (150, 150)}]),
+                                 Layer(1e-6, Si)], size=((400, 0), (0, 400)), options=options, incidence=Air,
+                                transmission=Ag)
+
+    rcwa_setup_AS = rcwa_structure([test_mat, test_mat2], size=((400, 0), (0, 400)), options=options, incidence=Air,
+                                   transmission=Ag)
+
+    options.pol = "s"
+    RAT_s_AS = rcwa_setup_AS.calculate(options)
+    RAT_s = rcwa_setup.calculate(options)
+
+    options.pol = "p"
+    RAT_p_AS = rcwa_setup_AS.calculate(options)
+    RAT_p = rcwa_setup.calculate(options)
+
+    prof = rcwa_setup.calculate_profile(options)
+    prof_AS = rcwa_setup_AS.calculate_profile(options)
+
+    for key in RAT_s_AS.keys():
+        assert RAT_s_AS[key] == approx(np.array(RAT_s[key]))
+        assert RAT_p_AS[key] == approx(np.array(RAT_p[key]))
+
+    assert prof["profile"] == approx(prof_AS["profile"], abs=4e-5)
+
+
+
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_anisotropic_pol():
+    from solcore import material
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from rayflare.options import default_options
+
+    wavelengths = np.linspace(400, 800, 20)*1e-9
+
+    options = default_options()
+
+    options.wavelengths = wavelengths
+    options.orders = 1
+    options.A_per_order = True
+
+    Air = material("Air")()
+
+    # [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
+
+    n_tensor = np.array([[[2, 0, 0], [0, 3, 0], [0, 0, 1]], [[1, 0, 0], [0, 2, 0], [0, 0, 2]]])
+    k_tensor = np.array([[[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]], [[0.2, 0, 0], [0, 0.2, 0], [0, 0, 0.2]]])
+
+    test_mat = [100, np.array([400, 900]), n_tensor, k_tensor, []]
+    test_mat2 = [1000, np.array([400, 900]),  n_tensor, k_tensor, []]
+
+    rcwa_setup_AS = rcwa_structure([test_mat, test_mat2], size=((400, 0), (0, 400)), options=options, incidence=Air, transmission=Air)
+
+    options.pol = "s"
+    RAT_s_AS = rcwa_setup_AS.calculate(options)
+
+    options.pol = "p"
+    RAT_p_AS = rcwa_setup_AS.calculate(options)
+
+    options.pol = "u"
+    RAT_u_AS = rcwa_setup_AS.calculate(options)
+
+    assert np.all(RAT_s_AS["A_per_layer"] > RAT_p_AS["A_per_layer"])
+    assert np.all(RAT_s_AS["T"] > RAT_p_AS["T"])
+    assert np.all(RAT_s_AS["R"] < RAT_p_AS["R"])
+
+    assert 0.5*(RAT_s_AS["A_per_layer"] + RAT_p_AS["A_per_layer"]) == approx(RAT_u_AS["A_per_layer"])
+    assert 0.5*(RAT_s_AS["R"] + RAT_p_AS["R"]) == approx(RAT_u_AS["R"])
+    assert 0.5*(RAT_s_AS["T"] + RAT_p_AS["T"]) == approx(RAT_u_AS["T"])
+
+
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_list_mats():
+    from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
+    from rayflare.options import default_options
+    from solcore import material
+
+    opts = default_options()
+    opts.wavelengths = np.linspace(300, 400, 3)*1e-9
+
+    Air = material("Air")()
+    GaAs = material("GaAs")()
+
+    const_n_mat = [100, 2, 0]
+
+    test_mat = const_n_mat + [[]]
+    test_mat2 = const_n_mat + [[{'type': 'rectangle', 'mat': GaAs,
+                                'center': (0, 0), 'halfwidths': [300, 300], 'angle': 20}]]
+
+    strt = rcwa_structure([test_mat], ((500, 0), (0, 500)), opts, Air, Air)
+    strt2 = rcwa_structure([test_mat2], ((500, 0), (0, 500)), opts, Air, Air)
+
+    RAT = strt.calculate(opts)
+    RAT2 = strt2.calculate(opts)
+
+    assert np.all(RAT2["A_per_layer"] > RAT["A_per_layer"])
