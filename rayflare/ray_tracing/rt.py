@@ -428,8 +428,16 @@ class rt_structure:
         A_layer = np.zeros((len(wavelengths), len(widths)))
 
         for i1, mat in enumerate(mats):
-            nks[i1] = mat.n(wavelengths) + 1j * mat.k(wavelengths)
-            alphas[i1] = mat.k(wavelengths) * 4 * np.pi / (wavelengths * 1e6)
+            if isinstance(mats, list):
+                if len(mats) == 2:
+                    nks[i1] = mats[0]*np.ones_like(wavelengths) + 1j * mats[1]*np.ones_like(wavelengths)
+                    alphas[i1] = mats[1] * 4 * np.pi / (wavelengths * 1e6)
+
+                else:
+                    0 # raise an error
+            else:
+                nks[i1] = mat.n(wavelengths) + 1j * mat.k(wavelengths)
+                alphas[i1] = mat.k(wavelengths) * 4 * np.pi / (wavelengths * 1e6)
 
         h = max(surfaces[0].Points[:, 2])
         r = abs((h + 1e-6) / cos(theta))
@@ -470,12 +478,14 @@ class rt_structure:
 
         if not options['parallel']:
             for j1 in range(n_reps):
+                print(j1, n_reps)
 
                 offset = j1 * nx * ny
                 for c, vals in enumerate(product(xs, ys)):
-                    # print(c)
+                    print(c)
 
                     for i1 in range(len(wavelengths)):
+                        print(i1)
                         I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact = single_ray_stack(vals[0], vals[1],
                                                                                                     nks[:, i1],
                                                                                                     alphas[:, i1],
@@ -556,6 +566,8 @@ class rt_structure:
 
 def parallel_inner(nks, alphas, r_a_0, theta, phi, surfaces, widths, z_pos, I_thresh, pol, nx, ny, n_reps, xs, ys,
                    randomize, initial_mat, initial_dir, periodic):
+
+    print('a')
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)

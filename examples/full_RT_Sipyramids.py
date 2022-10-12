@@ -20,18 +20,18 @@ Air = material('Air')()
 Si = material('566', nk_db=True)()
 
 # number of x and y points to scan across
-nxy = 25
+nxy = 2
 
 calc = True
 
 # setting options
 options = default_options()
-options.wavelengths = np.linspace(300, 1201, 50) * 1e-9
+options.wavelengths = np.linspace(300, 800, 50) * 1e-9
 options.nx = nxy
 options.ny = nxy
 options.n_rays = 2 * nxy ** 2
 options.depth_spacing = si('1um')
-options.parallel = True
+options.parallel = False
 
 PVlighthouse = np.loadtxt('data/RAT_data_300um_2um_55.csv', delimiter=',', skiprows=1)
 
