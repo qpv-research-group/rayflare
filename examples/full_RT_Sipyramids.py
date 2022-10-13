@@ -21,6 +21,7 @@ from solcore.absorption_calculator import download_db, search_db
 # download_db() # only need to run this once to download database from refractiveindex.info
 Si_Green2008 = search_db("Green")[0][0]
 Si = material(str(Si_Green2008), nk_db=True)()
+Air = material("Air")()
 
 # number of x and y points to scan across
 nxy = 25
