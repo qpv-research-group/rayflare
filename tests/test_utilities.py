@@ -137,8 +137,8 @@ def test_matrix_method_profile():
     InAlP = material("AlInP")(Al=0.5)
     GaInP = material("GaInP")(In=0.5)
     Si = material("Si")()
-    MgF2 = material("203", nk_db=True)()
-    Ta2O5 = material("410", nk_db=True)()
+    MgF2 = material("MgF2")()
+    Ta2O5 = material("TAOX1")()
 
     GaAs_1_th = 120e-9
     GaAs_2_th = 1200e-9

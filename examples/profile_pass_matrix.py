@@ -7,12 +7,12 @@ from rayflare.options import default_options
 from rayflare.angles import make_angle_vector
 from rayflare.utilities import make_absorption_function
 
-
 from solcore import material, si
 from solcore.solar_cell import SolarCell, Layer, Junction
 from solcore.solar_cell_solver import solar_cell_solver
 from solcore.light_source import LightSource
 from solcore.constants import q
+from solcore.absorption_calculator import search_db, download_db
 
 # imports for plotting
 import matplotlib.pyplot as plt
@@ -62,8 +62,12 @@ GaAs = material("GaAs")()
 InAlP = material("AlInP")(Al=0.5)
 GaInP = material("GaInP")(In=0.5)
 Si = material("Si")()
-MgF2 = material("203", nk_db=True)()
-Ta2O5 = material("410", nk_db=True)()
+
+# download_db() # only need to run this once to download database from refractiveindex.info
+MgF2_pageid = str(search_db("MgF2/Rodriguez")[0][0])
+Ta2O5_pageid = str(search_db("Ta2O5/Rodriguez")[0][0])
+MgF2 = material(MgF2_pageid, nk_db=True)()
+Ta2O5 = material(Ta2O5_pageid, nk_db=True)()
 
 GaAs_1_th = 120e-9
 GaAs_2_th = 1200e-9
