@@ -163,14 +163,13 @@ ax.text(900, 0.5, 'Si: \n' + str(round(Jph_Si,1)) + ' mA/cm$^2$', ha='center')
 plt.show()
 
 
-
 ## ray-tracing
 
 from rayflare.ray_tracing import rt_structure
-from rayflare.textures import regular_pyramids
+from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
 
-nxy = 5
+nxy = 25
 
 calc = True
 
@@ -212,12 +211,27 @@ if calc:
     #                              260e-6,
     #                              6.5e-6, 6.5e-6, 240e-9], incidence=Air, transmission=Ag)
 
-    rtstr = rt_structure(textures=[triangle_surf, triangle_surf_back],
-                        materials = [Si],
-                        widths=[si('300um')], incidence=Air, transmission=Ag)
+    flat_surf = planar_surface(size=2) # pyramid size in microns
+    triangle_surf = regular_pyramids(55, upright=False, size=2)
+
+    # set up ray-tracing options
+    rtstr = rt_structure(textures=[triangle_surf]*7 + [triangle_surf_back]*4,
+                         materials= [MgF2,
+                                    IZO,
+                                    C60,
+                                    Perovskite,
+                                    aSi_n,
+                                    aSi_i,
+                                    Si,
+                                    aSi_i,
+                                    aSi_p,
+                                    ITO_back],
+                        widths=[100e-9, 110e-9, 15e-9, 440e-9, 6.5e-9, 6.5e-9,
+                                  260e-6,
+                                  6.5e-6, 6.5e-6, 240e-9],
+                         incidence=Air, transmission=Ag)
     result = rtstr.calculate(options)
     #result = result_new
-
 
     #result = np.vstack((options['wavelengths']*1e9, result['R'], result['R0'], result['T'], result['A_per_layer'][:,0])).T
 
@@ -232,7 +246,8 @@ plt.subplot(1,1,1)
 plt.plot(wavelengths*1e9, result['R'], '-o', color=pal[0], label=r'R$_{total}$', fillstyle='none')
 plt.plot(wavelengths*1e9, result['R0'], '-o', color=pal[1], label=r'R$_0$', fillstyle='none')
 plt.plot(wavelengths*1e9, result['T'], '-o', color=pal[2], label=r'T', fillstyle='none')
-plt.plot(wavelengths*1e9, result['A_per_layer'][:,0], '-o', color=pal[3], label=r'A', fillstyle='none')
+plt.plot(wavelengths*1e9, result['A_per_layer'][:,3], '-o', color=pal[3], label=r'A', fillstyle='none')
+plt.plot(wavelengths*1e9, result['A_per_layer'][:,6], '-o', color=pal[3], label=r'A', fillstyle='none')
 
 plt.title('a)', loc='left')
 plt.plot(-1, -1, '-ok', label='RayFlare')

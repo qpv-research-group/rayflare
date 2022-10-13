@@ -428,16 +428,16 @@ class rt_structure:
         A_layer = np.zeros((len(wavelengths), len(widths)))
 
         for i1, mat in enumerate(mats):
-            if isinstance(mats, list):
-                if len(mats) == 2:
-                    nks[i1] = mats[0]*np.ones_like(wavelengths) + 1j * mats[1]*np.ones_like(wavelengths)
-                    alphas[i1] = mats[1] * 4 * np.pi / (wavelengths * 1e6)
-
-                else:
-                    0 # raise an error
-            else:
-                nks[i1] = mat.n(wavelengths) + 1j * mat.k(wavelengths)
-                alphas[i1] = mat.k(wavelengths) * 4 * np.pi / (wavelengths * 1e6)
+            # if isinstance(mats, list):
+            #     if len(mats) == 2:
+            #         nks[i1] = mats[0]*np.ones_like(wavelengths) + 1j * mats[1]*np.ones_like(wavelengths)
+            #         alphas[i1] = mats[1] * 4 * np.pi / (wavelengths * 1e6)
+            #
+            #     else:
+            #         0 # raise an error
+            # else:
+            nks[i1] = mat.n(wavelengths) + 1j * mat.k(wavelengths)
+            alphas[i1] = mat.k(wavelengths) * 4 * np.pi / (wavelengths * 1e6)
 
         h = max(surfaces[0].Points[:, 2])
         r = abs((h + 1e-6) / cos(theta))
@@ -887,6 +887,8 @@ def single_ray_stack(x, y, nks, alphas, r_a_0, surfaces, widths,
             profile[depth_indices[mat_index]] = np.real(profile[depth_indices[mat_index]] + DA)
 
             n_passes = n_passes + 1
+
+        print(direction, mat_index, surf_index)
 
 
     return I, profile, A_per_layer, theta, phi, n_passes, n_interactions
