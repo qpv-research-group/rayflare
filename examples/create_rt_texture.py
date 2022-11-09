@@ -36,60 +36,74 @@ random_surf_2 = heights_texture(Z, np.max(x_in), np.max(y_in))
 [front, back] = random_surf
 
 fig = plt.figure()
-ax = plt.subplot(projection='3d')
-ax.view_init(elev=50., azim=60)
-ax.plot_trisurf(front.Points[:,0], front.Points[:,1], front.Points[:,2],
-                triangles=front.simplices,  linewidth=1, color = (0.8, 0.8, 0.8, 0.8))
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
+ax = plt.subplot(projection="3d")
+ax.view_init(elev=50.0, azim=60)
+ax.plot_trisurf(
+    front.Points[:, 0],
+    front.Points[:, 1],
+    front.Points[:, 2],
+    triangles=front.simplices,
+    linewidth=1,
+    color=(0.8, 0.8, 0.8, 0.8),
+)
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
 
 plt.show()
 
 flat_surf = planar_surface(size=20)  # pyramid size in microns
 
-Air = material('Air')()
-Si = material('Si')()
+Air = material("Air")()
+Si = material("Si")()
 
-wavelengths = np.linspace(300, 1190, 20)*1e-9
+wavelengths = np.linspace(300, 1190, 20) * 1e-9
 
 options = default_options()
 options.n_rays = 1000
 options.wavelengths = wavelengths
 
 # set up ray-tracing options
-rtstr = rt_structure(textures=[random_surf, flat_surf],
-                     materials=[Si],
-                     widths=[200e-6], incidence=Air, transmission=Air)
+rtstr = rt_structure(
+    textures=[random_surf, flat_surf],
+    materials=[Si],
+    widths=[200e-6],
+    incidence=Air,
+    transmission=Air,
+)
 result = rtstr.calculate(options)
 
 
 options.coherent = False
-options.coherency_list = ['i']
+options.coherency_list = ["i"]
 planar_struct = tmm_structure([Layer(200e-6, Si)], incidence=Air, transmission=Air)
 result_planar = planar_struct.calculate(options)
 
 plt.figure()
-plt.plot(wavelengths*1e9, result['R'], '-k', label='R')
-plt.plot(wavelengths*1e9, result['A_per_layer'][:,0], '-r', label='A')
-plt.plot(wavelengths*1e9, result['T'], '-b', label='T')
-plt.plot(wavelengths*1e9, result_planar['R'], '--k', label='planar R')
-plt.plot(wavelengths*1e9, result_planar['A_per_layer'][:,0], '--r', label='planar A')
-plt.plot(wavelengths*1e9, result_planar['T'], '--b', label='planar T')
+plt.plot(wavelengths * 1e9, result["R"], "-k", label="R")
+plt.plot(wavelengths * 1e9, result["A_per_layer"][:, 0], "-r", label="A")
+plt.plot(wavelengths * 1e9, result["T"], "-b", label="T")
+plt.plot(wavelengths * 1e9, result_planar["R"], "--k", label="planar R")
+plt.plot(wavelengths * 1e9, result_planar["A_per_layer"][:, 0], "--r", label="planar A")
+plt.plot(wavelengths * 1e9, result_planar["T"], "--b", label="planar T")
 plt.legend()
-plt.xlabel('Wavelength (nm)')
-plt.ylabel('R/A/T')
+plt.xlabel("Wavelength (nm)")
+plt.ylabel("R/A/T")
 plt.autoscale(tight=True)
-plt.ylim(0,1)
+plt.ylim(0, 1)
 plt.show()
 
 plt.figure()
-plt.plot(wavelengths*1e9, np.mean(result['n_interactions'], 1),
-         label='Mean number of surface interactions')
-plt.plot(wavelengths*1e9, np.mean(result['n_passes'], 1),
-         label='Mean number of passes')
-plt.xlabel('Wavelength (nm)')
-plt.ylabel('N')
+plt.plot(
+    wavelengths * 1e9,
+    np.mean(result["n_interactions"], 1),
+    label="Mean number of surface interactions",
+)
+plt.plot(
+    wavelengths * 1e9, np.mean(result["n_passes"], 1), label="Mean number of passes"
+)
+plt.xlabel("Wavelength (nm)")
+plt.ylabel("N")
 plt.autoscale(tight=True)
 plt.legend()
 plt.show()

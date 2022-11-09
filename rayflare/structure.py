@@ -7,6 +7,7 @@
 
 from solcore.structure import Layer
 
+
 class Structure(list):
     # both interfaces and bulk layers
 
@@ -43,39 +44,46 @@ class Structure(list):
 
     def __str__(self):
 
-        layer_info = ["  {} {}".format(
-            layer,
-            self.labels[i] if self.labels[i] is not None else "",
-        ) for i, (layer, label) in enumerate(zip(self, self.labels))]
+        layer_info = [
+            "  {} {}".format(
+                layer,
+                self.labels[i] if self.labels[i] is not None else "",
+            )
+            for i, (layer, label) in enumerate(zip(self, self.labels))
+        ]
 
-        return "<Structure object\n{}\n{}>".format(str(self.__dict__), "\n".join(layer_info))
-
+        return "<Structure object\n{}\n{}>".format(
+            str(self.__dict__), "\n".join(layer_info)
+        )
 
 
 class BulkLayer:
-    """ Class that stores the information about layers of materials, such as thickness and composition.
-    It is the building block of the 'Structures' """
+    """Class that stores the information about layers of materials, such as thickness and composition.
+    It is the building block of the 'Structures'"""
 
     def __init__(self, width, material, **kwargs):
-        """ Layer class constructor.
-
-        """
+        """Layer class constructor."""
         self.width = width
         self.material = material
         self.__dict__.update(kwargs)
 
 
 class Interface:
-
-    def __init__(self, method, layers=None, texture=None, prof_layers=None, coherent=True,  **kwargs):
-        """ Layer class constructor.
-
-        """
+    def __init__(
+        self,
+        method,
+        layers=None,
+        texture=None,
+        prof_layers=None,
+        coherent=True,
+        **kwargs
+    ):
+        """Layer class constructor."""
         self.method = method
         self.__dict__.update(kwargs)
         self.layers = layers
-        self.texture = texture # for ray tracing
-        self.prof_layers = prof_layers # in which layers of the interface (1-indexed) should absorption be calculated?
+        self.texture = texture  # for ray tracing
+        self.prof_layers = prof_layers  # in which layers of the interface (1-indexed) should absorption be calculated?
         self.materials = []
         self.n_depths = []
         self.widths = []
@@ -88,20 +96,17 @@ class Interface:
                     self.widths.append(element.width)
 
                 else:
-                    self.widths.append(element[0]*1e-9)
+                    self.widths.append(element[0] * 1e-9)
                     self.materials.append(element[1:3])
 
 
 class Texture:
-
     def __init__(self, texture):
         self.texture = texture
 
 
 class RTgroup:
-
     def __init__(self, textures, materials=None, widths=None):
         self.materials = materials
         self.textures = textures
         self.widths = widths
-
