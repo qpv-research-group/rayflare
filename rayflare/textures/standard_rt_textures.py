@@ -14,7 +14,8 @@ import numpy as np
 import os
 
 
-def regular_pyramids(elevation_angle=55, upright=True, size=1):
+def regular_pyramids(elevation_angle=55, upright=True, size=1, interface_layers=None,
+                     **kwargs):
     """Defines RTSurface textures for ray-tracing of regular upright or inverted pyramids.
 
     :param elevation_angle: angle between the horizontal and a face of the pyramid, in degrees
@@ -38,7 +39,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1):
         z = np.array([0, -h, 0, 0, 0])
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points)
+    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
@@ -46,7 +47,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1):
     return [surf_fi, surf_ri]
 
 
-def planar_surface(size=1):
+def planar_surface(size=1, interface_layers=None, **kwargs):
     """Defines RTSurface textures for ray-tracing for a planar surface for ray-tracing.
 
     :param size: size of the unit cell (this should not affect the results, as the surface is planar).
@@ -59,13 +60,13 @@ def planar_surface(size=1):
     z = np.array([0, 0, 0, 0])
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points)
+    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
     surf_ri = RTSurface(Points)
 
     return [surf_fi, surf_ri]
 
 
-def random_pyramids():
+def random_pyramids(interface_layers=None, **kwargs):
     """Defines RTSurface textures for ray-tracing for a surface of random pyramids (based on
     real surface scan data).
 
@@ -81,7 +82,7 @@ def random_pyramids():
     z = z_map.flatten()
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points)
+    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
@@ -89,7 +90,7 @@ def random_pyramids():
     return [surf_fi, surf_ri]
 
 
-def V_grooves(elevation_angle=55, width=1, direction="y"):
+def V_grooves(elevation_angle=55, width=1, direction="y", interface_layers=None, **kwargs):
     """Defines RTSurface textures for ray-tracing for a surface of V-grooves.
 
     :param elevation_angle: angle between the horizontal and a face of the V-grooves, in degrres
@@ -111,7 +112,7 @@ def V_grooves(elevation_angle=55, width=1, direction="y"):
     z = np.array([0, 0, 0, 0, h, h])
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points)
+    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
@@ -119,7 +120,7 @@ def V_grooves(elevation_angle=55, width=1, direction="y"):
     return [surf_fi, surf_ri]
 
 
-def hyperhemisphere(N_points=2**15, radius=1, h=0):
+def hyperhemisphere(N_points=2**15, radius=1, h=0, interface_layers=None, **kwargs):
     """Generate N evenly distributed points on the unit sphere centered at
     the origin. Uses the 'Golden Spiral'.
     Code by Chris Colbert from the numpy-discussion list.
@@ -273,7 +274,7 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0):
     Z_norm_back = np.mean([back.P_0s[:, 2], back.P_1s[:, 2], back.P_2s[:, 2]], 0)
 
     # make all the normals points inwards (for some reason this doesn't happen automatically
-    # with ConvexHull! Four things to check:
+    # with ConvexHull!) Four things to check:
 
     # 1. In each quadrant, if x of the middle of the triangle is +ve, sign of normal should be -ve and vice versa
     # 2. In each quadrant, if y of the middle of the triangle is +ve, sign of normal should be -ve and vice versa

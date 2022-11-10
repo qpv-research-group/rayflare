@@ -6,7 +6,6 @@
 # Contact: p.pearce@unsw.edu.au
 
 import numpy as np
-import os
 
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare.structure import Interface, RTgroup, BulkLayer
@@ -15,6 +14,7 @@ from rayflare.rigorous_coupled_wave_analysis import RCWA
 from rayflare.transfer_matrix_method import TMM
 from rayflare.angles import make_angle_vector
 from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
+from rayflare.utilities import get_savepath
 
 
 def process_structure(SC, options, save_location="default"):
@@ -257,36 +257,3 @@ def process_structure(SC, options, save_location="default"):
                     )
 
 
-def get_savepath(save_location, project_name):
-    """
-    Returns the full path where matrices will be stored.
-
-    :param save_location: string - location where the calculated redistribution matrices should be stored. Currently recognized are:
-
-              - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
-              - 'current', which stores the results in the current working directory
-              - or you can specify the full path location for wherever you want the results to be stored.
-
-              In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
-    :param project_name: the project name (string)
-    :return: full file path where matrices are stored (string)
-    """
-    if save_location == "current":
-        cwd = os.getcwd()
-        structpath = os.path.join(cwd, project_name)
-
-    elif save_location == "default":
-        home = os.path.expanduser("~")
-        structpath = os.path.join(home, "RayFlare_results", project_name)
-        if not os.path.isdir(os.path.join(home, "RayFlare_results")):
-            os.mkdir(os.path.join(home, "RayFlare_results"))
-
-    else:
-        structpath = os.path.join(save_location, project_name)
-        if not os.path.isdir(save_location):
-            os.mkdir(save_location)
-
-    if not os.path.isdir(structpath):
-        os.mkdir(structpath)
-
-    return structpath

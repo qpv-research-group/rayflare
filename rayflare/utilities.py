@@ -133,3 +133,38 @@ def make_absorption_function(profile_result, structure, options, matrix_method=F
         diff_absorb_fn = interp1d(positions, 1e9 * profile_result)
 
         return positions, diff_absorb_fn
+
+
+def get_savepath(save_location, project_name):
+    """
+    Returns the full path where matrices will be stored.
+
+    :param save_location: string - location where the calculated redistribution matrices should be stored. Currently recognized are:
+
+              - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
+              - 'current', which stores the results in the current working directory
+              - or you can specify the full path location for wherever you want the results to be stored.
+
+              In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
+    :param project_name: the project name (string)
+    :return: full file path where matrices are stored (string)
+    """
+    if save_location == "current":
+        cwd = os.getcwd()
+        structpath = os.path.join(cwd, project_name)
+
+    elif save_location == "default":
+        home = os.path.expanduser("~")
+        structpath = os.path.join(home, "RayFlare_results", project_name)
+        if not os.path.isdir(os.path.join(home, "RayFlare_results")):
+            os.mkdir(os.path.join(home, "RayFlare_results"))
+
+    else:
+        structpath = os.path.join(save_location, project_name)
+        if not os.path.isdir(save_location):
+            os.mkdir(save_location)
+
+    if not os.path.isdir(structpath):
+        os.mkdir(structpath)
+
+    return structpath

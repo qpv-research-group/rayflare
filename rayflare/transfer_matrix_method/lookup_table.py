@@ -4,7 +4,6 @@ from rayflare.transfer_matrix_method.tmm import tmm_structure
 import os
 from solcore.absorption_calculator import OptiStack
 
-
 def make_TMM_lookuptable(
     layers,
     incidence,
@@ -22,20 +21,19 @@ def make_TMM_lookuptable(
 
     :param layers: a list of layers. These can be Solcore 'Layer' objects, or any other layer format accepted \
     by the Solcore class 'OptiStack'.
-    :param incidence: semi-incidence medium. Should be an isntance of a Solcore material object
+    :param incidence: semi-incidence medium. Should be an instance of a Solcore material object
     :param transmission: semi-infinite transmission medium. Should be an instance of a Solcore material object
     :param surf_name: name of the surfaces, for storing the lookup table (string).
     :param options: dictionary or State object containing user options
     :param structpath: file path where matrices will be stored or loaded from
-    :param coherent: boolean. True if all the layers in the stack (excluding the semi-inifinite incidence and \
+    :param coherent: boolean. True if all the layers in the stack (excluding the semi-infinite incidence and \
     transmission medium) are coherent, False otherwise. Default True.
     :param coherency_list: list. List of 'c' (coherent) and 'i' (incoherent) for each layer excluding incidence and \
     transmission media. Only needs to be provided if coherent = False. Default = None
     :param prof_layers: Indices of the layers in which the parameters relating to the absorption profile should be \
     calculated and stored. Layer 0 is the incidence medium.
     :param sides: List of which sides of incidence should all parameters be calculated for; 1 indicates incidence from \
-    the front and -1 is rea    if not os.path.isdir(structpath):
-        os.mkdir(structpath)r incidence. Default = [1, -1]
+    the front and -1 is rear incidence. Default = [1, -1]
     :return: xarray Dataset with the R, A, T and (if relevant) absorption profile coefficients for each \
     wavelength, angle, polarization, side of incidence.
     """

@@ -11,7 +11,7 @@ from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
 from rayflare.structure import Interface, BulkLayer
-from rayflare.matrix_formalism.process_structure import get_savepath
+from rayflare.utilities import get_savepath
 
 
 def calculate_RAT(SC, options, save_location="default"):

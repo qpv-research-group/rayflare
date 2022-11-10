@@ -1044,7 +1044,7 @@ def test_rcwa_tmm_matrix_profiles():
 
 @mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_profile_integration():
-    from rayflare.matrix_formalism.process_structure import get_savepath
+    from rayflare.utilities import get_savepath
     import os
     import xarray as xr
 
