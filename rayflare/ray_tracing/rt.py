@@ -518,7 +518,7 @@ def make_lookuptable_rt_structure(textures, materials, incidence, transmission, 
             else:
                 coherent_for_lookuptable.append(True)
 
-            names_for_lookuptable.append("int_{}".format(i1))
+            names_for_lookuptable.append(text[0].name + "int_{}".format(i1))
             tmm_or_fresnel.append(1)
             n_layers.append(len(text[0].interface_layers))
 
@@ -598,7 +598,8 @@ class rt_structure:
                 raise(ValueError("Must provide options to pre-compute lookup tables"))
 
             else:
-                self.tmm_or_fresnel, self.save_location, self.n_interface_layers = make_lookuptable_rt_structure(
+                self.tmm_or_fresnel, self.save_location, self.n_interface_layers = \
+                    make_lookuptable_rt_structure(
                 textures, materials, incidence, transmission, options, save_location
             )
 
@@ -639,12 +640,6 @@ class rt_structure:
         else:
             n_jobs = options["n_jobs"] if hasattr(options, "n_jobs") else -1
 
-        if sum(self.tmm_or_fresnel) > 0:
-            tmm_args = [1, self.tmm_or_fresnel, self.save_location, self.n_interface_layers]
-
-        else:
-            tmm_args = [0, 0, 0, 0]
-
         widths = self.widths[:]
         widths.insert(0, 0)
         widths.append(0)
@@ -655,6 +650,13 @@ class rt_structure:
 
         mats = self.mats[:]
         surfaces = self.surfaces[:]
+
+        if sum(self.tmm_or_fresnel) > 0:
+            name_list = [x.name for x in surfaces]
+            tmm_args = [1, self.tmm_or_fresnel, self.save_location, name_list, self.n_interface_layers]
+
+        else:
+            tmm_args = [0, 0, 0, 0, 0]
 
         nks = np.empty((len(mats), len(wavelengths)), dtype=complex)
         alphas = np.empty((len(mats), len(wavelengths)), dtype=complex)
@@ -830,23 +832,28 @@ class rt_structure:
         n_interactions = np.stack([item[6] for item in allres])
         A_interfaces = [item[7] for item in allres]
 
-        A_per_interface = [np.zeros((len(wavelengths), n_l)) for n_l in self.n_interface_layers]
         # process A_interfaces
+
         if sum(self.tmm_or_fresnel) > 0:
+
+            A_per_interface = [np.zeros((len(wavelengths), n_l)) for n_l in self.n_interface_layers]
 
             for i1, per_int in enumerate(A_interfaces): # loop through wavelengths
 
                 for j1, interf in enumerate(per_int):
                     A_per_interface[j1][i1] = interf
 
+        else:
+            A_per_interface = 0
+
         non_abs = ~np.isnan(thetas)
 
         refl = np.logical_and(
             non_abs,
-            np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas)),
+            np.less_equal(np.real(thetas), np.pi / 2, where=non_abs),
         )
         trns = np.logical_and(
-            non_abs, np.greater(np.real(thetas), np.pi / 2, where=~np.isnan(thetas))
+            non_abs, np.greater(np.real(thetas), np.pi / 2, where=non_abs)
         )
 
         R = np.real(Is * refl).T / (n_reps * nx * ny)
@@ -856,7 +863,7 @@ class rt_structure:
 
         refl_0 = (
             non_abs
-            * np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas))
+            * np.less_equal(np.real(thetas), np.pi / 2, where=non_abs)
             * (n_passes == 1)
         )
         R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
@@ -875,6 +882,7 @@ class rt_structure:
             "n_passes": n_passes,
             "n_interactions": n_interactions,
             "A_per_interface": A_per_interface,
+            "A_interfaces": A_interfaces
         }
 
     def calculate_profile(self, options):
@@ -885,15 +893,16 @@ def make_tmm_args(arg_list):
     # print("TMM lookup tables used for interfaces: {}".format([i1 for i1, x in enumerate(arg_list[1]) if x == 1]))
     # construct additional arguments to be passed to ray-tracer: wavelength, lookuptables, and to use TMM (1)
     additional_tmm_args = []
+
     for i1, val in enumerate(arg_list[1]):
 
         if val == 1:
             structpath = arg_list[2]
-            surf_name = "int_{}".format(i1)
+            surf_name = arg_list[3][i1] + "int_{}".format(i1)
             lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc"))
 
             additional_tmm_args.append({
-                'wl': arg_list[4],
+                'wl': arg_list[5],
                 'Fr_or_TMM': 1,
                 'lookuptable': lookuptable
             })
@@ -902,7 +911,6 @@ def make_tmm_args(arg_list):
             additional_tmm_args.append({})
 
     return additional_tmm_args
-
 
 def parallel_inner(
     nks,
@@ -927,12 +935,13 @@ def parallel_inner(
 
     if tmm_args[0] > 0:
         additional_tmm_args = make_tmm_args(tmm_args)
-        A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[3]]
+        A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
 
     else:
-        additional_tmm_args = [{} for _ in tmm_args[1]]
+        additional_tmm_args = [{} for _ in range(len(surfaces))]
         A_in_interfaces = 0
 
+    print('1wl')
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -968,15 +977,17 @@ def parallel_inner(
             )
 
             A_interfaces[A_interface_index].append(A_interface_array)
-            profiles = profiles + profile / (n_reps * nx * ny)
+            profiles += profile / (n_reps*nx*ny)
             thetas[c + offset] = th_o
             phis[c + offset] = phi_o
             Is[c + offset] = np.real(I)
-            A_layer = A_layer + A_per_layer / (n_reps * nx * ny)
+            A_layer += A_per_layer / (n_reps*nx*ny)
             n_passes[c + offset] = n_pass
             n_interactions[c + offset] = n_interact
 
     A_interfaces = A_interfaces[1:]
+
+    absorbed_in_interface = 0
 
     if tmm_args[0] > 0:
         # process A_interfaces
@@ -984,8 +995,13 @@ def parallel_inner(
         for i1, layer_data in enumerate(A_interfaces):
 
             if len(layer_data) > 0:
+
                 data = np.stack(layer_data)
-                A_in_interfaces[i1] = np.mean(data, axis=0)
+
+                # data = data/np.sum(data, axis=1)[:, None]
+                # A_in_interfaces[i1] = (len(layer_data)/(n_reps*nx*ny))*np.mean(data, axis=0)
+                A_in_interfaces[i1] = np.sum(data, axis=0)/(n_reps*nx*ny)
+                print(A_in_interfaces[i1])
 
     return Is, profiles, A_layer, thetas, phis, n_passes, n_interactions, A_in_interfaces
 
@@ -1116,6 +1132,12 @@ class RTSurface:
                 axis=0,
             )
         ]
+
+        if "name" in kwargs:
+            self.name = kwargs["name"]
+
+        else:
+            self.name = ""
 
         if interface_layers is not None:
             self.interface_layers = interface_layers
@@ -1385,13 +1407,16 @@ def single_ray_stack(
         elif res == 1:  # transmission
 
             surf_index = surf_index + direction
-            mat_index = mat_index + direction  # is this right?
+            mat_index = mat_index + direction
 
         elif res == 2: # absorption
-            stop = True
-            A_interface_array = theta[:]
+            stop = True # absorption in an interface (NOT a bulk layer!)
+            A_interface_array = I*theta[:]/np.sum(theta)
+            print(I, A_interface_array)
+            print("A_bulks", A_per_layer)
             A_interface_index = surf_index + 1
             theta = None
+            I = 0
 
         if direction == 1 and mat_index == (len(widths) - 1):
             stop = True  # have ended with transmission
@@ -1413,6 +1438,9 @@ def single_ray_stack(
                 I_thresh,
                 direction,
             )
+
+            # traverse bulk layer. Possibility of absorption; in this case will return stop = True
+            # and theta = None
 
             A_per_layer[mat_index] = np.real(A_per_layer[mat_index] + I_b - I)
             profile[depth_indices[mat_index]] = np.real(

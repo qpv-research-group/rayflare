@@ -48,7 +48,7 @@ def make_TMM_lookuptable(
     else:
         wavelengths = options["wavelengths"]
         n_angles = options["lookuptable_angles"]
-        thetas = np.linspace(0, np.pi / 2, n_angles)
+        thetas = np.linspace(0, (np.pi / 2) - 1e-3, n_angles)
         if prof_layers is not None:
             profile = True
         else:
@@ -144,6 +144,12 @@ def make_TMM_lookuptable(
                     res = tmm_struct.calculate(
                         pass_options, profile=profile, layers=prof_layers
                     )
+                    if np.any(res["A_per_layer"] > 1):
+                        print(side, pol, theta, np.max(res["A_per_layer"]))
+                        print(res["A_per_layer"].shape)
+                        print(np.max(res["A_per_layer"]))
+                        # print(np.where(res["A_per_layer"] > 1))
+
                     R_loop[:, i3] = np.real(res["R"])
                     T_loop[:, i3] = np.real(res["T"])
                     Alayer_loop[i3, :, :] = np.real(res["A_per_layer"])

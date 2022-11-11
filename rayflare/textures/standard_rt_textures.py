@@ -14,7 +14,7 @@ import numpy as np
 import os
 
 
-def regular_pyramids(elevation_angle=55, upright=True, size=1, interface_layers=None,
+def regular_pyramids(elevation_angle=55, upright=True, size=1,
                      **kwargs):
     """Defines RTSurface textures for ray-tracing of regular upright or inverted pyramids.
 
@@ -39,7 +39,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, interface_layers=
         z = np.array([0, -h, 0, 0, 0])
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
+    surf_fi = RTSurface(Points, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
@@ -47,7 +47,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, interface_layers=
     return [surf_fi, surf_ri]
 
 
-def planar_surface(size=1, interface_layers=None, **kwargs):
+def planar_surface(size=1, **kwargs):
     """Defines RTSurface textures for ray-tracing for a planar surface for ray-tracing.
 
     :param size: size of the unit cell (this should not affect the results, as the surface is planar).
@@ -60,13 +60,13 @@ def planar_surface(size=1, interface_layers=None, **kwargs):
     z = np.array([0, 0, 0, 0])
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
+    surf_fi = RTSurface(Points, **kwargs)
     surf_ri = RTSurface(Points)
 
     return [surf_fi, surf_ri]
 
 
-def random_pyramids(interface_layers=None, **kwargs):
+def random_pyramids(**kwargs):
     """Defines RTSurface textures for ray-tracing for a surface of random pyramids (based on
     real surface scan data).
 
@@ -82,7 +82,7 @@ def random_pyramids(interface_layers=None, **kwargs):
     z = z_map.flatten()
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
+    surf_fi = RTSurface(Points, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
@@ -90,7 +90,7 @@ def random_pyramids(interface_layers=None, **kwargs):
     return [surf_fi, surf_ri]
 
 
-def V_grooves(elevation_angle=55, width=1, direction="y", interface_layers=None, **kwargs):
+def V_grooves(elevation_angle=55, width=1, direction="y", **kwargs):
     """Defines RTSurface textures for ray-tracing for a surface of V-grooves.
 
     :param elevation_angle: angle between the horizontal and a face of the V-grooves, in degrres
@@ -112,7 +112,7 @@ def V_grooves(elevation_angle=55, width=1, direction="y", interface_layers=None,
     z = np.array([0, 0, 0, 0, h, h])
 
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points, interface_layers=interface_layers, **kwargs)
+    surf_fi = RTSurface(Points, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
@@ -120,7 +120,7 @@ def V_grooves(elevation_angle=55, width=1, direction="y", interface_layers=None,
     return [surf_fi, surf_ri]
 
 
-def hyperhemisphere(N_points=2**15, radius=1, h=0, interface_layers=None, **kwargs):
+def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     """Generate N evenly distributed points on the unit sphere centered at
     the origin. Uses the 'Golden Spiral'.
     Code by Chris Colbert from the numpy-discussion list.

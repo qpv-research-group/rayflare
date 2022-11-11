@@ -603,11 +603,16 @@ class tmm_structure:
                     angle,
                     wavelength,
                 )
+
                 A_per_layer = np.array(tmm.inc_absorp_in_each_layer(out))
                 output["R"] = out["R"]
                 output["A"] = 1 - out["R"] - out["T"]
+
+                # make sure everything adds to 1:
+                A_per_layer = np.divide(A_per_layer[1:-1]*output["A"], np.sum(A_per_layer[1:-1], axis=0),
+                                        where=np.sum(A_per_layer[1:-1], axis=0) != 0)
                 output["T"] = out["T"]
-                output["A_per_layer"] = A_per_layer[1:-1]
+                output["A_per_layer"] = A_per_layer
         else:
             if coherent:
                 out_p = tmm.coh_tmm(
@@ -659,9 +664,12 @@ class tmm_structure:
                 output["A"] = 1 - output["R"] - output["T"]
                 output["all_p"] = out_p["power_entering_list"]
                 output["all_s"] = out_s["power_entering_list"]
-                output["A_per_layer"] = 0.5 * (
-                    A_per_layer_p[1:-1] + A_per_layer_s[1:-1]
+                A_per_layer = 0.5 * (
+                        A_per_layer_p[1:-1] + A_per_layer_s[1:-1]
                 )
+                output["A_per_layer"] = np.divide(A_per_layer * output["A"], np.sum(A_per_layer, axis=0),
+                                                  where=np.sum(A_per_layer, axis=0) != 0)
+
 
         output["A_per_layer"] = output["A_per_layer"].T
 
