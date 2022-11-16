@@ -70,7 +70,7 @@ def calculate_RAT(SC, options, save_location="default"):
     return results
 
 
-def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym):
+def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym, theta_spacing="sin"):
     """
     This function makes the v0 array, corresponding to the input power per angular channel
     at each wavelength, of size (num_wl, n_angle_bins_in) where n_angle_bins in = len(angle_vector)/2
@@ -87,7 +87,7 @@ def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym):
     """
 
     theta_intv, phi_intv, angle_vector = make_angle_vector(
-        n_theta_bins, phi_sym, c_azimuth
+        n_theta_bins, phi_sym, c_azimuth, theta_spacing
     )
     n_a_in = int(len(angle_vector) / 2)
     v0 = np.zeros((num_wl, n_a_in))
@@ -219,8 +219,10 @@ def matrix_multiplication(
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
+    theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+
     theta_intv, phi_intv, angle_vector = make_angle_vector(
-        options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
+        options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"], theta_spacing
     )
     n_a_in = int(len(angle_vector) / 2)
 
@@ -237,6 +239,7 @@ def matrix_multiplication(
         options["n_theta_bins"],
         options["c_azimuth"],
         options["phi_symmetry"],
+        theta_spacing
     )
 
     up2down, down2up = out_to_in_matrix(
@@ -352,6 +355,8 @@ def matrix_multiplication(
 
             # v0 is actually travelling down, but no reason to start in 'outgoing' ray format.
             vf_1[i1] = dot_wl(Tf[i1], v0)  # pass through front surface
+            # vf_1: incoming to outgoing
+
             vr[i1].append(dot_wl(Rf[i1], v0))  # reflected from front surface
             a[i1].append(
                 dot_wl(Af[i1], v0)
@@ -367,8 +372,21 @@ def matrix_multiplication(
             # rep
             i2 = 1
 
+            # print(angle_vector[:, 1])
+
+            # nonzero = np.argmax(vf_1[0][0, :])
+            # nonzero = np.where(vf_1[0][0,:] > 0)[0]
+            # print(nonzero)
+            # print(angle_vector[nonzero, 1]*180/np.pi)
+
             while np.any(power > options["I_thresh"]):
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1])  # outgoing to incoming
+                # nonzero = np.argmax(vf_1[0][0, :])
+                # print(nonzero)
+                # nonzero = np.where(vf_1[0][0, :] > 0)[0]
+                # print(angle_vector[nonzero, 1] * 180 / np.pi)
+                # # vf_1: incoming (now, fixed)
+                # vb_1: incoming (just absorption through bulk)
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
                 # vb_1 already an incoming ray
 
@@ -398,8 +416,15 @@ def matrix_multiplication(
                 vb_2[i1] = dot_wl(
                     Rf[i1 + 1], vb_1[i1]
                 )  # reflect from back surface. incoming -> up
+                # vb_2: outgoing
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1])  # pass through bulk, upwards
                 vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
+                # vf_2: incoming
+
+                # nonzero = np.argmax(vf_2[0][0, :])
+                # nonzero = np.where(vf_2[0][0, :] > 0)[0]
+                # print(nonzero)
+                # print('vf2', angle_vector[nonzero, 1] * 180 / np.pi)
 
                 if len(Ib[i1]) > 0:
                     scale = ((np.sum(Ab[i1].todense(), 1) * vf_2[i1]) / Ib[i1]).fillna(
@@ -427,6 +452,7 @@ def matrix_multiplication(
                     )
 
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1])  # reflect from front surface
+                # vf_1 will be outgoing, gets fixed at start of next loop
                 power = np.sum(vf_1[i1], axis=1)
 
                 print(
@@ -537,6 +563,8 @@ def matrix_multiplication(
                 dot_wl(Af[i1], v0)
             )  # absorbed in front surface at first interaction
             power = np.sum(vf_1[i1], axis=1)
+
+            # vf_1[i1] = dot_wl_u2d(up2down, vf_1[i1])
 
             # rep
             i2 = 1

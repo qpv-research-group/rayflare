@@ -112,10 +112,13 @@ def process_structure(SC, options, save_location="default"):
                 which_sides = ["front", "rear"]
 
             if struct.method == "Mirror":
+                theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+
                 theta_intv, phi_intv, angle_vector = make_angle_vector(
                     options["n_theta_bins"],
                     options["phi_symmetry"],
                     options["c_azimuth"],
+                    theta_spacing
                 )
                 mirror_matrix(
                     angle_vector,
@@ -129,10 +132,13 @@ def process_structure(SC, options, save_location="default"):
                 )
 
             if struct.method == "Lambertian":
+                theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+
                 theta_intv, _, angle_vector = make_angle_vector(
                     options["n_theta_bins"],
                     options["phi_symmetry"],
                     options["c_azimuth"],
+                    theta_spacing
                 )
 
                 # assuming this is a Lambertian reflector right now

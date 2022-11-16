@@ -18,7 +18,7 @@ class default_options(State):
         self.wavelengths = np.linspace(300, 1800, 300) * 1e-9
         self.phi_in = 0
         self.theta_in = 0
-        self.phi_symmetry = np.pi / 4
+        self.phi_symmetry = np.pi / 2
         self.n_theta_bins = 50
         self.I_thresh = 1e-2
         self.depth_spacing = 1e-9

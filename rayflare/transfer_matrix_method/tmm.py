@@ -133,8 +133,11 @@ def TMM(
 
         wavelengths = options["wavelengths"]
 
+        theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+
         theta_intv, phi_intv, angle_vector = make_angle_vector(
-            options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
+            options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"],
+            theta_spacing
         )
         angles_in = angle_vector[: int(len(angle_vector) / 2), :]
         thetas = np.unique(angles_in[:, 1])

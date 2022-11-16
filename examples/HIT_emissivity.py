@@ -46,6 +46,7 @@ _, _, angle_vector = make_angle_vector(
     options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
 )
 options.bulk_profile = True
+options.phi_symmetry = np.pi/2
 
 Si = material("Si_UVtoMIR")()
 Air = material("Air")()

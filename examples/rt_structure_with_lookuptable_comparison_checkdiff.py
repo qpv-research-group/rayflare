@@ -11,24 +11,28 @@ from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import calculate_RAT, process_structure
 from rayflare.options import default_options
 from rayflare.ray_tracing import rt_structure
+from rayflare.angles import make_angle_vector
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from cycler import cycler
 
-wavelengths = np.linspace(300, 1150, 50) * 1e-9
+wavelengths = np.linspace(1100, 1150, 1) * 1e-9
 
 options = default_options()
 options.wavelengths = wavelengths
-options.project_name = "perovskite_Si_RT_TMM_fine"
-options.n_theta_bins = 60
-options.nx = 10
-options.ny = options.nx
-options.n_rays = 4*480*options.nx**2
+options.project_name = "perovskite_Si_diff_linear"
+options.n_theta_bins = 100
+options.nx = 1
+options.ny = 1
+options.n_rays = 1300*options.nx**2
 options.depth_spacing = 1e-9
 options.pol = "s"
 options.I_thresh = 1e-3
+options.theta_spacing = "sin"
+
+th_intv, _, av = make_angle_vector(options.n_theta_bins, options.phi_symmetry, options.c_azimuth, options.theta_spacing)
 
 Si = material("Si")()
 Air = material("Air")()
@@ -92,7 +96,7 @@ result = calculate_RAT(SC, options, save_location="current")
 result_ARM = result[0]
 result_ARM_perpass = result[1]
 
-options.n_rays = 2000
+options.n_rays = options.nx**2
 
 # ray-tracing WITHOUT angular redistribution method
 
@@ -112,7 +116,7 @@ rtstr_inc = rt_structure(textures=[triangle_surf, triangle_surf_back],
                      incidence=Air, transmission=Ag,
                      use_TMM=True, options=options, save_location="current"
                          )
-# options.parallel = False
+options.parallel = False
 result_RT = rtstr_inc.calculate(options)
 
 results_per_layer_front = np.sum(result_ARM_perpass["a"][0], 0)

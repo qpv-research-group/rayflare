@@ -22,7 +22,7 @@ class State(OrderedDict):
         if name in self:
             return self[name]
         else:
-            raise KeyError(
+            raise AttributeError(
                 "The state object does not have an entry for the key '%s'." % (name,)
             )
 

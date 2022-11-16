@@ -3,40 +3,38 @@ import os
 
 from solcore.structure import Layer
 from solcore import material, si
-from solcore.light_source import LightSource
-from solcore.constants import q
 
-from rayflare.textures import regular_pyramids, planar_surface
+from rayflare.textures import regular_pyramids, planar_surface, V_grooves
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import calculate_RAT, process_structure
 from rayflare.options import default_options
 from rayflare.ray_tracing import rt_structure
 from rayflare.angles import make_angle_vector
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from cycler import cycler
 
-wavelengths = np.linspace(300, 1150, 50) * 1e-9
+wavelengths = np.linspace(900, 1150, 15) * 1e-9
 
 options = default_options()
 options.wavelengths = wavelengths
-options.n_theta_bins = 100
-options.phi_symmetry = np.pi/2
+options.project_name = "testing_planar"
+options.n_theta_bins = 15
+options.c_azimuth = 0.00001
 
 _, _, av = make_angle_vector(options.n_theta_bins, options.phi_symmetry, options.c_azimuth)
 
 options.nx = 10
 options.ny = options.nx
-options.n_rays = 2*len(av)*options.nx**2/2
+options.n_rays = (len(av)/2)*options.nx**2
 options.depth_spacing = 1e-9
 options.pol = "s"
-options.I_thresh = 1e-3
+# options.parallel = False
 options.randomize_surface = True
-options.phi_symmetry = np.pi/2
-options.only_incidence_angle = False
-options.project_name = "perovskite_Si_RT_TMM_compare_" + options.pol
-options.n_jobs = -3
+options.I_thresh = 1e-3
+
 
 Si = material("Si")()
 Air = material("Air")()
@@ -73,8 +71,8 @@ back_materials = [
 # will have 'upright' pyramids and the other side will have 'not upright' (inverted)
 # pyramids in the model
 
-surf = regular_pyramids(elevation_angle=55, upright=True)
-surf_back = regular_pyramids(elevation_angle=55, upright=False)
+surf = planar_surface()
+surf_back = planar_surface()
 
 front_surf = Interface(
     "RT_TMM",
@@ -100,16 +98,16 @@ result = calculate_RAT(SC, options, save_location="current")
 result_ARM = result[0]
 result_ARM_perpass = result[1]
 
-options.n_rays = 2000
+options.n_rays = 1000
 
 # ray-tracing WITHOUT angular redistribution method
 
-triangle_surf = regular_pyramids(elevation_angle=55, upright=True, size=1,
+triangle_surf = planar_surface(
                                  interface_layers=front_materials,
                                  name="coh_front"
                                  )
 
-triangle_surf_back = regular_pyramids(elevation_angle=55, upright=False, size=1,
+triangle_surf_back = planar_surface(
                                       interface_layers=back_materials,
                                       name="coh_back"
                                       )
@@ -120,13 +118,14 @@ rtstr_inc = rt_structure(textures=[triangle_surf, triangle_surf_back],
                      incidence=Air, transmission=Ag,
                      use_TMM=True, options=options, save_location="current"
                          )
+
 # options.parallel = False
 result_RT = rtstr_inc.calculate(options)
 
 results_per_layer_front = np.sum(result_ARM_perpass["a"][0], 0)
 results_per_layer_back = np.sum(result_ARM_perpass["a"][1], 0)
 
-pal = sns.color_palette("husl", n_colors=len(front_materials) + len(back_materials) + 1)
+pal = sns.color_palette("husl", n_colors=len(front_materials) + len(back_materials) )
 
 cols = cycler('color', pal)
 
@@ -142,17 +141,6 @@ sum_ARM = result_ARM['R'][0] + result_ARM['T'][0] + result_ARM['A_bulk'][0] + \
 sum_RT = result_RT['R'] + result_RT['T'] + result_RT['A_per_layer'].T + \
           np.sum(result_RT['A_per_interface'][0], 1) + np.sum(result_RT['A_per_interface'][1], 1)
 
-total_abs = np.sum(np.isnan(result_RT["thetas"]), 1)/options.n_rays
-
-plt.figure()
-plt.plot(wavelengths*1e9, total_abs)
-plt.plot(wavelengths*1e9, result_RT['A_per_layer'][:,0] + \
-          np.sum(result_RT['A_per_interface'][0], 1) +
-         np.sum(result_RT['A_per_interface'][1], 1),
-         '--r'
-)
-plt.show()
-
 plt.figure()
 plt.plot(wavelengths*1e9, sum_ARM, '-or')
 plt.plot(wavelengths*1e9, sum_RT.T, '-ob')
@@ -162,20 +150,19 @@ fig=plt.figure(figsize=(9,3.7))
 plt.subplot(1,1,1)
 plt.plot(wavelengths*1e9, result_ARM['R'][0], '-ko')
 plt.plot(wavelengths*1e9, result_ARM['T'][0], '-ro')
-plt.plot(wavelengths*1e9, result_ARM['A_bulk'][0], '-o')
+plt.plot(wavelengths*1e9, result_ARM['A_bulk'][0], '-bo')
 plt.plot(wavelengths*1e9, results_per_layer_front, '-o')
 plt.plot(wavelengths*1e9, results_per_layer_back, '-o')
 
 plt.plot(wavelengths*1e9, result_RT['R'], '--ko', mfc='none')
 plt.plot(wavelengths*1e9, result_RT['T'], '--ro', mfc='none')
-plt.plot(wavelengths*1e9, result_RT['A_per_layer'][:,0], '--o', mfc='none')
+plt.plot(wavelengths*1e9, result_RT['A_per_layer'][:,0], '--bo', mfc='none')
 plt.plot(wavelengths*1e9, result_RT['A_per_interface'][0], '--o', mfc='none')
 plt.plot(wavelengths*1e9, result_RT['A_per_interface'][1], '--o', mfc='none')
 
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('R / A / T')
 plt.ylim(0, 1)
-plt.xlim(300, 1200)
 
 plt.show()
 

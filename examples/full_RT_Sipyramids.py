@@ -37,6 +37,7 @@ options.ny = nxy
 options.n_rays = 2 * nxy**2
 options.depth_spacing = si("1um")
 options.parallel = True
+options.phi_symmetry = np.pi/2
 
 PVlighthouse = np.loadtxt("data/RAT_data_300um_2um_55.csv", delimiter=",", skiprows=1)
 

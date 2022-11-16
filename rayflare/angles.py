@@ -12,7 +12,7 @@ import seaborn as sns
 import matplotlib as mpl
 
 
-def make_angle_vector(n_angle_bins, phi_sym, c_azimuth):
+def make_angle_vector(n_angle_bins, phi_sym, c_azimuth, theta_spacing="sin"):
     """Makes the binning intervals & angle vector depending on the relevant options.
     :param n_angle_bins: number of bins per 90 degrees in the polar direction (theta)
     :param phi_sym: phi angle (in radians) for the rotational symmetry of the unit cell; e.g. for a square-based pyramid,
@@ -25,15 +25,24 @@ def make_angle_vector(n_angle_bins, phi_sym, c_azimuth):
     :return angle_vector: array where the first column is the r index (theta bin), the second column in
     the mean theta for that bin, and the third column is the mean phi for that bin.
     """
-    sin_a_b = np.linspace(
-        0, 1, n_angle_bins + 1
-    )  # number of bins is between 0 and 90 degrees
-    # even spacing in terms of sin(theta) rather than theta
-    # will have the same number of bins between 90 and 180 degrees
 
-    theta_intv = np.concatenate(
-        [np.arcsin(sin_a_b), np.pi - np.flip(np.arcsin(sin_a_b[:-1]))]
-    )
+    if theta_spacing == "sin":
+        sin_a_b = np.linspace(
+            0, 1, n_angle_bins + 1
+        )  # number of bins is between 0 and 90 degrees
+        # even spacing in terms of sin(theta) rather than theta
+        # will have the same number of bins between 90 and 180 degrees
+
+        theta_intv = np.concatenate(
+            [np.arcsin(sin_a_b), np.pi - np.flip(np.arcsin(sin_a_b[:-1]))]
+        )
+
+    elif theta_spacing == "linear":
+        theta_intv = np.linspace(0, np.pi/2, n_angle_bins + 1)
+
+        theta_intv = np.concatenate(
+            [theta_intv, np.pi - np.flip(theta_intv[:-1])]
+        )
 
     theta_middle = (theta_intv[:-1] + theta_intv[1:]) / 2
     phi_intv = []

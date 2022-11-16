@@ -50,6 +50,7 @@ wavelengths = np.linspace(300, 1200, 40)*1e-9
 options = default_options()
 options.wavelengths = wavelengths
 options.project_name = 'perovskite_Si_example'
+options.phi_symmetry = np.pi/2
 
 Si = material('Si')()
 Air = material('Air')()

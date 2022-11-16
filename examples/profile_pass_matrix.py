@@ -46,6 +46,7 @@ options.nx = 5
 options.ny = 5
 options.depth_spacing = si("1nm")
 options.depth_spacing_bulk = si("100nm")
+options.phi_symmetry = np.pi/2
 _, _, angle_vector = make_angle_vector(
     options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
 )

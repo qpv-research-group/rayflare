@@ -107,8 +107,10 @@ def RT(
         else:
             lookuptable = None
 
+        theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+
         theta_intv, phi_intv, angle_vector = make_angle_vector(
-            n_theta_bins, phi_sym, c_az
+            n_theta_bins, phi_sym, c_az, theta_spacing
         )
 
         if only_incidence_angle:
@@ -1001,7 +1003,7 @@ def parallel_inner(
                 # data = data/np.sum(data, axis=1)[:, None]
                 # A_in_interfaces[i1] = (len(layer_data)/(n_reps*nx*ny))*np.mean(data, axis=0)
                 A_in_interfaces[i1] = np.sum(data, axis=0)/(n_reps*nx*ny)
-                print(A_in_interfaces[i1])
+                # print(A_in_interfaces[i1])
 
     return Is, profiles, A_layer, thetas, phis, n_passes, n_interactions, A_in_interfaces
 
@@ -1131,7 +1133,7 @@ class RTSurface:
                 ),
                 axis=0,
             )
-        ]
+        ][0]
 
         if "name" in kwargs:
             self.name = kwargs["name"]
@@ -1255,6 +1257,7 @@ def single_ray_stack(
     periodic=1
 ):
 
+    # print("NEW RAY")
     single_surface = {0: single_cell_check, 1: single_interface_check}
     # use single_cell_check if not periodic, single_interface_check if is periodic
 
@@ -1274,6 +1277,8 @@ def single_ray_stack(
 
     # should end when either material = final material (len(materials)-1) & direction == 1 or
     # material = 0 & direction == -1
+
+    # print("NEW RAY")
 
     profile = np.zeros(len(z_pos))
     # do everything in microns
@@ -1412,8 +1417,6 @@ def single_ray_stack(
         elif res == 2: # absorption
             stop = True # absorption in an interface (NOT a bulk layer!)
             A_interface_array = I*theta[:]/np.sum(theta)
-            print(I, A_interface_array)
-            print("A_bulks", A_per_layer)
             A_interface_index = surf_index + 1
             theta = None
             I = 0
@@ -1423,6 +1426,8 @@ def single_ray_stack(
 
         elif direction == -1 and mat_index == 0:
             stop = True  # have ended with reflection
+
+        # print("phi", np.real(atan2(d[1], d[0])))
 
         if not stop:
             I_b = I
@@ -1532,8 +1537,10 @@ def single_ray_interface(
 def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     stop = False
     ratio = alpha / abs(cos(theta))
+    # print("internal angle", theta*180/np.pi, direction)
     DA_u = I_i * ratio * np.exp((-ratio * positions))
     I_back = I_i * np.exp(-ratio * width)
+    # print("theta int", theta, direction)
 
     if I_back < I_thresh:
         stop = True
@@ -1547,6 +1554,8 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     DA = np.divide(
         (I_i - I_back) * DA_u, intgr, where=intgr > 0, out=np.zeros_like(DA_u)
     )
+
+    # print(I_i-I_back)
 
     return DA, stop, I_back, theta
 

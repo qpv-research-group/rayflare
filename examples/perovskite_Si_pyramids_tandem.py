@@ -62,6 +62,7 @@ options.n_theta_bins = 30
 options.nx = 2
 options.ny = 2
 options.depth_spacing = 1e-9
+options.phi_symmetry = np.pi/2
 
 Si = material("Si")()
 Air = material("Air")()
