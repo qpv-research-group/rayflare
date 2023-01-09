@@ -133,11 +133,15 @@ def TMM(
 
         wavelengths = options["wavelengths"]
 
-        theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        theta_spacing = (
+            options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        )
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(
-            options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"],
-            theta_spacing
+            options["n_theta_bins"],
+            options["phi_symmetry"],
+            options["c_azimuth"],
+            theta_spacing,
         )
         angles_in = angle_vector[: int(len(angle_vector) / 2), :]
         thetas = np.unique(angles_in[:, 1])
@@ -408,7 +412,7 @@ class tmm_structure:
                 layers = np.arange(1, stack.num_layers + 1)
 
             depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
-
+            print(depth_spacing)
             z_limit = np.sum(np.array(stack.widths))
             full_dist = np.arange(0, z_limit, depth_spacing)
             layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)
@@ -612,8 +616,16 @@ class tmm_structure:
                 output["A"] = 1 - out["R"] - out["T"]
 
                 # make sure everything adds to 1:
-                A_per_layer = np.divide(A_per_layer[1:-1]*output["A"], np.sum(A_per_layer[1:-1], axis=0),
-                                        where=np.sum(A_per_layer[1:-1], axis=0) != 0)
+                A_per_layer[A_per_layer < 0] = 0
+                output["A"][output["A"] < 0] = 0
+
+                A_per_layer = np.divide(
+                    A_per_layer[1:-1] * output["A"],
+                    np.sum(A_per_layer[1:-1], axis=0),
+                    where=np.sum(A_per_layer[1:-1], axis=0) != 0,
+                    out=A_per_layer[1:-1],
+                )
+
                 output["T"] = out["T"]
                 output["A_per_layer"] = A_per_layer
         else:
@@ -667,12 +679,12 @@ class tmm_structure:
                 output["A"] = 1 - output["R"] - output["T"]
                 output["all_p"] = out_p["power_entering_list"]
                 output["all_s"] = out_s["power_entering_list"]
-                A_per_layer = 0.5 * (
-                        A_per_layer_p[1:-1] + A_per_layer_s[1:-1]
+                A_per_layer = 0.5 * (A_per_layer_p[1:-1] + A_per_layer_s[1:-1])
+                output["A_per_layer"] = np.divide(
+                    A_per_layer * output["A"],
+                    np.sum(A_per_layer, axis=0),
+                    where=np.sum(A_per_layer, axis=0) != 0,
                 )
-                output["A_per_layer"] = np.divide(A_per_layer * output["A"], np.sum(A_per_layer, axis=0),
-                                                  where=np.sum(A_per_layer, axis=0) != 0)
-
 
         output["A_per_layer"] = output["A_per_layer"].T
 

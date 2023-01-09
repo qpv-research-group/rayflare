@@ -70,7 +70,9 @@ def calculate_RAT(SC, options, save_location="default"):
     return results
 
 
-def make_v0(th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym, theta_spacing="sin"):
+def make_v0(
+    th_in, phi_in, num_wl, n_theta_bins, c_azimuth, phi_sym, theta_spacing="sin"
+):
     """
     This function makes the v0 array, corresponding to the input power per angular channel
     at each wavelength, of size (num_wl, n_angle_bins_in) where n_angle_bins in = len(angle_vector)/2
@@ -219,10 +221,15 @@ def matrix_multiplication(
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
-    theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+    theta_spacing = (
+        options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+    )
 
     theta_intv, phi_intv, angle_vector = make_angle_vector(
-        options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"], theta_spacing
+        options["n_theta_bins"],
+        options["phi_symmetry"],
+        options["c_azimuth"],
+        theta_spacing,
     )
     n_a_in = int(len(angle_vector) / 2)
 
@@ -239,7 +246,7 @@ def matrix_multiplication(
         options["n_theta_bins"],
         options["c_azimuth"],
         options["phi_symmetry"],
-        theta_spacing
+        theta_spacing,
     )
 
     up2down, down2up = out_to_in_matrix(

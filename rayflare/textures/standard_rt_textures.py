@@ -14,12 +14,13 @@ import numpy as np
 import os
 
 
-def regular_pyramids(elevation_angle=55, upright=True, size=1,
-                     **kwargs):
-    """Defines RTSurface textures for ray-tracing of regular upright or inverted pyramids.
+def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
+    """Defines RTSurface textures for ray-tracing of regular upright or inverted regular square-base pyramids.
 
     :param elevation_angle: angle between the horizontal and a face of the pyramid, in degrees
-    :param upright: if True, upright pyramids. If False, inverted pyramids
+    :param upright: if True, upright pyramids. If False, inverted pyramids. Whether the pyramids are upright or inverted
+                    is always from the perspective of the front incidence surface, so for pyramids facing out on the
+                    rear surface of a cell, you would set upright=False.
     :param size: size of the pyramids; the units are arbitrary, but should be kept consistent across
             different interfaces if you are not randomizing the ray positions.
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
@@ -55,37 +56,13 @@ def planar_surface(size=1, **kwargs):
     """
     Lx = 1 * size
     Ly = 1 * size
-    x = np.array([-Lx, Lx, Lx, -Lx])
-    y = np.array([-Ly, Ly, -Ly, Ly])
+    x = np.array([0, Lx, Lx, 0])
+    y = np.array([0, Ly, 0, Ly])
     z = np.array([0, 0, 0, 0])
 
     Points = np.vstack([x, y, z]).T
     surf_fi = RTSurface(Points, **kwargs)
     surf_ri = RTSurface(Points)
-
-    return [surf_fi, surf_ri]
-
-
-def random_pyramids(**kwargs):
-    """Defines RTSurface textures for ray-tracing for a surface of random pyramids (based on
-    real surface scan data).
-
-    :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
-    """
-    cur_path = os.path.dirname(os.path.abspath(__file__))
-    z_map = np.loadtxt(os.path.join(cur_path, "pyramids.csv"), delimiter=",")
-    x = np.linspace(0, 20, z_map.shape[0])
-    x_map, y_map = np.meshgrid(x, x)
-
-    x = x_map.flatten()
-    y = y_map.flatten()
-    z = z_map.flatten()
-
-    Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points, **kwargs)
-
-    Points_ri = np.vstack([x, y, -z]).T
-    surf_ri = RTSurface(Points_ri)
 
     return [surf_fi, surf_ri]
 
@@ -121,6 +98,19 @@ def V_grooves(elevation_angle=55, width=1, direction="y", **kwargs):
 
 
 def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
+    """Defines RTSurface textures for ray-tracing of a (hyper)hemisphere. Useful for hemispherical or hyperhemispherical
+    lenses. Note that this is a surface of the hyperhemisphere only, and not a surrounding surface which reaches the
+    unit cell edges. The sphere will be open at the bottom. The points for the sphere are generated using the 'Golden
+    Spiral'.
+    Code by Chris Colbert from the numpy-discussion list.
+
+    :param N_points: Number of points on the sphere. The final surface may have fewer points depending on h.
+    :param radius: radius of the sphere (units are arbitrary but should be kept consistent between surfaces)
+    :param h: by how much the origin of the sphere is raised or lowered. With h=0, a hemisphere is returned with
+            the origin at the center of the hemisphere. With h=radius, the whole sphere is returned; with negative
+            h, the hemisphere is truncated.
+    :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
+    """
     """Generate N evenly distributed points on the unit sphere centered at
     the origin. Uses the 'Golden Spiral'.
     Code by Chris Colbert from the numpy-discussion list.
@@ -203,7 +193,7 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     triangles_back = hull_back.simplices
 
     [front, back] = xyz_texture(
-        X, Y, Z
+        X, Y, Z, coverage_height=0, **kwargs
     )  # just need to get an RTSurface object to then modify
 
     front.simplices = triangles
@@ -212,7 +202,7 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     front.P_2s = front.Points[triangles[:, 2]]
     front.crossP = np.cross(front.P_1s - front.P_0s, front.P_2s - front.P_0s)
     front.size = front.P_0s.shape[0]
-    front.zcov = 0
+    # front.zcov = 0
 
     back.simplices = triangles_back
     back.P_0s = back.Points[triangles_back[:, 0]]
@@ -220,7 +210,7 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     back.P_2s = back.Points[triangles_back[:, 2]]
     back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
     back.size = back.P_0s.shape[0]
-    back.zcov = 0
+    # back.zcov = 0
 
     cross_normalized = front.crossP / np.sqrt(np.sum(front.crossP**2, 1))[:, None]
     cross_normalized_back = back.crossP / np.sqrt(np.sum(back.crossP**2, 1))[:, None]
@@ -341,3 +331,237 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     hyperhemi = [front, back]
 
     return hyperhemi
+
+
+def rough_pyramids(
+    elevation_angle=55,
+    upright=True,
+    size=1,
+    noise_angle=0.1,
+    n_points=100,
+    regular_grid=False,
+    **kwargs
+):
+
+    """Defines RTSurface textures for ray-tracing of regular upright or inverted regular square-base pyramids, with
+    random noise added to the height of each point to simulate surface roughness.
+
+    :param elevation_angle: angle between the horizontal and a face of the pyramid, in degrees
+    :param upright: if True, upright pyramids. If False, inverted pyramids. Whether the pyramids are upright or inverted
+                    is always from the perspective of the front incidence surface, so for pyramids facing out on the
+                    rear surface of a cell, you would set upright=False.
+    :param size: size of the pyramids; the units are arbitrary, but should be kept consistent across
+            different interfaces if you are not randomizing the ray positions.
+    :param noise_angle: the maximum opening angle/surface normal angle that will be used to generate the random noise.
+                    This is used to keep the height of the roughness for some noise_angle consistent with diferent n_points
+    :param n_points: number of points to use to define the surface (in total, not per side). Noise will be added
+            to the height of each point so a large number means a texture with smaller features
+    :param regular_grid: if True, the points will be placed on a regular grid. If False, the points will be placed
+            randomly in the unit cell. n_points will be rounded up to the nearest square number if
+            regular_grid=True.
+    :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
+    """
+
+    char_angle = math.radians(elevation_angle)
+
+    if regular_grid:
+        n_per_side = int(np.ceil(np.sqrt(n_points)))
+        x = np.linspace(0, size, n_per_side)
+        y = np.linspace(0, size, n_per_side)
+        coords = np.meshgrid(x, y)
+        coords = np.vstack((coords[0].flatten(), coords[1].flatten())).T
+        ds = np.diff(x)[0]
+
+    else:
+        coords = size * np.random.random_sample((n_points, 2))
+        ds = size / np.sqrt(n_points)
+
+    # CALCULATE NOISE_FRACTION!
+    noise_height = ds * np.tan(noise_angle)
+    # sort into quadrants
+    top = coords[coords[:, 0] < coords[:, 1]]
+    bottom = coords[coords[:, 0] > coords[:, 1]]
+
+    left = top[top[:, 1] < -top[:, 0] + size]
+    top = top[top[:, 1] > -top[:, 0] + size]
+    right = bottom[bottom[:, 1] > -bottom[:, 0] + size]
+    bottom = bottom[bottom[:, 1] < -bottom[:, 0] + size]
+
+    corners = np.array([[0, 0, 0], [0, size, 0], [size, size, 0], [size, 0, 0]])
+
+    bottom = np.hstack((bottom, (bottom[:, 1] * size * np.tan(char_angle))[:, None]))
+    top = np.hstack((top, size * np.tan(char_angle) * (1 - top[:, 1])[:, None]))
+    right = np.hstack((right, size * np.tan(char_angle) * (1 - right[:, 0])[:, None]))
+    left = np.hstack((left, (left[:, 0] * size * np.tan(char_angle))[:, None]))
+
+    if upright:
+        sign = 1
+
+    else:
+        sign = -1
+
+    bottom[:, 2] = sign * (
+        bottom[:, 2] + noise_height * np.random.random_sample(len(bottom))
+    )
+    top[:, 2] = sign * (top[:, 2] + noise_height * np.random.random_sample(len(top)))
+    right[:, 2] = sign * (
+        right[:, 2] + noise_height * np.random.random_sample(len(right))
+    )
+    left[:, 2] = sign * (left[:, 2] + noise_height * np.random.random_sample(len(left)))
+
+    all_points = np.vstack((bottom, top, right, left, corners))
+
+    # set heights all around edges to zero, otherwise there will be holes in the periodic surface!
+
+    all_points[:, 2][all_points[:, 0] == 0] = 0
+    all_points[:, 2][all_points[:, 1] == 0] = 0
+
+    all_points[:, 2][all_points[:, 0] == size] = 0
+    all_points[:, 2][all_points[:, 1] == size] = 0
+
+    surfs = xyz_texture(*all_points.T, **kwargs)
+
+    return surfs
+
+
+def rough_planar_surface(
+    size=1, noise_angle=0.1, n_points=100, regular_grid=False, **kwargs
+):
+
+    """Defines RTSurface textures for ray-tracing of regular upright or inverted regular square-base pyramids, with
+    random noise added to the height of each point to simulate surface roughness.
+
+    :param size: size of the unit cell; the units are arbitrary, but should be kept consistent across
+            different interfaces.
+    :param noise_angle: the maximum opening angle/surface normal angle that will be used to generate the random noise.
+                    This is used to keep the height of the roughness for some noise_angle consistent with diferent n_points
+    :param n_points: number of points to use to define the surface (in total, not per side). Noise will be added
+            to the height of each point so a large number means a texture with smaller features
+    :param regular_grid: if True, the points will be placed on a regular grid. If False, the points will be placed
+            randomly in the unit cell. n_points will be rounded up to the nearest square number if
+            regular_grid=True.
+    :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
+    """
+
+    if regular_grid:
+        n_per_side = int(np.ceil(np.sqrt(n_points)))
+        x = np.linspace(0, size, n_per_side)
+        y = np.linspace(0, size, n_per_side)
+        coords = np.meshgrid(x, y)
+        coords = np.vstack(
+            (coords[0].flatten(), coords[1].flatten(), np.zeros(n_per_side**2))
+        ).T
+        ds = np.diff(x)[0]
+        noise_height = ds * np.tan(noise_angle)
+        coords[:, 2] = noise_height * np.random.random_sample(n_per_side**2)
+
+    else:
+        coords = size * np.random.random_sample((n_points, 3))
+        ds = size / np.sqrt(n_points)
+        noise_height = ds * np.tan(noise_angle)
+        coords[:, 2] = noise_height * np.random.random_sample(n_points)
+
+    if regular_grid is False:
+        corners = np.array([[0, 0, 0], [0, size, 0], [size, size, 0], [size, 0, 0]])
+        coords = np.vstack((coords, corners))
+
+    # set heights all around edges to zero, otherwise there will be holes in the periodic surface!
+
+    coords[:, 2][coords[:, 0] == 0] = 0
+    coords[:, 2][coords[:, 1] == 0] = 0
+
+    coords[:, 2][coords[:, 0] == size] = 0
+    coords[:, 2][coords[:, 1] == size] = 0
+
+    surfs = xyz_texture(*coords.T, **kwargs)
+
+    return surfs
+
+
+def hemisphere_surface(
+    size=1, n_per_side=20, radius=0.5, offset=0, noise_angle=0, stretch=1, **kwargs
+):
+
+    """Creates a planar surface with a hemispherical cap embedded in it. The planar part of the surface can be
+    rough. The hemisphere is centered at the center of the unit cell.
+
+    :param size: size of the unit cell; the units are arbitrary, but should be kept consistent across
+    :param n_per_side: the number of grid points per side (total number of points will be n_per_side**2)
+    :param radius: radius of the hemispherical cap
+    :param offset: the hemisphere is shifted DOWN by this value (any points which end up below the z = 0 surface will be
+                    removed from the surface)
+    :param noise_angle: the maximum opening angle/surface normal angle that will be used to generate the random noise.
+                    This is used to keep the height of the roughness for some noise_angle consistent with diferent n_points
+    :param stretch: factor by which the height of the hemispherical cap is stretched (for ellipsoid rather than spheres)
+    :return:
+    """
+
+    # throw error if offset < 0: the hemisphere will be ABOVE the plane!
+    if offset < 0:
+        raise ValueError("The hemisphere cannot be above the plane!")
+
+    x = np.linspace(-size / 2, size / 2, n_per_side)
+    y = np.linspace(-size / 2, size / 2, n_per_side)
+
+    ds = np.diff(x)[0]
+    noise_height = ds * np.tan(noise_angle)
+
+    xs, ys = np.meshgrid(x, y)
+
+    points = np.vstack((xs.flatten(), ys.flatten())).T
+
+    all_points = np.vstack((xs.flatten(), ys.flatten(), np.zeros(n_per_side**2))).T
+
+    include = np.zeros_like(all_points[:, 0], dtype=bool)
+
+    for i1, coord in enumerate(points):
+
+        if np.sum(coord**2) < radius**2:
+
+            theta = np.arcsin(np.sqrt(np.sum(coord**2)) / radius)
+            all_points[i1, 2] = stretch * (radius * np.cos(theta) - offset)
+            include[i1] = True
+
+        elif (
+            coord[0] == -size / 2
+            or coord[0] == size / 2
+            or coord[1] == -size / 2
+            or coord[1] == size / 2
+        ):
+
+            include[i1] = True
+
+        else:
+            if noise_height > 0:
+                include[i1] = True
+                all_points[i1, 2] += noise_height * np.random.random_sample()
+
+    all_points = all_points[include, :]
+
+    all_points = all_points[all_points[:, 2] >= 0, :]
+
+    if noise_height == 0:
+        rad_at_zero = np.sqrt(radius**2 - offset**2)
+
+        phis = np.linspace(0, 2 * np.pi, 5 * n_per_side)
+
+        x_circle = rad_at_zero * np.cos(phis)
+        y_circle = rad_at_zero * np.sin(phis)
+        z_circle = np.zeros_like(phis)
+
+        # x_edge = [-size/2, size/2, size/2, -size/2]
+        # y_edge = [-size/2, -size/2, size/2, size/2]
+        # z_edge = np.zeros(4)
+
+        circle_points = np.vstack((x_circle, y_circle, z_circle)).T
+
+        # edge_points = np.vstack((x_edge, y_edge, z_edge)).T
+
+        all_points = np.vstack((all_points, circle_points))  # , edge_points))
+
+    all_points[:, 0] = all_points[:, 0] + size / 2
+    all_points[:, 1] = all_points[:, 1] + size / 2
+
+    surfs = xyz_texture(*all_points.T, coverage_height=0, **kwargs)
+
+    return surfs

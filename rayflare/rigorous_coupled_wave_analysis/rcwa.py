@@ -163,7 +163,9 @@ def RCWA(
         user_options = options["S4_options"] if "S4_options" in options.keys() else {}
         S4_options.update(user_options)
 
-        theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        theta_spacing = (
+            options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        )
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(
             n_theta_bins, phi_sym, c_az, theta_spacing

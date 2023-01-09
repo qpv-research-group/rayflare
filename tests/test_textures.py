@@ -1,7 +1,7 @@
 import numpy as np
 from pytest import approx
 
-def text_regular_pryramids():
+def test_regular_pryramids():
     from rayflare.textures import regular_pyramids
 
     size = 4.8
@@ -134,7 +134,7 @@ def test_hyperhemisphere():
 
     edge_points = np.vstack([edge_points, [0, 0, 0]])  # add point at centre
 
-    flat_surf = xyz_texture(edge_points[:, 0], edge_points[:, 1], edge_points[:, 2])
+    flat_surf = xyz_texture(edge_points[:, 0], edge_points[:, 1], edge_points[:, 2], coverage_height=0)
     # this is a flat surface which extends to the edges of the sphere but not beyond.
 
     rtstr = rt_structure(textures=[flat_surf, hyperhemi],

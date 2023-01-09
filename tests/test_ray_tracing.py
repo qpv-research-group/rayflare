@@ -113,7 +113,7 @@ def test_periodic():
     Air = material('Air')()
     Si = material('Si')()
 
-    triangle_surf = regular_pyramids(30)
+    triangle_surf = regular_pyramids(60)
 
     options = default_options()
 
@@ -141,8 +141,8 @@ def test_periodic():
     assert result_periodic['R'] + result_periodic['T'] + np.sum(result_periodic['A_per_layer'], 1) == approx(1, rel=options.I_thresh)
     assert result_single['R'] + result_single['T'] + np.sum(result_single['A_per_layer'], 1) == approx(1,
                                                                                                  rel=options.I_thresh)
-
     assert np.all(result_periodic['R'] >= result_single['R'])
+    assert np.all(result_single['R'] == 0)
 
     
 

@@ -38,11 +38,9 @@ def make_angle_vector(n_angle_bins, phi_sym, c_azimuth, theta_spacing="sin"):
         )
 
     elif theta_spacing == "linear":
-        theta_intv = np.linspace(0, np.pi/2, n_angle_bins + 1)
+        theta_intv = np.linspace(0, np.pi / 2, n_angle_bins + 1)
 
-        theta_intv = np.concatenate(
-            [theta_intv, np.pi - np.flip(theta_intv[:-1])]
-        )
+        theta_intv = np.concatenate([theta_intv, np.pi - np.flip(theta_intv[:-1])])
 
     theta_middle = (theta_intv[:-1] + theta_intv[1:]) / 2
     phi_intv = []

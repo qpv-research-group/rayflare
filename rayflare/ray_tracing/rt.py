@@ -22,6 +22,7 @@ from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 
+
 def RT(
     group,
     incidence,
@@ -107,7 +108,9 @@ def RT(
         else:
             lookuptable = None
 
-        theta_spacing = options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        theta_spacing = (
+            options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        )
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(
             n_theta_bins, phi_sym, c_az, theta_spacing
@@ -175,16 +178,23 @@ def RT(
         for i1, mat in enumerate(mats):
             nks[i1] = mat.n(wavelengths) + 1j * mat.k(wavelengths)
 
+        # TODO: make this dependent on minimum/maximum x and y
         h = max(surfaces[0].Points[:, 2])
         x_limits = (
             options["x_limits"]
             if "x_limits" in options
-            else [-0.99 * surfaces[0].Lx, 0.99 * surfaces[0].Lx]
+            else [
+                surfaces[0].x_min + 0.01 * surfaces[0].Lx,
+                surfaces[0].x_max - 0.01 * surfaces[0].Lx,
+            ]
         )
         y_limits = (
             options["y_limits"]
             if "y_limits" in options
-            else [-0.99 * surfaces[0].Ly, 0.99 * surfaces[0].Ly]
+            else [
+                surfaces[0].y_min + 0.01 * surfaces[0].Ly,
+                surfaces[0].y_max - 0.01 * surfaces[0].Ly,
+            ]
         )
 
         if options["random_ray_position"]:
@@ -225,37 +235,6 @@ def RT(
             )
             for i1 in range(len(wavelengths))
         )
-
-        # else:
-        #     allres = [
-        #         RT_wl(
-        #             i1,
-        #             wavelengths[i1],
-        #             n_angles,
-        #             nx,
-        #             ny,
-        #             widths,
-        #             thetas_in,
-        #             phis_in,
-        #             h,
-        #             xs,
-        #             ys,
-        #             nks,
-        #             surfaces,
-        #             pol,
-        #             phi_sym,
-        #             theta_intv,
-        #             phi_intv,
-        #             angle_vector,
-        #             Fr_or_TMM,
-        #             n_absorbing_layers,
-        #             lookuptable,
-        #             calc_profile,
-        #             depth_spacing,
-        #             side,
-        #         )
-        #         for i1 in range(len(wavelengths))
-        #     ]
 
         allArrays = stack([item[0] for item in allres])
         absArrays = stack([item[1] for item in allres])
@@ -487,7 +466,9 @@ def RT_wl(
         return out_mat, A_mat
 
 
-def make_lookuptable_rt_structure(textures, materials, incidence, transmission, options, save_location="default"):
+def make_lookuptable_rt_structure(
+    textures, materials, incidence, transmission, options, save_location="default"
+):
 
     inc_for_lookuptable = []
     trn_for_lookuptable = []
@@ -501,7 +482,7 @@ def make_lookuptable_rt_structure(textures, materials, incidence, transmission, 
     for i1, text in enumerate(textures):
         if hasattr(text[0], "interface_layers"):
             if i1 > 0:
-                inc_for_lookuptable.append(materials[i1-1])
+                inc_for_lookuptable.append(materials[i1 - 1])
             else:
                 inc_for_lookuptable.append(incidence)
 
@@ -519,6 +500,7 @@ def make_lookuptable_rt_structure(textures, materials, incidence, transmission, 
 
             else:
                 coherent_for_lookuptable.append(True)
+                coherency_list_for_lookuptable.append(None)
 
             names_for_lookuptable.append(text[0].name + "int_{}".format(i1))
             tmm_or_fresnel.append(1)
@@ -530,11 +512,19 @@ def make_lookuptable_rt_structure(textures, materials, incidence, transmission, 
 
     savepath = get_savepath(save_location, options["project_name"])
 
-    for (layers, inc, trn, coh, coh_list, name) in zip(layers_for_lookuptable, inc_for_lookuptable,
-                                                       trn_for_lookuptable, coherent_for_lookuptable,
-                                                       coherency_list_for_lookuptable, names_for_lookuptable):
+    for (layers, inc, trn, coh, coh_list, name) in zip(
+        layers_for_lookuptable,
+        inc_for_lookuptable,
+        trn_for_lookuptable,
+        coherent_for_lookuptable,
+        coherency_list_for_lookuptable,
+        names_for_lookuptable,
+    ):
+        (layers, inc, trn, coh, coh_list, name)
         make_TMM_lookuptable(
-            layers, inc, trn,
+            layers,
+            inc,
+            trn,
             name,
             options,
             savepath,
@@ -545,6 +535,7 @@ def make_lookuptable_rt_structure(textures, materials, incidence, transmission, 
         )
 
     return tmm_or_fresnel, savepath, n_layers
+
 
 class rt_structure:
     """Set up structure for RT calculations.
@@ -561,10 +552,15 @@ class rt_structure:
     """
 
     def __init__(
-        self, textures, materials, widths, incidence, transmission,
-            options=None,
-            use_TMM=False,
-            save_location="default"
+        self,
+        textures,
+        materials,
+        widths,
+        incidence,
+        transmission,
+        options=None,
+        use_TMM=False,
+        save_location="default",
     ):
 
         self.textures = textures
@@ -597,13 +593,16 @@ class rt_structure:
             print("Pre-computing TMM lookup table(s)")
 
             if options is None:
-                raise(ValueError("Must provide options to pre-compute lookup tables"))
+                raise (ValueError("Must provide options to pre-compute lookup tables"))
 
             else:
-                self.tmm_or_fresnel, self.save_location, self.n_interface_layers = \
-                    make_lookuptable_rt_structure(
-                textures, materials, incidence, transmission, options, save_location
-            )
+                (
+                    self.tmm_or_fresnel,
+                    self.save_location,
+                    self.n_interface_layers,
+                ) = make_lookuptable_rt_structure(
+                    textures, materials, incidence, transmission, options, save_location
+                )
 
         else:
             self.tmm_or_fresnel = [0] * len(textures)  # no lookuptables
@@ -612,7 +611,7 @@ class rt_structure:
         """Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
             defined.
 
-        :param options: options for the calculation. The key entries are:
+        :param options: options for the calculation. Relevant entries are:
 
            - wavelength: Wavelengths (in m) in which calculate the data. An array.
            - theta_in: Polar angle (in radians) of the incident light.
@@ -622,10 +621,11 @@ class rt_structure:
            - depth_spacing: depth spacing for absorption profile calculations (m)
            - nx and ny: number of points to scan across the surface in the x and y directions (integers)
            - random_ray_position: True/False. instead of scanning across the surface, choose nx*ny points randomly
-           - avoid_edges: True/False. Whether to avoid the edge of the texture on purpose (may be useful for AFM scans)
            - randomize_surface: True/False. Randomize the ray position in the x/y direction before each surface interaction
            - parallel: True/False. Whether to execute calculations in parallel
            - n_jobs: n_jobs argument for Parallel function of joblib. Controls how many threads are used.
+           - x_limits: x limits (in same units as the size of the RTSurface) between which incident rays will be generated
+           - y_limits: y limits (in same units as the size of the RTSurface) between which incident rays will be generated
 
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
@@ -655,7 +655,13 @@ class rt_structure:
 
         if sum(self.tmm_or_fresnel) > 0:
             name_list = [x.name for x in surfaces]
-            tmm_args = [1, self.tmm_or_fresnel, self.save_location, name_list, self.n_interface_layers]
+            tmm_args = [
+                1,
+                self.tmm_or_fresnel,
+                self.save_location,
+                name_list,
+                self.n_interface_layers,
+            ]
 
         else:
             tmm_args = [0, 0, 0, 0, 0]
@@ -683,16 +689,23 @@ class rt_structure:
         x_limits = (
             options["x_limits"]
             if "x_limits" in options
-            else [-0.99 * surfaces[0].Lx, 0.99 * surfaces[0].Lx]
+            else [
+                surfaces[0].x_min + 0.01 * surfaces[0].Lx,
+                surfaces[0].x_max - 0.01 * surfaces[0].Lx,
+            ]
         )
         y_limits = (
             options["y_limits"]
             if "y_limits" in options
-            else [-0.99 * surfaces[0].Ly, 0.99 * surfaces[0].Ly]
+            else [
+                surfaces[0].y_min + 0.01 * surfaces[0].Ly,
+                surfaces[0].y_max - 0.01 * surfaces[0].Ly,
+            ]
         )
 
         nx = options["nx"]
         ny = options["ny"]
+        print(x_limits, y_limits)
 
         if options["random_ray_position"]:
             xs = np.random.uniform(x_limits[0], x_limits[1], nx)
@@ -723,83 +736,6 @@ class rt_structure:
         initial_dir = (
             options["initial_direction"] if "initial_direction" in options else 1
         )
-
-            # for j1 in range(n_reps):
-            #
-            #     offset = j1 * nx * ny
-            #     for c, vals in enumerate(product(xs, ys)):
-            #         # print(c)
-            #
-            #         for i1 in range(len(wavelengths)):
-            #             (
-            #                 I,
-            #                 profile,
-            #                 A_per_layer,
-            #                 th_o,
-            #                 phi_o,
-            #                 n_pass,
-            #                 n_interact,
-            #                 A_interface_array
-            #             ) = single_ray_stack(
-            #                 vals[0],
-            #                 vals[1],
-            #                 nks[:, i1],
-            #                 alphas[:, i1],
-            #                 r_a_0,
-            #                 surfaces,
-            #                 additional_tmm_args,
-            #                 widths,
-            #                 z_pos,
-            #                 I_thresh,
-            #                 pol,
-            #                 randomize,
-            #                 initial_mat,
-            #                 initial_dir,
-            #                 periodic,
-            #             )
-            #             absorption_profiles[i1] = absorption_profiles[i1] + profile / (
-            #                 n_reps * nx * ny
-            #             )
-            #             thetas[c + offset, i1] = th_o
-            #             Is[c + offset, i1] = np.real(I)
-            #             phis[c + offset, i1] = phi_o
-            #             A_layer[i1] = A_layer[i1] + A_per_layer / (n_reps * nx * ny)
-            #             n_passes[c + offset, i1] = n_pass
-            #             n_interactions[c + offset, i1] = n_interact
-            #             if th_o is not None:
-            #                 if np.real(th_o) <= np.pi / 2:
-            #                     R[i1] = np.real(R[i1] + I / (n_reps * nx * ny))
-            #                 else:
-            #                     T[i1] = np.real(T[i1] + I / (n_reps * nx * ny))
-            #
-            # thetas = thetas.T
-            # phis = phis.T
-            # n_passes = n_passes.T
-            # n_interactions = n_interactions.T
-            # Is = Is.T
-            #
-            # non_abs = ~np.isnan(thetas)
-            # refl_0 = (
-            #     non_abs
-            #     * np.less_equal(np.real(thetas), np.pi / 2, where=~np.isnan(thetas))
-            #     * (n_passes == 1)
-            # )
-            # R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
-            # R0 = np.sum(R0, 0)
-            #
-            # return {
-            #     "R": R,
-            #     "T": T,
-            #     "A_per_layer": A_layer[:, 1:-1],
-            #     "profile": absorption_profiles / 1e3,
-            #     "thetas": thetas,
-            #     "phis": phis,
-            #     "R0": R0,
-            #     "n_passes": n_passes,
-            #     "n_interactions": n_interactions,
-            # }
-
-        # else:
 
         allres = Parallel(n_jobs=n_jobs)(
             delayed(parallel_inner)(
@@ -838,9 +774,11 @@ class rt_structure:
 
         if sum(self.tmm_or_fresnel) > 0:
 
-            A_per_interface = [np.zeros((len(wavelengths), n_l)) for n_l in self.n_interface_layers]
+            A_per_interface = [
+                np.zeros((len(wavelengths), n_l)) for n_l in self.n_interface_layers
+            ]
 
-            for i1, per_int in enumerate(A_interfaces): # loop through wavelengths
+            for i1, per_int in enumerate(A_interfaces):  # loop through wavelengths
 
                 for j1, interf in enumerate(per_int):
                     A_per_interface[j1][i1] = interf
@@ -866,7 +804,7 @@ class rt_structure:
         refl_0 = (
             non_abs
             * np.less_equal(np.real(thetas), np.pi / 2, where=non_abs)
-            * (n_passes == 1)
+            * (n_passes == 0)
         )
         R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
         R0 = np.sum(R0, 0)
@@ -884,12 +822,13 @@ class rt_structure:
             "n_passes": n_passes,
             "n_interactions": n_interactions,
             "A_per_interface": A_per_interface,
-            "A_interfaces": A_interfaces
+            "A_interfaces": A_interfaces,
         }
 
     def calculate_profile(self, options):
         prof_results = self.calculate(options)
         return prof_results
+
 
 def make_tmm_args(arg_list):
     # print("TMM lookup tables used for interfaces: {}".format([i1 for i1, x in enumerate(arg_list[1]) if x == 1]))
@@ -903,16 +842,15 @@ def make_tmm_args(arg_list):
             surf_name = arg_list[3][i1] + "int_{}".format(i1)
             lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc"))
 
-            additional_tmm_args.append({
-                'wl': arg_list[5],
-                'Fr_or_TMM': 1,
-                'lookuptable': lookuptable
-            })
+            additional_tmm_args.append(
+                {"wl": arg_list[5], "Fr_or_TMM": 1, "lookuptable": lookuptable}
+            )
 
         else:
             additional_tmm_args.append({})
 
     return additional_tmm_args
+
 
 def parallel_inner(
     nks,
@@ -932,7 +870,7 @@ def parallel_inner(
     initial_mat,
     initial_dir,
     periodic,
-    tmm_args=[0, 0, 0, 0]
+    tmm_args=[0, 0, 0, 0],
 ):
 
     if tmm_args[0] > 0:
@@ -943,7 +881,7 @@ def parallel_inner(
         additional_tmm_args = [{} for _ in range(len(surfaces))]
         A_in_interfaces = 0
 
-    print('1wl')
+    print("1wl")
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -952,7 +890,7 @@ def parallel_inner(
     A_layer = np.zeros(len(widths))
     Is = np.zeros(n_reps * nx * ny)
 
-    A_interfaces = [[] for _ in range(len(surfaces)+1)]
+    A_interfaces = [[] for _ in range(len(surfaces) + 1)]
 
     profiles = np.zeros(len(z_pos))
 
@@ -960,7 +898,17 @@ def parallel_inner(
         offset = j1 * nx * ny
 
         for c, vals in enumerate(product(xs, ys)):
-            I, profile, A_per_layer, th_o, phi_o, n_pass, n_interact, A_interface_array, A_interface_index = single_ray_stack(
+            (
+                I,
+                profile,
+                A_per_layer,
+                th_o,
+                phi_o,
+                n_pass,
+                n_interact,
+                A_interface_array,
+                A_interface_index,
+            ) = single_ray_stack(
                 vals[0],
                 vals[1],
                 nks,
@@ -979,11 +927,11 @@ def parallel_inner(
             )
 
             A_interfaces[A_interface_index].append(A_interface_array)
-            profiles += profile / (n_reps*nx*ny)
+            profiles += profile / (n_reps * nx * ny)
             thetas[c + offset] = th_o
             phis[c + offset] = phi_o
             Is[c + offset] = np.real(I)
-            A_layer += A_per_layer / (n_reps*nx*ny)
+            A_layer += A_per_layer / (n_reps * nx * ny)
             n_passes[c + offset] = n_pass
             n_interactions[c + offset] = n_interact
 
@@ -1002,10 +950,19 @@ def parallel_inner(
 
                 # data = data/np.sum(data, axis=1)[:, None]
                 # A_in_interfaces[i1] = (len(layer_data)/(n_reps*nx*ny))*np.mean(data, axis=0)
-                A_in_interfaces[i1] = np.sum(data, axis=0)/(n_reps*nx*ny)
+                A_in_interfaces[i1] = np.sum(data, axis=0) / (n_reps * nx * ny)
                 # print(A_in_interfaces[i1])
 
-    return Is, profiles, A_layer, thetas, phis, n_passes, n_interactions, A_in_interfaces
+    return (
+        Is,
+        profiles,
+        A_layer,
+        thetas,
+        phis,
+        n_passes,
+        n_interactions,
+        A_in_interfaces,
+    )
 
 
 def normalize(x):
@@ -1109,7 +1066,20 @@ def make_profiles_wl(
 
 
 class RTSurface:
+    """Class which is used to store information about the surface which is used for ray-tracing."""
+
     def __init__(self, Points, interface_layers=None, **kwargs):
+        """Initializes the surface.
+        Parameters:
+
+        :param Points: A numpy array of shape (n, 3) where n is the number of points on the surface. The columns are the
+                        x, y and z coordinates of the points.
+        :param interface_layers: a list of layers (typically, Solcore Layer objects) which are on the interface. Optional.
+        :param coverage_height: The height at which the surface is expected to cover the whole unit cell. If this is not
+                                provided (None), this function will try to guess the coverage height by finding the height
+                                at which both the x and y coordinate are minimized.
+        """
+
         tri = Delaunay(Points[:, [0, 1]])
         self.simplices = tri.simplices
         self.Points = Points
@@ -1120,20 +1090,32 @@ class RTSurface:
         self.size = self.P_0s.shape[0]
         self.Lx = abs(min(Points[:, 0]) - max(Points[:, 0]))
         self.Ly = abs(min(Points[:, 1]) - max(Points[:, 1]))
+        self.x_min = min(Points[:, 0])
+        self.x_max = max(Points[:, 0])
+        self.y_min = min(Points[:, 1])
+        self.y_max = max(Points[:, 1])
         self.z_min = min(Points[:, 2])
         self.z_max = max(Points[:, 2])
 
-        self.zcov = Points[:, 2][
-            np.all(
-                np.array(
-                    [
-                        Points[:, 0] == min(Points[:, 0]),
-                        Points[:, 1] == min(Points[:, 1]),
-                    ]
-                ),
-                axis=0,
-            )
-        ][0]
+        # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
+        # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
+        # like regular pyramids but doesn't work well for e.g. AFM scans, hyperhemisphere
+
+        if "coverage_height" in kwargs:
+            self.zcov = kwargs["coverage_height"]
+
+        else:
+            self.zcov = Points[:, 2][
+                np.all(
+                    np.array(
+                        [
+                            Points[:, 0] == min(Points[:, 0]),
+                            Points[:, 1] == min(Points[:, 1]),
+                        ]
+                    ),
+                    axis=0,
+                )
+            ][0]
 
         if "name" in kwargs:
             self.name = kwargs["name"]
@@ -1147,11 +1129,8 @@ class RTSurface:
             if "coherency_list" in kwargs:
                 self.coherency_list = kwargs["coherency_list"]
 
-            else:
-                self.coherency_list = None
-
     def __deepcopy__(self, memo):
-        copy = type(self)(Points=self.Points)
+        copy = type(self)(Points=self.Points, coverage_height=self.zcov)
         memo[id(self)] = copy
 
         keys = self.__dict__.keys()
@@ -1161,7 +1140,6 @@ class RTSurface:
                 setattr(copy, key, deepcopy(getattr(self, key), memo))
 
         return copy
-
 
     def find_area(self):
         xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
@@ -1254,7 +1232,7 @@ def single_ray_stack(
     randomize=False,
     mat_i=0,
     direction_i=1,
-    periodic=1
+    periodic=1,
 ):
 
     # print("NEW RAY")
@@ -1353,26 +1331,29 @@ def single_ray_stack(
 
         surf = surfaces[surf_index]
 
+        # if periodic:
+
+        if randomize and (n_passes > 0):
+            h = surf.z_max - surf.z_min + 0.1
+            r_b = [
+                np.random.rand() * surf.Lx,
+                np.random.rand() * surf.Ly,
+                surf.zcov,
+            ]
+            # TODO: fix divide by zero warning and subsequent nonsensical r_a
+            # if d[2] == 0:
+            #     print(d[2])
+            n_z = np.ceil(abs(h / d[2]))
+            r_a = r_b - n_z * d
+
         if periodic:
 
-            if randomize and (n_passes > 0):
-                h = surf.z_max - surf.z_min + 0.1
-                r_b = [
-                    np.random.rand() * surf.Lx,
-                    np.random.rand() * surf.Ly,
-                    surf.zcov,
-                ]
-                n_z = np.ceil(abs(h / d[2]))
-                r_a = r_b - n_z * d
-
-            else:
-
-                r_a[0] = r_a[0] - surf.Lx * (
-                    (r_a[0] + d[0] * (surf.zcov - r_a[2]) / d[2]) // surf.Lx
-                )
-                r_a[1] = r_a[1] - surf.Ly * (
-                    (r_a[1] + d[1] * (surf.zcov - r_a[2]) / d[2]) // surf.Ly
-                )
+            r_a[0] = r_a[0] - surf.Lx * (
+                (r_a[0] + d[0] * (surf.zcov - r_a[2]) / d[2]) // surf.Lx
+            )
+            r_a[1] = r_a[1] - surf.Ly * (
+                (r_a[1] + d[1] * (surf.zcov - r_a[2]) / d[2]) // surf.Ly
+            )
 
         if direction == 1:
             ni = nks[mat_index]
@@ -1385,7 +1366,6 @@ def single_ray_stack(
         # theta is overall angle of inc, will be some normal float value for R or T BUT will be an
         # array describing absorption per layer if absorption happens
         # th_local is local angle w.r.t surface normal at that point on surface
-
 
         res, theta, phi, r_a, d, th_local, n_interactions, _ = single_surface[periodic](
             r_a,
@@ -1403,20 +1383,18 @@ def single_ray_stack(
         )
 
         if res == 0:  # reflection
-
             direction = -direction  # changing direction due to reflection
 
             # staying in the same material, so mat_index does not change, but surf_index does
             surf_index = surf_index + direction
 
         elif res == 1:  # transmission
-
             surf_index = surf_index + direction
             mat_index = mat_index + direction
 
-        elif res == 2: # absorption
-            stop = True # absorption in an interface (NOT a bulk layer!)
-            A_interface_array = I*theta[:]/np.sum(theta)
+        elif res == 2:  # absorption
+            stop = True  # absorption in an interface (NOT a bulk layer!)
+            A_interface_array = I * theta[:] / np.sum(theta)
             A_interface_index = surf_index + 1
             theta = None
             I = 0
@@ -1454,7 +1432,17 @@ def single_ray_stack(
 
             n_passes = n_passes + 1
 
-    return I, profile, A_per_layer, theta, phi, n_passes, n_interactions, A_interface_array, A_interface_index
+    return (
+        I,
+        profile,
+        A_per_layer,
+        theta,
+        phi,
+        n_passes,
+        n_interactions,
+        A_interface_array,
+        A_interface_index,
+    )
 
 
 def single_ray_interface(
@@ -1649,9 +1637,8 @@ def single_interface_check(
             divide="ignore", invalid="ignore"
         ):  # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
             result = check_intersect(r_a, d, tri)
-        if result == False and not checked_translation:
+        if result is False and not checked_translation:
             if i1 > 1:
-
                 which_side, _ = exit_side(r_a, d, Lx, Ly)
                 r_a = r_a + translation[which_side]
                 checked_translation = True
@@ -1677,15 +1664,17 @@ def single_interface_check(
                         )
                     n_misses += 1
                     i1 = 0
+
                 else:
                     # ray keeps missing, probably because it's travelling (almost) exactly perpendicular to surface.
                     # assume it is reflected back into layer it came from
                     d[2] = -d[2]
-                    o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
+
+                    o_t = np.real(acos(d[2] / (np.linalg.norm(d))))
                     o_p = np.real(atan2(d[1], d[0]))
                     return 0, o_t, o_p, r_a, d, 0, n_interactions, side
 
-        elif result == False and checked_translation:
+        elif result is False and checked_translation:
 
             if (side == 1 and d[2] < 0 and r_a[2] > tri.z_min) or (
                 side == -1 and d[2] > 0 and r_a[2] < tri.z_max
@@ -1707,7 +1696,7 @@ def single_interface_check(
 
             else:
 
-                o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
+                o_t = np.real(acos(d[2] / (np.linalg.norm(d))))
                 o_p = np.real(atan2(d[1], d[0]))
 
                 if np.sign(d0[2]) == np.sign(d[2]):
@@ -1729,11 +1718,11 @@ def single_interface_check(
 
                 return (
                     final_res,
-                    o_t, # theta with respect to horizontal
+                    o_t,  # theta with respect to horizontal
                     o_p,
                     r_a,
                     d,
-                    theta, # LOCAL incidence angle
+                    theta,  # LOCAL incidence angle
                     n_interactions,
                     side,
                 )  # theta is LOCAL incidence angle (relative to texture)
@@ -1780,11 +1769,11 @@ def single_interface_check(
 
                 return (
                     final_res,
-                    o_t, # A array
+                    o_t,  # A array
                     o_p,
                     r_a,
                     d,
-                    theta, # LOCAL incidence angle
+                    theta,  # LOCAL incidence angle
                     n_interactions,
                     side,
                 )
@@ -1824,11 +1813,11 @@ def single_cell_check(
         ):  # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
             result = check_intersect(r_a, d, tri)
 
-        if result == False:
+        if result is False:
 
             n_misses += 1
 
-            o_t = np.real(acos(d[2] / (np.linalg.norm(d) ** 2)))
+            o_t = np.real(acos(d[2] / (np.linalg.norm(d))))
             o_p = np.real(atan2(d[1], d[0]))
 
             if np.sign(d0[2]) == np.sign(d[2]):
@@ -1881,6 +1870,24 @@ def single_cell_check(
             r_a = np.real(
                 intersn + d / 1e9
             )  # this is to make sure the raytracer doesn't immediately just find the same intersection again
+
+            if A is not None:
+                # intersect = False
+                checked_translation = True
+                final_res = 2
+                o_t = A
+                o_p = 0
+
+                return (
+                    final_res,
+                    o_t,  # A array
+                    o_p,
+                    r_a,
+                    d,
+                    theta,  # LOCAL incidence angle
+                    n_interactions,
+                    side,
+                )
 
 
 def check_intersect(r_a, d, tri):

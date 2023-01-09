@@ -4,6 +4,7 @@ from rayflare.transfer_matrix_method.tmm import tmm_structure
 import os
 from solcore.absorption_calculator import OptiStack
 
+
 def make_TMM_lookuptable(
     layers,
     incidence,
@@ -38,6 +39,8 @@ def make_TMM_lookuptable(
     wavelength, angle, polarization, side of incidence.
     """
 
+    print(coherent, coherency_list)
+
     if sides is None:
         sides = [1, -1]
 
@@ -67,6 +70,8 @@ def make_TMM_lookuptable(
             coherency_lists = [["c"] * n_layers] * 2
         # can calculate by angle, already vectorized over wavelength
         pols = ["s", "p"]
+
+        print(coherency_lists)
 
         R = xr.DataArray(
             np.empty((2, 2, len(wavelengths), n_angles)),
@@ -147,7 +152,9 @@ def make_TMM_lookuptable(
                     if np.any(res["A_per_layer"] > 1):
                         print(side, pol, theta, np.max(res["A_per_layer"]))
                         print(res["A_per_layer"].shape)
-                        print(np.max(res["A_per_layer"]))
+                        print(res["R"][np.argmax(res["A_per_layer"][:, 0])])
+                        print(res["R"][np.argmax(res["A_per_layer"][:, 1])])
+                        # print(np.max(res["A_per_layer"]))
                         # print(np.where(res["A_per_layer"] > 1))
 
                     R_loop[:, i3] = np.real(res["R"])
