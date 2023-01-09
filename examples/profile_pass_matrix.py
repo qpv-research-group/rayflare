@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 from rayflare.textures import regular_pyramids
 from rayflare.structure import Interface, BulkLayer, Structure
@@ -6,6 +7,7 @@ from rayflare.matrix_formalism import calculate_RAT, process_structure
 from rayflare.options import default_options
 from rayflare.angles import make_angle_vector
 from rayflare.utilities import make_absorption_function
+
 
 from solcore import material, si
 from solcore.solar_cell import SolarCell, Layer, Junction
@@ -64,8 +66,8 @@ GaInP = material("GaInP")(In=0.5)
 Si = material("Si")()
 
 # download_db() # only need to run this once to download database from refractiveindex.info
-MgF2_pageid = str(search_db("MgF2/Rodriguez")[0][0])
-Ta2O5_pageid = str(search_db("Ta2O5/Rodriguez")[0][0])
+MgF2_pageid = str(search_db(os.path.join("MgF2", "Rodriguez"))[0][0])
+Ta2O5_pageid = str(search_db(os.path.join("Ta2O5", "Rodriguez"))[0][0])
 MgF2 = material(MgF2_pageid, nk_db=True)()
 Ta2O5 = material(Ta2O5_pageid, nk_db=True)()
 
