@@ -412,7 +412,6 @@ class tmm_structure:
                 layers = np.arange(1, stack.num_layers + 1)
 
             depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
-            print(depth_spacing)
             z_limit = np.sum(np.array(stack.widths))
             full_dist = np.arange(0, z_limit, depth_spacing)
             layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)

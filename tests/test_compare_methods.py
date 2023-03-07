@@ -513,6 +513,7 @@ def test_absorption_profile_incoh_angles():
     options.theta_in = np.pi/4
     options.phi_in = np.pi/3
     options.pol = 's'
+    options.depth_spacing_bulk = 1e-7
 
     rtstr = rt_structure(textures=[triangle_surf, triangle_surf, triangle_surf, triangle_surf],
                         materials = [GaAs, Si, Ge],

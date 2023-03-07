@@ -39,8 +39,6 @@ def make_TMM_lookuptable(
     wavelength, angle, polarization, side of incidence.
     """
 
-    print(coherent, coherency_list)
-
     if sides is None:
         sides = [1, -1]
 
@@ -70,8 +68,6 @@ def make_TMM_lookuptable(
             coherency_lists = [["c"] * n_layers] * 2
         # can calculate by angle, already vectorized over wavelength
         pols = ["s", "p"]
-
-        print(coherency_lists)
 
         R = xr.DataArray(
             np.empty((2, 2, len(wavelengths), n_angles)),
@@ -126,7 +122,9 @@ def make_TMM_lookuptable(
         pass_options = {}
 
         pass_options["wavelengths"] = wavelengths
-        pass_options["depth_spacing"] = 1e5
+        pass_options["depth_spacing"] = 1e5 # we don't actually want to calculate a profile, so the depth spacing
+        # doesn't matter, but it needs to be set to something. Larger value means we don't make extremely large arrays
+        # no reason during the calculation
 
         for i1, side in enumerate(sides):
             R_loop = np.empty((len(wavelengths), n_angles))
@@ -149,13 +147,6 @@ def make_TMM_lookuptable(
                     res = tmm_struct.calculate(
                         pass_options, profile=profile, layers=prof_layers
                     )
-                    if np.any(res["A_per_layer"] > 1):
-                        print(side, pol, theta, np.max(res["A_per_layer"]))
-                        print(res["A_per_layer"].shape)
-                        print(res["R"][np.argmax(res["A_per_layer"][:, 0])])
-                        print(res["R"][np.argmax(res["A_per_layer"][:, 1])])
-                        # print(np.max(res["A_per_layer"]))
-                        # print(np.where(res["A_per_layer"] > 1))
 
                     R_loop[:, i3] = np.real(res["R"])
                     T_loop[:, i3] = np.real(res["T"])

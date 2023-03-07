@@ -111,10 +111,6 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
             h, the hemisphere is truncated.
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
-    """Generate N evenly distributed points on the unit sphere centered at
-    the origin. Uses the 'Golden Spiral'.
-    Code by Chris Colbert from the numpy-discussion list.
-    """
 
     def switch_points(surface, index):
         P1_current = deepcopy(surface.P_1s[index, :])
@@ -263,13 +259,13 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     Y_norm_back = np.mean([back.P_0s[:, 1], back.P_1s[:, 1], back.P_2s[:, 1]], 0)
     Z_norm_back = np.mean([back.P_0s[:, 2], back.P_1s[:, 2], back.P_2s[:, 2]], 0)
 
-    # make all the normals points inwards (for some reason this doesn't happen automatically
+    # make all the normals points outwards (for some reason this doesn't happen automatically
     # with ConvexHull!) Four things to check:
 
-    # 1. In each quadrant, if x of the middle of the triangle is +ve, sign of normal should be -ve and vice versa
-    # 2. In each quadrant, if y of the middle of the triangle is +ve, sign of normal should be -ve and vice versa
-    # 3. Above the centre of the sphere, the normal should be pointing down (N[2] < 0)
-    # 4. Below the centre of the sphere, the normal should be pointing up (N[2] > 0)
+    # 1. In each quadrant, if x of the middle of the triangle is +ve, sign of normal should be +ve and vice versa
+    # 2. In each quadrant, if y of the middle of the triangle is +ve, sign of normal should be +ve and vice versa
+    # 3. Above the centre of the sphere, the normal should be pointing up (N[2] > 0)
+    # 4. Below the centre of the sphere, the normal should be pointing down (N[2] < 0)
 
     # If this isn't the case, simply need to switch two of the points of the triangle to flip the direction of the normal.
     # In this case, we flip P_1 and P_2.
@@ -296,14 +292,14 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
     for index in above_middle:
         current_N = front.crossP[index, :]
 
-        # N[2] should be < 0
+        # N[2] should be > 0
         if current_N[2] < 0:
             switch_points(front, index)
 
     for index in below_middle:
         current_N = front.crossP[index, :]
 
-        # N[2] should be > 0
+        # N[2] should be < 0
         if current_N[2] > 0:
             switch_points(front, index)
 
@@ -328,6 +324,8 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
 
     back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 
+    front.N = front.crossP/np.linalg.norm(front.crossP, axis=1)[:, None]
+    back.N = back.crossP/np.linalg.norm(back.crossP, axis=1)[:, None]
     hyperhemi = [front, back]
 
     return hyperhemi
