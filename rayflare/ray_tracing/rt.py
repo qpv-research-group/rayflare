@@ -22,6 +22,7 @@ from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 
+
 def RT(
     group,
     incidence,
@@ -36,6 +37,7 @@ def RT(
     only_incidence_angle=False,
     widths=None,
     save=True,
+    overwrite=False,
 ):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
@@ -55,7 +57,8 @@ def RT(
     :param only_incidence_angle: if True, the ray-tracing will only be performed for the incidence theta and phi \
     specified in the options.
     :param widths: if using TMM, width of the surface layers (in nm)
-    :param save: whether to save redistribution matrices (True/False)
+    :param save: whether to save redistribution matrices (True/False), default True
+    :param overwrite: whether to overwrite existing matrices (True/False), default False
 
     :return: Number of returns depends on whether absorption profiles are being calculated; the first two items are
              always returned, the final one only if a profile is being calcualted.
@@ -66,10 +69,10 @@ def RT(
     """
 
     existing_mats, path_or_mats = get_matrices_or_paths(
-        structpath, surf_name, front_or_rear, calc_profile
+        structpath, surf_name, front_or_rear, calc_profile, overwrite
     )
 
-    if existing_mats:
+    if existing_mats and not overwrite:
         return path_or_mats
 
     else:
@@ -103,6 +106,7 @@ def RT(
         if Fr_or_TMM == 1:
             lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc"))
             if front_or_rear == "rear":
+                # side gets flipped here
                 lookuptable = lookuptable.assign_coords(side=np.flip(lookuptable.side))
         else:
             lookuptable = None
@@ -114,6 +118,8 @@ def RT(
         theta_intv, phi_intv, angle_vector = make_angle_vector(
             n_theta_bins, phi_sym, c_az, theta_spacing
         )
+
+        print(len(angle_vector) / 2)
 
         if only_incidence_angle:
             print("Calculating matrix only for incidence theta/phi")
@@ -245,6 +251,10 @@ def RT(
             intgr = xr.concat([item[4] for item in allres], "wl")
             intgr.name = "intgr"
             profile.name = "profile"
+
+            intgr = intgr.where(intgr > 0, 0)
+            profile = profile.where(profile > 0, 0)
+
             allres = xr.merge([intgr, profile])
 
             if save:
@@ -288,6 +298,7 @@ def RT_wl(
     phi_out = np.zeros((n_angles, nx * ny))
     A_surface_layers = np.zeros((n_angles, nx * ny, n_abs_layers))
     theta_local_incidence = np.zeros((n_angles, nx * ny))
+    print("n angles", n_angles, nx * ny)
 
     for i2 in range(n_angles):
 
@@ -378,7 +389,10 @@ def RT_wl(
     n_rays_in_bin = np.zeros(int(len(angle_vector) / 2))
     n_rays_in_bin_abs = np.zeros(int(len(angle_vector) / 2))
 
+    # print(side, theta_local_incidence)
+
     binned_local_angles = np.digitize(theta_local_incidence, theta_intv, right=True) - 1
+
     local_angle_mat = np.zeros(
         (int((len(theta_intv) - 1) / 2), int(len(angle_vector) / 2))
     )
@@ -400,6 +414,7 @@ def RT_wl(
                 n_rays_in_bin_abs[bin_in[l1] - offset] += 1
                 per_layer = A_surface_layers[l1, l2]
                 A_mat[:, bin_in[l1] - offset] += per_layer
+                # print(side, binned_local_angles[l1, l2], bin_in[l1], offset)
                 local_angle_mat[binned_local_angles[l1, l2], bin_in[l1] - offset] += 1
 
     # normalize
@@ -411,7 +426,12 @@ def RT_wl(
         overall_abs_frac, np.sum(A_mat, 0), where=np.sum(A_mat, 0) != 0
     )
 
-    intgr = np.divide(np.sum(A_mat, 0), n_rays_in_bin_abs, where=n_rays_in_bin_abs != 0)
+    intgr = np.divide(
+        np.sum(A_mat, 0),
+        n_rays_in_bin_abs,
+        where=n_rays_in_bin_abs != 0,
+        out=np.zeros_like(n_rays_in_bin_abs),
+    )
     A_mat = abs_scale * A_mat
     out_mat[np.isnan(out_mat)] = 0
     A_mat[np.isnan(A_mat)] = 0
@@ -424,6 +444,7 @@ def RT_wl(
             local_angle_mat,
             np.sum(local_angle_mat, 0),
             where=np.sum(local_angle_mat, 0) != 0,
+            out=np.zeros_like(local_angle_mat),
         )
         local_angle_mat[np.isnan(local_angle_mat)] = 0
         local_angle_mat = COO(local_angle_mat)
@@ -432,6 +453,8 @@ def RT_wl(
             n_a_in = int(len(angle_vector) / 2)
             thetas = angle_vector[:n_a_in, 1]
             unique_thetas = np.unique(thetas)
+
+            # print(side, "local angle mat", local_angle_mat.todense())
 
             profile = make_profiles_wl(
                 unique_thetas,
@@ -477,6 +500,7 @@ def make_lookuptable_rt_structure(
     tmm_or_fresnel = []
     n_layers = []
     widths = []
+    prof_layers_list = []
 
     for i1, text in enumerate(textures):
         if hasattr(text[0], "interface_layers"):
@@ -503,22 +527,30 @@ def make_lookuptable_rt_structure(
 
             if hasattr(text[0], "prof_layers"):
                 prof_layers_for_lookuptable.append(text[0].prof_layers)
+                prof_layers_list.append(text[0].prof_layers)
 
             else:
                 prof_layers_for_lookuptable.append(None)
+                prof_layers_list.append(None)
 
             names_for_lookuptable.append(text[0].name + "int_{}".format(i1))
             tmm_or_fresnel.append(1)
             n_layers.append(len(text[0].interface_layers))
 
-            widths.append([x.width*1e9 for x in text[0].interface_layers])
+            widths.append([x.width * 1e9 for x in text[0].interface_layers])
 
         else:
             tmm_or_fresnel.append(0)
             n_layers.append(0)
-            prof_layers_for_lookuptable.append(0)
+            prof_layers_list.append(None)
+            widths.append(None)
 
     savepath = get_savepath(save_location, options["project_name"])
+
+    # print(len(layers_for_lookuptable), len(inc_for_lookuptable),
+    #           len(trn_for_lookuptable), len(coherent_for_lookuptable),
+    #             len(coherency_list_for_lookuptable), len(names_for_lookuptable),
+    #             len(prof_layers_for_lookuptable))
 
     for (layers, inc, trn, coh, coh_list, name, prof_layers) in zip(
         layers_for_lookuptable,
@@ -543,13 +575,22 @@ def make_lookuptable_rt_structure(
             sides=None,
         )
 
-    return tmm_or_fresnel, savepath, n_layers, prof_layers_for_lookuptable, widths
+    return tmm_or_fresnel, savepath, n_layers, prof_layers_list, widths
 
 
-def calculate_interface_profiles(data_prof_layers, A_in_prof_layers, prof_layer_list_i,
-                                 local_thetas_i, directions_i, z_list, offsets, lookuptable,
-                                 wl, pol, depth_spacing):
-
+def calculate_interface_profiles(
+    data_prof_layers,
+    A_in_prof_layers,
+    prof_layer_list_i,
+    local_thetas_i,
+    directions_i,
+    z_list,
+    offsets,
+    lookuptable,
+    wl,
+    pol,
+    depth_spacing,
+):
     def profile_per_layer(x, z, offset, side):
         layer_index = x.coords["layer"].item(0) - 1
 
@@ -574,7 +615,6 @@ def calculate_interface_profiles(data_prof_layers, A_in_prof_layers, prof_layer_
     th_array = np.abs(local_thetas_i)
     front_incidence = np.where(directions_i == 1)[0]
     rear_incidence = np.where(directions_i == -1)[0]
-    rear_incidence = np.where(directions_i == -1)[0]
 
     # need to scale absorption profile for each ray depending on
     # how much intensity was left in it when that ray was absorbed (this is done for total absorption inside
@@ -582,16 +622,17 @@ def calculate_interface_profiles(data_prof_layers, A_in_prof_layers, prof_layer_
 
     if len(front_incidence) > 0:
 
-        A_lookup_front = lookuptable.Alayer.loc[dict(side=1, pol=pol,
-                                                     layer=prof_layer_list_i)].interp(
-            angle=th_array[front_incidence], wl=wl * 1e9
-        )
+        A_lookup_front = lookuptable.Alayer.loc[
+            dict(side=1, pol=pol, layer=prof_layer_list_i)
+        ].interp(angle=th_array[front_incidence], wl=wl * 1e9)
         data_front = data_prof_layers[front_incidence]
 
         ## CHECK! ##
         non_zero = xr.where(A_lookup_front > 1e-10, A_lookup_front, np.nan)
 
-        scale_factor = (data_front / non_zero).mean(dim="layer", skipna=True).data  # can get slight differences in values between
+        scale_factor = (
+            np.divide(data_front, non_zero).mean(dim="layer", skipna=True).data
+        )  # can get slight differences in values between layers due to lookuptable resolution
 
         # layers because lookuptable angles are not exactly the same as the angles of the rays when absorbed. Take mean.
         # TODO: check what happens when one of these is zero or almost zero?
@@ -602,23 +643,23 @@ def calculate_interface_profiles(data_prof_layers, A_in_prof_layers, prof_layer_
         # so the sum of the absorption per layer recorded in A_interfaces is 1 while the sum of the absorption in the
         # lookuptable is 1 - R - T.
 
-        params_front = lookuptable.Aprof.loc[dict(side=1, pol=pol,
-                                                  layer=prof_layer_list_i)].interp(
-            angle=th_array[front_incidence], wl=wl * 1e9
-        )
+        params_front = lookuptable.Aprof.loc[
+            dict(side=1, pol=pol, layer=prof_layer_list_i)
+        ].interp(angle=th_array[front_incidence], wl=wl * 1e9)
 
         s_params = params_front.loc[
             dict(coeff=["A1", "A2", "A3_r", "A3_i"])
         ]  # have to scale these to make sure integrated absorption is correct
-        c_params = params_front.loc[dict(coeff=["a1", "a3"])]  # these should not be scaled
+        c_params = params_front.loc[
+            dict(coeff=["a1", "a3"])
+        ]  # these should not be scaled
 
         scale_res = s_params * scale_factor[:, None, None]
 
         params_front = xr.concat((scale_res, c_params), dim="coeff")
 
         ans_front = (
-            params_front
-            .groupby("angle", squeeze=False)
+            params_front.groupby("angle", squeeze=False)
             .map(profile_per_angle, z=z_list, offset=offsets, side=1)
             .drop("coeff")
         )
@@ -630,35 +671,35 @@ def calculate_interface_profiles(data_prof_layers, A_in_prof_layers, prof_layer_
 
     if len(rear_incidence) > 0:
 
-        A_lookup_back = lookuptable.Alayer.loc[dict(side=-1, pol=pol,
-                                                    layer=prof_layer_list_i)].interp(
-            angle=th_array[rear_incidence], wl=wl * 1e9
-        )
+        A_lookup_back = lookuptable.Alayer.loc[
+            dict(side=-1, pol=pol, layer=prof_layer_list_i)
+        ].interp(angle=th_array[rear_incidence], wl=wl * 1e9)
 
         data_back = data_prof_layers[rear_incidence]
 
         non_zero = xr.where(A_lookup_back > 1e-10, A_lookup_back, np.nan)
 
-        scale_factor = (data_back / non_zero).mean(dim="layer",
-                                                    skipna=True).data  # can get slight differences in values between
+        scale_factor = (
+            np.divide(data_back, non_zero).mean(dim="layer", skipna=True).data
+        )  # can get slight differences in values between layers
 
-        params_back = lookuptable.Aprof.loc[dict(side=-1, pol=pol,
-                                                 layer=prof_layer_list_i)].interp(
-            angle=th_array[rear_incidence], wl=wl * 1e9
-        )
+        params_back = lookuptable.Aprof.loc[
+            dict(side=-1, pol=pol, layer=prof_layer_list_i)
+        ].interp(angle=th_array[rear_incidence], wl=wl * 1e9)
 
         s_params = params_back.loc[
             dict(coeff=["A1", "A2", "A3_r", "A3_i"])
         ]  # have to scale these to make sure integrated absorption is correct
-        c_params = params_back.loc[dict(coeff=["a1", "a3"])]  # these should not be scaled
+        c_params = params_back.loc[
+            dict(coeff=["a1", "a3"])
+        ]  # these should not be scaled
 
         scale_res = s_params * scale_factor[:, None, None]
 
         params_back = xr.concat((scale_res, c_params), dim="coeff")
 
         ans_back = (
-            params_back
-            .groupby("angle", squeeze=False)
+            params_back.groupby("angle", squeeze=False)
             .map(profile_per_angle, z=z_list, offset=offsets, side=-1)
             .drop("coeff")
         )
@@ -671,18 +712,23 @@ def calculate_interface_profiles(data_prof_layers, A_in_prof_layers, prof_layer_
 
     profile = profile_front + profile_back
 
-    integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0",
-                                               dx=depth_spacing))
-
+    integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
 
     A_corr = np.sum(A_in_prof_layers)
 
-
-    scale_profile = np.real(A_corr / integrated_profile).data
+    scale_profile = np.real(
+        np.divide(
+            A_corr,
+            integrated_profile,
+            where=integrated_profile > 0,
+            out=np.zeros_like(A_corr),
+        )
+    ).data
 
     interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
 
-    return interface_profile
+    return interface_profile.data
+
 
 class rt_structure:
     """Set up structure for RT calculations.
@@ -694,7 +740,8 @@ class rt_structure:
     :param incidence: incidence medium (Solcore material)
     :param transmission: transmission medium (Solcore material)
     :param options: dictionary/object with options for the calculation; only used if pre-computing lookup tables using TMM
-    :param use_TMM: if True, use TMM to pre-compute lookup tables for the structure
+    :param use_TMM: if True, use TMM to pre-compute lookup tables for the structure. Surface layers
+            most be specified in the relevant textures.
     :param save_location: location to save the lookup tables; only used if pre-computing lookup tables using TMM
     """
 
@@ -753,13 +800,12 @@ class rt_structure:
                     textures, materials, incidence, transmission, options, save_location
                 )
 
-
         else:
             self.tmm_or_fresnel = [0] * len(textures)  # no lookuptables
 
     def calculate(self, options):
         """Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
-            defined.
+        defined.
 
         :param options: options for the calculation. Relevant entries are:
 
@@ -786,7 +832,9 @@ class rt_structure:
         phi = options["phi_in"]
         I_thresh = options["I_thresh"]
         periodic = options["periodic"] if "periodic" in options else 1
-        depth_spacing_interfaces = options["depth_spacing"]*1e9 if "depth_spacing" in options else 1
+        depth_spacing_interfaces = (
+            options["depth_spacing"] * 1e9 if "depth_spacing" in options else 1
+        )
 
         if not options["parallel"]:
             n_jobs = 1
@@ -818,7 +866,6 @@ class rt_structure:
                 self.interface_layer_widths,
                 depth_spacing_interfaces,
             ]
-
 
         else:
             tmm_args = [0, 0, 0, 0, 0, 0]
@@ -925,9 +972,9 @@ class rt_structure:
         n_passes = np.stack([item[5] for item in allres])
         n_interactions = np.stack([item[6] for item in allres])
         A_interfaces = [item[7] for item in allres]
-        local_thetas = [item[8] for item in allres]
-        directions = [item[9] for item in allres]
-
+        # local_thetas = [item[8] for item in allres]
+        # directions = [item[9] for item in allres]
+        profile_interfaces = [item[8] for item in allres]
 
         # process A_interfaces
 
@@ -937,13 +984,24 @@ class rt_structure:
                 np.zeros((len(wavelengths), n_l)) for n_l in self.n_interface_layers
             ]
 
-            for i1, per_int in enumerate(A_interfaces):  # loop through wavelengths
+            interface_profiles = [[] for _ in self.n_interface_layers]
 
-                for j1, interf in enumerate(per_int):
+            for i1, per_wl in enumerate(A_interfaces):  # loop through wavelengths
+
+                for j1, interf in enumerate(per_wl):  # loop through interfaces
                     A_per_interface[j1][i1] = interf
+
+                    if len(profile_interfaces[i1][j1]) > 0:
+                        # print("prof shape", profile_interfaces[i1][j1].shape)
+                        interface_profiles[j1].append(profile_interfaces[i1][j1])
+
+            interface_profiles = [
+                np.stack(x) if len(x) > 0 else x for x in interface_profiles
+            ]
 
         else:
             A_per_interface = 0
+            interface_profiles = 0
 
         non_abs = ~np.isnan(thetas)
 
@@ -982,8 +1040,7 @@ class rt_structure:
             "n_interactions": n_interactions,
             "A_per_interface": A_per_interface,
             "A_interfaces": A_interfaces,
-            "local_thetas": local_thetas,
-            "directions": directions,
+            "interface_profiles": interface_profiles,
         }
 
     def calculate_profile(self, options):
@@ -1013,6 +1070,8 @@ def make_tmm_args(arg_list):
 
         else:
             additional_tmm_args.append({})
+            prof_layers.append(None)
+            interface_layer_widths.append(None)
 
     return additional_tmm_args, prof_layers, interface_layer_widths, arg_list[7]
 
@@ -1035,18 +1094,55 @@ def parallel_inner(
     initial_mat,
     initial_dir,
     periodic,
-    tmm_args=[0, 0, 0, 0],
+    tmm_args=None,
 ):
 
+    if tmm_args is None:
+        tmm_args = [0]
+
+    profile_arrays = [[] for _ in range(len(surfaces))]
+
     if tmm_args[0] > 0:
-        additional_tmm_args, prof_layer_list, interface_layer_widths, depth_spacing_int = make_tmm_args(tmm_args)
+        (
+            additional_tmm_args,
+            prof_layer_list,
+            interface_layer_widths,
+            depth_spacing_int,
+        ) = make_tmm_args(tmm_args)
+
         A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
+
+        # pre-generate z positions and arrays if necessary
+        z_lists = [[] for _ in range(len(surfaces))]
+        offsets = [[] for _ in range(len(surfaces))]
+
+        for j1, prof_layer_i in enumerate(prof_layer_list):
+
+            if prof_layer_i is None:
+                # will not calculate profiles for this list.
+                z_lists[j1] = 0
+                offsets[j1] = 0
+
+            else:
+
+                n_z_points = 0
+                widths_int = interface_layer_widths[j1]
+                for k1, l_w in enumerate(widths_int):
+                    z_lists[j1].append(
+                        xr.DataArray(np.arange(0, l_w, depth_spacing_int))
+                    )
+                    if k1 + 1 in prof_layer_i:
+                        n_z_points += len(z_lists[j1][-1])
+
+                profile_arrays[j1] = np.zeros(n_z_points)
+                offsets[j1] = np.cumsum([0] + widths_int)[:-1]
 
     else:
         additional_tmm_args = [{} for _ in range(len(surfaces))]
         A_in_interfaces = 0
 
     print("1wl")
+
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -1106,11 +1202,10 @@ def parallel_inner(
             local_thetas[A_interface_index].append(np.real(th_local))
             directions[A_interface_index].append(direction)
 
-    A_interfaces = A_interfaces[1:] # index 0 are all entries for non-interface-absorption events.
+    A_interfaces = A_interfaces[1:]
+    # index 0 are all entries for non-interface-absorption events.
     local_thetas = local_thetas[1:]
     directions = directions[1:]
-
-    interface_profiles = []
 
     if tmm_args[0] > 0:
         # process A_interfaces
@@ -1129,24 +1224,30 @@ def parallel_inner(
 
                     lookuptable = additional_tmm_args[i1]["lookuptable"]
                     wl = additional_tmm_args[i1]["wl"]
-                    widths = interface_layer_widths[i1]
 
-                    A_in_profile_layers = A_in_interfaces[i1][np.array(prof_layer_list[i1]) - 1] # total absorption per layer
-                    data_profile_layers = data[:, np.array(prof_layer_list[i1]) - 1] # information on individual absorption events (rays)
+                    A_in_profile_layers = A_in_interfaces[i1][
+                        np.array(prof_layer_list[i1]) - 1
+                    ]  # total absorption per layer
+                    data_profile_layers = data[
+                        :, np.array(prof_layer_list[i1]) - 1
+                    ]  # information on individual absorption events (rays)
 
-                    z_list = []
+                    z_list = z_lists[i1]
+                    offset = offsets[i1]
 
-                    for l_w in widths:
-                        z_list.append(xr.DataArray(np.arange(0, l_w, depth_spacing_int)))
-
-                    offsets = np.cumsum([0] + widths)[:-1]
-
-                    interface_profiles.append(calculate_interface_profiles(data_profile_layers, A_in_profile_layers,
-                                                                           prof_layer_list[i1],
-                                 np.array(local_thetas[i1]), np.array(directions[i1]), z_list, offsets, lookuptable,
-                                 wl, pol, depth_spacing_int))
-
-
+                    profile_arrays[i1] = calculate_interface_profiles(
+                        data_profile_layers,
+                        A_in_profile_layers,
+                        prof_layer_list[i1],
+                        np.array(local_thetas[i1]),
+                        np.array(directions[i1]),
+                        z_list,
+                        offset,
+                        lookuptable,
+                        wl,
+                        pol,
+                        depth_spacing_int,
+                    )
 
     return (
         Is,
@@ -1157,9 +1258,7 @@ def parallel_inner(
         n_passes,
         n_interactions,
         A_in_interfaces,
-        local_thetas,
-        directions,
-        interface_profiles,
+        profile_arrays,
     )
 
 
@@ -1216,7 +1315,9 @@ def make_profiles_wl(
         dims=["local_theta", "global_index"],
         coords={"local_theta": unique_thetas, "global_index": np.arange(0, n_a_in)},
     )
+
     # lookuptable layers are 1-indexed
+
     data = lookuptable.loc[dict(side=1, pol=pol)].interp(
         angle=pr.coords["local_theta"], wl=wl * 1e9
     )
@@ -1259,6 +1360,7 @@ def make_profiles_wl(
     ans = ans.fillna(0)
 
     profile = ans.reduce(np.sum, "layer")
+    profile = xr.where(profile >= 0, profile, 0)
 
     return profile.T
 
@@ -1285,7 +1387,7 @@ class RTSurface:
         self.P_1s = Points[tri.simplices[:, 1]]
         self.P_2s = Points[tri.simplices[:, 2]]
         self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
-        self.N = self.crossP/np.linalg.norm(self.crossP, axis=1)[:, None]
+        self.N = self.crossP / np.linalg.norm(self.crossP, axis=1)[:, None]
         self.size = self.P_0s.shape[0]
         self.Lx = abs(min(Points[:, 0]) - max(Points[:, 0]))
         self.Ly = abs(min(Points[:, 1]) - max(Points[:, 1]))
@@ -1544,8 +1646,11 @@ def single_ray_stack(
                 surf.zcov,
             ]
             # TODO: fix divide by zero warning and subsequent nonsensical r_a
-            # if d[2] == 0:
-            #     print(d[2])
+            if d[2] == 0:
+                # ray travelling parallel to surface
+                # print("parallel ray")
+                d[2] = -direction * 1e-3  # make it not parallel in the right direction
+
             n_z = np.ceil(abs(h / d[2]))
             r_a = r_b - n_z * d
 
@@ -1597,7 +1702,9 @@ def single_ray_stack(
 
         elif res == 2:  # absorption
             stop = True  # absorption in an interface (NOT a bulk layer!)
-            A_interface_array = I * theta[:] / np.sum(theta) # if absorbed, theta contains information about A_per_layer
+            A_interface_array = (
+                I * theta[:] / np.sum(theta)
+            )  # if absorbed, theta contains information about A_per_layer
             A_interface_index = surf_index + 1
             theta = None
             I = 0
@@ -1637,10 +1744,10 @@ def single_ray_stack(
 
     return (
         I,
-        profile, # bulk profile only. Profile in interfaces gets calculated after ray-tracing is done.
-        A_per_layer, # absorption in bulk layers only, not interfaces
-        theta, # global theta
-        phi, # global phi
+        profile,  # bulk profile only. Profile in interfaces gets calculated after ray-tracing is done.
+        A_per_layer,  # absorption in bulk layers only, not interfaces
+        theta,  # global theta
+        phi,  # global phi
         n_passes,
         n_interactions,
         A_interface_array,
@@ -1977,7 +2084,7 @@ def single_interface_check(
                     o_p,
                     r_a,
                     d,
-                    theta, # LOCAL incidence angle
+                    theta,  # LOCAL incidence angle
                     n_interactions,
                     side,
                 )
@@ -2077,7 +2184,7 @@ def single_cell_check(
 
             if A is not None:
                 # intersect = False
-                checked_translation = True
+                # checked_translation = True
                 final_res = 2
                 o_t = A
                 o_p = 0
@@ -2111,15 +2218,10 @@ def check_intersect(r_a, d, tri):
     if sum(which_intersect) > 0:
 
         t = t[which_intersect]
-        P0 = tri.P_0s[which_intersect]
-        P1 = tri.P_1s[which_intersect]
-        P2 = tri.P_2s[which_intersect]
         ind = np.argmin(t)
         t = min(t)
 
         intersn = r_a + t * d
-        # N = np.cross(P1[ind] - P0[ind], P2[ind] - P0[ind])
-        # N = N / np.linalg.norm(N)
 
         N = tri.N[which_intersect][ind]
 

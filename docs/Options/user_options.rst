@@ -1,5 +1,6 @@
 Options
 =======
+.. _options:
 
 The function default_options is provided so not every
 value has to be set manually by the user each time. All the user options, and their meanings, are listed below. As a general
@@ -10,7 +11,8 @@ General options/options for matrix framework
 
 - **wavelengths**: wavelengths at which to carry out calculations (in m)
 - **theta_in**: polar angle of incident light (in radians)
-- **phi_in**: azimuthal angle of incident light (in radians)
+- **phi_in**: azimuthal angle of incident light (in radians). If you are using the angular redistribution matrix framework,
+  you can also set this to 'all' to spread the incident light evenly over all the azimuthal bins
 - **phi_symmetry**: used by the matrix framework. Defines symmetry element [0, phi_symmetry] into which values of phi can be collapsed (in radians)
 - **n_theta_bins**: used by the matrix framework. Number of polar angle bins used in the angular redistribution matrices (integer)
 - **I_thresh**: used by the matrix framework and the ray-tracer. The fraction of incident power remaining below which is

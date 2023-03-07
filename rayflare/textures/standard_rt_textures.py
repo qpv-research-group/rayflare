@@ -11,7 +11,6 @@ from scipy.spatial import ConvexHull
 from copy import deepcopy
 import math
 import numpy as np
-import os
 
 
 def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
@@ -324,8 +323,8 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
 
     back.crossP = np.cross(back.P_1s - back.P_0s, back.P_2s - back.P_0s)
 
-    front.N = front.crossP/np.linalg.norm(front.crossP, axis=1)[:, None]
-    back.N = back.crossP/np.linalg.norm(back.crossP, axis=1)[:, None]
+    front.N = front.crossP / np.linalg.norm(front.crossP, axis=1)[:, None]
+    back.N = back.crossP / np.linalg.norm(back.crossP, axis=1)[:, None]
     hyperhemi = [front, back]
 
     return hyperhemi
@@ -371,26 +370,27 @@ def rough_pyramids(
         ds = np.diff(x)[0]
 
     else:
-        coords = size * np.random.random_sample((n_points, 2))
+        coords = size * np.random.random_sample(
+            (n_points - 4, 2)
+        )  # -4 because we will explicitly add corners later
         ds = size / np.sqrt(n_points)
+        corners = np.array([[0, 0, 0], [0, size, 0], [size, size, 0], [size, 0, 0]])
 
     # CALCULATE NOISE_FRACTION!
     noise_height = ds * np.tan(noise_angle)
     # sort into quadrants
-    top = coords[coords[:, 0] < coords[:, 1]]
+    top = coords[coords[:, 0] <= coords[:, 1]]
     bottom = coords[coords[:, 0] > coords[:, 1]]
 
-    left = top[top[:, 1] < -top[:, 0] + size]
+    left = top[top[:, 1] <= -top[:, 0] + size]
     top = top[top[:, 1] > -top[:, 0] + size]
     right = bottom[bottom[:, 1] > -bottom[:, 0] + size]
-    bottom = bottom[bottom[:, 1] < -bottom[:, 0] + size]
+    bottom = bottom[bottom[:, 1] <= -bottom[:, 0] + size]
 
-    corners = np.array([[0, 0, 0], [0, size, 0], [size, size, 0], [size, 0, 0]])
-
-    bottom = np.hstack((bottom, (bottom[:, 1] * size * np.tan(char_angle))[:, None]))
-    top = np.hstack((top, size * np.tan(char_angle) * (1 - top[:, 1])[:, None]))
-    right = np.hstack((right, size * np.tan(char_angle) * (1 - right[:, 0])[:, None]))
-    left = np.hstack((left, (left[:, 0] * size * np.tan(char_angle))[:, None]))
+    bottom = np.hstack((bottom, (bottom[:, 1] * np.tan(char_angle))[:, None]))
+    top = np.hstack((top, np.tan(char_angle) * (size - top[:, 1])[:, None]))
+    right = np.hstack((right, np.tan(char_angle) * (size - right[:, 0])[:, None]))
+    left = np.hstack((left, (left[:, 0] * np.tan(char_angle))[:, None]))
 
     if upright:
         sign = 1
@@ -407,7 +407,12 @@ def rough_pyramids(
     )
     left[:, 2] = sign * (left[:, 2] + noise_height * np.random.random_sample(len(left)))
 
-    all_points = np.vstack((bottom, top, right, left, corners))
+    if regular_grid:
+        all_points = np.vstack((bottom, top, right, left))
+
+    else:
+        all_points = np.vstack((bottom, top, right, left, corners))
+    # all_points[:, 2] = sign * (all_points[:, 2] + noise_height * np.random.random_sample(len(all_points)))
 
     # set heights all around edges to zero, otherwise there will be holes in the periodic surface!
 
@@ -454,10 +459,10 @@ def rough_planar_surface(
         coords[:, 2] = noise_height * np.random.random_sample(n_per_side**2)
 
     else:
-        coords = size * np.random.random_sample((n_points, 3))
+        coords = size * np.random.random_sample((n_points - 4, 3))
         ds = size / np.sqrt(n_points)
         noise_height = ds * np.tan(noise_angle)
-        coords[:, 2] = noise_height * np.random.random_sample(n_points)
+        coords[:, 2] = noise_height * np.random.random_sample(n_points - 4)
 
     if regular_grid is False:
         corners = np.array([[0, 0, 0], [0, size, 0], [size, size, 0], [size, 0, 0]])
@@ -514,7 +519,7 @@ def hemisphere_surface(
 
     for i1, coord in enumerate(points):
 
-        if np.sum(coord**2) < radius**2:
+        if np.sum(coord**2) < (radius**2 - offset**2):
 
             theta = np.arcsin(np.sqrt(np.sum(coord**2)) / radius)
             all_points[i1, 2] = stretch * (radius * np.cos(theta) - offset)

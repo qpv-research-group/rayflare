@@ -17,20 +17,23 @@ from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matr
 from rayflare.utilities import get_savepath
 
 
-def process_structure(SC, options, save_location="default"):
+def process_structure(SC, options, save_location="default", overwrite=False):
     """
     Function which takes a list of Interface and BulkLayer objects, and user options, and carries out the
     necessary calculations to populate the redistribution matrices.
 
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
     :param options: a dictionary or State object listing the user options
-    :param save_location: string - location where the calculated redistribution matrices should be stored. Currently recognized are:
+    :param save_location: string - location where the calculated redistribution matrices should be stored.
+          Currently recognized are:
 
               - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
               - 'current', which stores the results in the current working directory
               - or you can specify the full path location for wherever you want the results to be stored.
 
               In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
+    :param overwrite: boolean - if True, will overwrite any existing results in the save_location. If False, will re-use
+            any existing results (based on the project name, save_location and names of the surfaces) if they are available.
     """
 
     def determine_only_incidence(sd, j1, oia):
@@ -94,6 +97,8 @@ def process_structure(SC, options, save_location="default"):
                     coherent,
                     coherency_list,
                     prof_layers,
+                    [1, -1],
+                    overwrite,
                 )
 
     for i1, struct in enumerate(SC):
@@ -133,6 +138,7 @@ def process_structure(SC, options, save_location="default"):
                     structpath,
                     front_or_rear="front",
                     save=True,
+                    overwrite=overwrite,
                 )
 
             if struct.method == "Lambertian":
@@ -157,6 +163,7 @@ def process_structure(SC, options, save_location="default"):
                     structpath,
                     "front",
                     save=True,
+                    overwrite=overwrite,
                 )
 
             if struct.method == "TMM":
@@ -185,6 +192,7 @@ def process_structure(SC, options, save_location="default"):
                         prof_layers=prof_layers,
                         front_or_rear=side,
                         save=True,
+                        overwrite=overwrite,
                     )
 
             if struct.method == "RT_TMM":
@@ -217,6 +225,7 @@ def process_structure(SC, options, save_location="default"):
                         only_incidence_angle,
                         layer_widths[i1],
                         save=True,
+                        overwrite=overwrite,
                     )
 
             if struct.method == "RT_Fresnel":
@@ -245,6 +254,7 @@ def process_structure(SC, options, save_location="default"):
                         None,
                         only_incidence_angle=only_incidence_angle,
                         save=True,
+                        overwrite=overwrite,
                     )
 
             if struct.method == "RCWA":
@@ -268,4 +278,5 @@ def process_structure(SC, options, save_location="default"):
                         front_or_rear=side,
                         surf_name=struct.name,
                         save=True,
+                        overwrite=overwrite,
                     )

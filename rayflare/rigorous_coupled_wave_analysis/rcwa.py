@@ -40,6 +40,7 @@ def RCWA(
     surf_name="",
     detail_layer=False,
     save=True,
+    overwrite=False,
 ):
 
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
@@ -60,18 +61,19 @@ def RCWA(
             medium, or rear incidence on the stack, from the transmission medium.
     :param surf_name: name of the surface (to save the matrices generated).
     :param detail_layer:
-    :param save: whether to save the redistribution matrices (True/False)
+    :param save: whether to save the redistribution matrices (True/False), default True
+    :param overwrite: whether to overwrite existing saved matrices (True/False), default False
     :return:
     """
-    # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently). Also don't know if this is faster,
-    # or if internally it will still do s & p separately
+    # TODO: when doing unpolarized, why not just set s=0.5 p=0.5 in S4? (Maybe needs to be normalised differently).
+    # Also don't know if this is faster, or if internally it will still do s & p separately
     # TODO: if incidence angle is zero, s and p polarization are the same so no need to do both
 
     existing_mats, path_or_mats = get_matrices_or_paths(
-        structpath, surf_name, front_or_rear, prof_layers
+        structpath, surf_name, front_or_rear, prof_layers, overwrite
     )
 
-    if existing_mats:
+    if existing_mats and not overwrite:
         return path_or_mats
 
     else:
@@ -790,13 +792,15 @@ class rcwa_structure:
     """Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
     defined using an RCWA method implemented using the S4 package.
 
-    :param structure: A Solcore Structure/SolarCell object with layers and materials. Alternatively, you can supply
+    :param structure: A Solcore Structure/SolarCell object with layers and materials. Alternatively, you can supply \
            a list which can contain any mixture of Solcore Layer objects and layers defined in one of the two following ways:
-            - 1. A list of length 4, for materials with a constant refractive index. The list entries are:
-                 [width of the layer in nm, real part of refractive index (n), imaginary part of refractive index (k),
-                 geometry]
-            - 2. A list of length 5, for materials with a wavelength-dependent refractive index. The list entries are:
-                 [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
+
+        - 1. A list of length 4, for materials with a constant refractive index. The list entries are: \
+             [width of the layer in nm, real part of refractive index (n), imaginary part of refractive index (k), geometry]
+
+        - 2. A list of length 5, for materials with a wavelength-dependent refractive index. The list entries are: \
+             [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
+
     :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
     :param options: dictionary or State object containing user options
     :param incidence: semi-infinite incidence medium

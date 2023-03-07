@@ -21,6 +21,7 @@ def TMM(
     prof_layers=None,
     front_or_rear="front",
     save=True,
+    overwrite=False,
 ):
     """
     Function which takes a layer stack and creates an angular redistribution matrix.
@@ -31,14 +32,15 @@ def TMM(
     :param surf_name: name of the surface (to save/load the matrices generated).
     :param options: a list of options
     :param structpath: file path where matrices will be stored or loaded from
-    :param coherent: whether or not the layer stack is coherent. If None, it is assumed to be fully coherent
+    :param coherent: whether the layer stack is coherent. If None, it is assumed to be fully coherent. Boolean, default True.
     :param coherency_list: a list with the same number of entries as the layers, either 'c' for a coherent layer or
             'i' for an incoherent layer
     :param prof_layers: layers for which the absorption profile should be calculated
             (if None, do not calculate absorption profile at all)
     :param front_or_rear: a string, either 'front' or 'rear'; front incidence on the stack, from the incidence
             medium, or rear incidence on the stack, from the transmission medium.
-    :param save:
+    :param save: whether to save the matrices to file. Boolean, default True.
+    :param overwrite: whether to overwrite existing saved matrices. Boolean, default False.
 
     :return: Number of returns depends on whether absorption profiles are being calculated; the first two items are
              always returned, the final one only if a profile is being calcualted.
@@ -123,10 +125,10 @@ def TMM(
         return prof_wl
 
     existing_mats, path_or_mats = get_matrices_or_paths(
-        structpath, surf_name, front_or_rear, prof_layers
+        structpath, surf_name, front_or_rear, prof_layers, overwrite
     )
 
-    if existing_mats:
+    if existing_mats and not overwrite:
         return path_or_mats
 
     else:
@@ -150,19 +152,9 @@ def TMM(
 
         n_layers = len(layers)
 
-        if front_or_rear == "front":
-            optlayers = OptiStack(layers, substrate=transmission, incidence=incidence)
-            trns = transmission
-            inc = incidence
-
-        else:
-            optlayers = OptiStack(
-                layers[::-1], substrate=incidence, incidence=transmission
-            )
-            trns = incidence
-            inc = transmission
-            if prof_layers is not None:
-                prof_layers = np.sort(len(layers) - np.array(prof_layers) + 1).tolist()
+        optlayers = OptiStack(layers, substrate=transmission, incidence=incidence)
+        trns = transmission
+        inc = incidence
 
         if prof_layers is not None:
             profile = True
@@ -186,11 +178,24 @@ def TMM(
                     )
                 )
 
+            if front_or_rear != "front":
+                dist = (z_limit - dist)[::-1]
+                prof_layers = np.sort(len(layers) - np.array(prof_layers) + 1).tolist()
+
         else:
             profile = False
+            dist = None
+
+        if front_or_rear != "front":
+            optlayers = OptiStack(
+                layers[::-1], substrate=incidence, incidence=transmission
+            )
+            trns = incidence
+            inc = transmission
 
         if options["pol"] == "u":
             pols = ["s", "p"]
+
         else:
             pols = [options["pol"]]
 
@@ -258,7 +263,7 @@ def TMM(
                 pass_options["theta_in"] = theta
 
                 res = tmm_struct.calculate(
-                    pass_options, profile=profile, layers=prof_layers
+                    pass_options, profile=profile, layers=prof_layers, dist=dist
                 )
 
                 R_loop[:, i3] = np.real(res["R"])
@@ -369,24 +374,24 @@ class tmm_structure:
     """
 
     def __init__(
-        self, stack, incidence=None, transmission=None, no_back_reflection=False
+        self, layer_stack, incidence=None, transmission=None, no_back_reflection=False
     ):
 
-        if "OptiStack" in str(type(stack)):
-            stack.no_back_reflection = no_back_reflection
+        if "OptiStack" in str(type(layer_stack)):
+            layer_stack.no_back_reflection = no_back_reflection
         else:
-            stack = OptiStack(
-                stack,
+            layer_stack = OptiStack(
+                layer_stack,
                 no_back_reflection=no_back_reflection,
                 substrate=transmission,
                 incidence=incidence,
             )
 
-        self.stack = stack
+        self.layer_stack = layer_stack
         self.no_back_reflection = no_back_reflection
-        self.width = np.sum(stack.widths) / 1e9
+        self.width = np.sum(layer_stack.widths) / 1e9
 
-    def calculate(self, options, profile=False, layers=None):
+    def calculate(self, options, profile=False, layers=None, dist=None):
         """ Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
 
@@ -406,38 +411,45 @@ class tmm_structure:
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
-        def calculate_profile(layers):
+        def calculate_profile(layers, dist=None):
             # layer indices: 0 is incidence, n is transmission medium
+
             if layers is None:
-                layers = np.arange(1, stack.num_layers + 1)
+                layers = np.arange(1, layer_stack.num_layers + 1)
 
-            depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
-            z_limit = np.sum(np.array(stack.widths))
-            full_dist = np.arange(0, z_limit, depth_spacing)
-            layer_start = np.insert(np.cumsum(np.insert(stack.widths, 0, 0)), 0, 0)
-            layer_end = np.cumsum(np.insert(stack.widths, 0, 0))
-
-            dist = []
-
-            for l in layers:
-                dist = np.hstack(
-                    (
-                        dist,
-                        full_dist[
-                            np.all(
-                                (full_dist >= layer_start[l], full_dist < layer_end[l]),
-                                0,
-                            )
-                        ],
-                    )
+            if dist is None:
+                depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
+                z_limit = np.sum(np.array(layer_stack.widths))
+                full_dist = np.arange(0, z_limit, depth_spacing)
+                layer_start = np.insert(
+                    np.cumsum(np.insert(layer_stack.widths, 0, 0)), 0, 0
                 )
+                layer_end = np.cumsum(np.insert(layer_stack.widths, 0, 0))
+
+                dist = []
+
+                for l in layers:
+                    dist = np.hstack(
+                        (
+                            dist,
+                            full_dist[
+                                np.all(
+                                    (
+                                        full_dist >= layer_start[l],
+                                        full_dist < layer_end[l],
+                                    ),
+                                    0,
+                                )
+                            ],
+                        )
+                    )
 
             if pol in "sp":
 
                 if coherent:
                     fn = tmm.absorp_analytic_fn().fill_in(out, layers)
                     layer, d_in_layer = tmm.find_in_structure_with_inf(
-                        stack.get_widths(), dist
+                        layer_stack.get_widths(), dist
                     )
                     data = tmm.position_resolved(layer, d_in_layer, out)
                     output["profile"] = data["absor"]
@@ -454,14 +466,17 @@ class tmm_structure:
                     )
 
                     layer, d_in_layer = tmm.find_in_structure_with_inf(
-                        stack.get_widths(), dist
+                        layer_stack.get_widths(), dist
                     )
                     data = tmm.inc_position_resolved(
                         layer,
                         d_in_layer,
                         out,
                         coherency_list,
-                        4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength,
+                        4
+                        * np.pi
+                        * np.imag(layer_stack.get_indices(wavelength))
+                        / wavelength,
                     )
                     output["profile"] = data
 
@@ -477,7 +492,7 @@ class tmm_structure:
 
                         else:
                             alpha = (
-                                np.imag(stack.get_indices(wavelength)[l])
+                                np.imag(layer_stack.get_indices(wavelength)[l])
                                 * 4
                                 * np.pi
                                 / wavelength
@@ -495,7 +510,7 @@ class tmm_structure:
                     fn = fn_s.add(fn_p).scale(0.5)
 
                     layer, d_in_layer = tmm.find_in_structure_with_inf(
-                        stack.get_widths(), dist
+                        layer_stack.get_widths(), dist
                     )
                     data_s = tmm.position_resolved(layer, d_in_layer, out_s)
                     data_p = tmm.position_resolved(layer, d_in_layer, out_p)
@@ -518,21 +533,27 @@ class tmm_structure:
                     )
 
                     layer, d_in_layer = tmm.find_in_structure_with_inf(
-                        stack.get_widths(), dist
+                        layer_stack.get_widths(), dist
                     )
                     data_s = tmm.inc_position_resolved(
                         layer,
                         d_in_layer,
                         out_s,
                         coherency_list,
-                        4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength,
+                        4
+                        * np.pi
+                        * np.imag(layer_stack.get_indices(wavelength))
+                        / wavelength,
                     )
                     data_p = tmm.inc_position_resolved(
                         layer,
                         d_in_layer,
                         out_p,
                         coherency_list,
-                        4 * np.pi * np.imag(stack.get_indices(wavelength)) / wavelength,
+                        4
+                        * np.pi
+                        * np.imag(layer_stack.get_indices(wavelength))
+                        / wavelength,
                     )
 
                     output["profile"] = 0.5 * (data_s + data_p)
@@ -550,7 +571,7 @@ class tmm_structure:
 
                         else:
                             alpha = (
-                                np.imag(stack.get_indices(wavelength)[l])
+                                np.imag(layer_stack.get_indices(wavelength)[l])
                                 * 4
                                 * np.pi
                                 / wavelength
@@ -564,7 +585,7 @@ class tmm_structure:
             output["profile"][output["profile"] < 0] = 0
             output["profile_coeff"] = np.stack(
                 (fn.A1, fn.A2, np.real(fn.A3), np.imag(fn.A3), fn.a1, fn.a3)
-            )  # shape is (5, n_layers, num_wl)
+            )  # shape is (6, n_layers, num_wl)
 
         wavelength = options["wavelengths"] * 1e9
         pol = options["pol"]
@@ -572,7 +593,7 @@ class tmm_structure:
 
         coherent = options["coherent"] if "coherent" in options.keys() else True
 
-        stack = self.stack
+        layer_stack = self.layer_stack
 
         if not coherent:
             coherency_list = self.build_coh_list(options)
@@ -590,8 +611,8 @@ class tmm_structure:
             if coherent:
                 out = tmm.coh_tmm(
                     pol,
-                    stack.get_indices(wavelength),
-                    stack.get_widths(),
+                    layer_stack.get_indices(wavelength),
+                    layer_stack.get_widths(),
                     angle,
                     wavelength,
                 )
@@ -603,8 +624,8 @@ class tmm_structure:
             else:
                 out = tmm.inc_tmm(
                     pol,
-                    stack.get_indices(wavelength),
-                    stack.get_widths(),
+                    layer_stack.get_indices(wavelength),
+                    layer_stack.get_widths(),
                     coherency_list,
                     angle,
                     wavelength,
@@ -631,15 +652,15 @@ class tmm_structure:
             if coherent:
                 out_p = tmm.coh_tmm(
                     "p",
-                    stack.get_indices(wavelength),
-                    stack.get_widths(),
+                    layer_stack.get_indices(wavelength),
+                    layer_stack.get_widths(),
                     angle,
                     wavelength,
                 )
                 out_s = tmm.coh_tmm(
                     "s",
-                    stack.get_indices(wavelength),
-                    stack.get_widths(),
+                    layer_stack.get_indices(wavelength),
+                    layer_stack.get_widths(),
                     angle,
                     wavelength,
                 )
@@ -655,16 +676,16 @@ class tmm_structure:
             else:
                 out_p = tmm.inc_tmm(
                     "p",
-                    stack.get_indices(wavelength),
-                    stack.get_widths(),
+                    layer_stack.get_indices(wavelength),
+                    layer_stack.get_widths(),
                     coherency_list,
                     angle,
                     wavelength,
                 )
                 out_s = tmm.inc_tmm(
                     "s",
-                    stack.get_indices(wavelength),
-                    stack.get_widths(),
+                    layer_stack.get_indices(wavelength),
+                    layer_stack.get_widths(),
                     coherency_list,
                     angle,
                     wavelength,
@@ -688,7 +709,7 @@ class tmm_structure:
         output["A_per_layer"] = output["A_per_layer"].T
 
         if profile:
-            calculate_profile(layers)
+            calculate_profile(layers, dist)
 
         return output
 
@@ -699,7 +720,7 @@ class tmm_structure:
 
     def set_widths(self, new_widths):
 
-        self.stack.set_widths(new_widths)
+        self.layer_stack.set_widths(new_widths)
 
     def build_coh_list(self, options):
 
@@ -707,10 +728,10 @@ class tmm_structure:
             options["coherency_list"] if "coherency_list" in options.keys() else None
         )
         if coherency_list is not None:
-            assert len(coherency_list) == self.stack.num_layers, (
+            assert len(coherency_list) == self.layer_stack.num_layers, (
                 "Error: The coherency list (passed in the options) must have as many elements (now {}) as the "
                 "number of layers (now {}).".format(
-                    len(coherency_list), stack.num_layers
+                    len(coherency_list), self.layer_stack.num_layers
                 )
             )
 

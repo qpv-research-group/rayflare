@@ -46,7 +46,7 @@ _, _, angle_vector = make_angle_vector(
     options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
 )
 options.bulk_profile = True
-options.phi_symmetry = np.pi/2
+options.phi_symmetry = np.pi / 2
 
 Si = material("Si_UVtoMIR")()
 Air = material("Air")()
@@ -82,7 +82,7 @@ bulk_Si = BulkLayer(170e-6, Si, name="Si_bulk")  # bulk thickness in m
 
 SC = Structure([front_surf, bulk_Si, back_surf], incidence=Air, transmission=Ag)
 
-process_structure(SC, options)
+process_structure(SC, options, overwrite=True)
 
 results = calculate_RAT(SC, options)
 

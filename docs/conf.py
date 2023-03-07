@@ -12,14 +12,15 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('../examples'))
+
+sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../examples"))
 
 # -- Project information -----------------------------------------------------
 
-project = 'RayFlare'
-copyright = '2022, Phoebe Pearce'
-author = 'Phoebe Pearce'
+project = "RayFlare"
+copyright = "2022, Phoebe Pearce"
+author = "Phoebe Pearce"
 
 
 # -- General configuration -------------------git pull-------------------------------
@@ -27,57 +28,48 @@ author = 'Phoebe Pearce'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-   'sphinx.ext.autodoc', 'nbsphinx'
-]
+extensions = ["sphinx.ext.autodoc", "nbsphinx"]
 
-nbsphinx_execute = 'never'
+nbsphinx_execute = "never"
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 
-html_theme = 'insegel'
-html_logo = 'logo.svg'
-html_favicon = 'favicon.ico'
+html_theme = "insegel"
+html_logo = "logo.svg"
+html_favicon = "favicon.ico"
 html_sidebars = {
-    '**': [
-        'about.html',
-        'localtoc.html',
-        'relations.html',
-        'searchbox.html'
-    ]
+    "**": ["about.html", "localtoc.html", "relations.html", "searchbox.html"]
 }
 
-html_theme_options = {
-    'navigation_depth': 1
-}
+html_theme_options = {"navigation_depth": 1}
 
 autodoc_mock_imports = ["S4"]
 nbsphinx_allow_errors = True
 
+
 def setup(app):
-   app.add_css_file("css/insegel.css")
+    app.add_css_file("css/insegel.css")
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 
 # html_css_files = ['css/insegel.css']
-
-

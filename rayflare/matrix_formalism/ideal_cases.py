@@ -12,7 +12,13 @@ from rayflare.utilities import get_matrices_or_paths
 
 
 def lambertian_matrix(
-    angle_vector, theta_intv, surf_name, structpath, front_or_rear="front", save=True
+    angle_vector,
+    theta_intv,
+    surf_name,
+    structpath,
+    front_or_rear="front",
+    save=True,
+    overwrite=False,
 ):
     """
     Generates a redistribution matrix for perfect Lambertian reflection.
@@ -23,15 +29,16 @@ def lambertian_matrix(
     :param structpath: file path where matrices will be stored or loaded from
     :param front_or_rear: generate matrix for 'front' or 'rear' incidence?
     :param save: Boolean, whether to save the resulting matrix (True) or only return it (False). Default True
+    :param overwrite: Boolean, whether to overwrite existing saved matrices. Default False
 
     :return: the redistribution matrix in sparse COO format.
     """
 
     existing_mats, path_or_mats = get_matrices_or_paths(
-        structpath, surf_name, front_or_rear
+        structpath, surf_name, front_or_rear, overwrite=overwrite
     )
 
-    if existing_mats:
+    if existing_mats and not overwrite:
         return path_or_mats
 
     else:
@@ -85,6 +92,7 @@ def mirror_matrix(
     structpath,
     front_or_rear="front",
     save=True,
+    overwrite=False,
 ):
     """
     Generates a redistribution matrix for a perfect mirror (100% reflection).
@@ -97,15 +105,16 @@ def mirror_matrix(
     :param structpath: file path where matrices will be stored or loaded from
     :param front_or_rear: generate matrix for 'front' or 'rear' incidence?
     :param save: Boolean, whether to save the resulting matrix (True) or only return it (False). Default True
+    :param overwrite: Boolean, whether to overwrite existing saved matrices. Default False
 
     :return: the redistribution matrix in sparse COO format.
     """
 
     existing_mats, path_or_mats = get_matrices_or_paths(
-        structpath, surf_name, front_or_rear
+        structpath, surf_name, front_or_rear, overwrite=overwrite
     )
 
-    if existing_mats:
+    if existing_mats and not overwrite:
         return path_or_mats
 
     else:

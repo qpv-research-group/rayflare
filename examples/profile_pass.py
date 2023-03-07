@@ -54,6 +54,9 @@ rtstr = rt_structure(
     incidence=Air,
     transmission=Air,
 )
+
+options.depth_spacing_bulk = 10e-9
+
 result_rt = rtstr.calculate_profile(options)
 
 total_A_rt = result_rt["A_per_layer"]
@@ -71,6 +74,8 @@ result_tmm = tmmstr.calculate_profile(options)
 total_A_tmm = result_tmm["A_per_layer"]
 total_R_tmm = result_tmm["R"]
 profile_tmm = result_tmm["profile"]
+
+options.orders = 2
 
 rcwastr = rcwa_structure(
     [Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)],
@@ -135,9 +140,11 @@ options_sc.theta = options.theta_in * 180 / np.pi
 V = np.linspace(0, 2, 200)
 options_sc.voltages = V
 
-_, diff_absorb_fn = make_absorption_function(
-    profile_rt, rtstr, options, matrix_method=False
+positions, diff_absorb_fn = make_absorption_function(
+    result_rt, rtstr, options,
 )
+
+options.positions = positions
 
 solar_cell = SolarCell(
     [
@@ -200,7 +207,9 @@ plt.xlabel(
 )  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
 plt.show()
 
-_, diff_absorb_fn = make_absorption_function(profile_tmm, tmmstr, options)
+positions, diff_absorb_fn = make_absorption_function(result_tmm, tmmstr, options)
+
+options.positions = positions
 
 solar_cell = SolarCell(
     [
@@ -265,7 +274,9 @@ plt.xlabel(
 plt.show()
 
 
-_, diff_absorb_fn = make_absorption_function(profile_rcwa, rcwastr, options, False)
+positions, diff_absorb_fn = make_absorption_function(result_rcwa, rcwastr, options)
+
+options.positions = positions
 
 solar_cell = SolarCell(
     [

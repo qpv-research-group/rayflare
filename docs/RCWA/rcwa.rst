@@ -1,5 +1,6 @@
 Rigorous coupled-wave analysis
 ===============================
+.. _rcwa:
 
 There are two distinct uses of the rigorous coupled-wave analysis code: to create redistribution matrices for the matrix framework,
 and to define and calculate structures which are treated in their entirety by RCWA (so the matrix framework is not used).

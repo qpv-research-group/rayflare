@@ -9,6 +9,7 @@
    :maxdepth: 2
    :caption: Contents:
 
+   news
    Installation/installation
    Theory/theory
    Examples/examples.rst
@@ -19,6 +20,7 @@
    Textures/textures.rst
    Analytic/analytic.rst
    Options/user_options.rst
+   Utilities/utilities.rst
 
 
 Indices and tables

@@ -37,8 +37,9 @@ edge_points = back.Points[back.Points[:, 2] == 0]
 edge_points = np.vstack([edge_points, [0, 0, 0]])  # add point at centre
 
 
-flat_surf = xyz_texture(edge_points[:, 0],
-                        edge_points[:, 1], edge_points[:, 2], coverage_height=0)
+flat_surf = xyz_texture(
+    edge_points[:, 0], edge_points[:, 1], edge_points[:, 2], coverage_height=0
+)
 # this is a flat surface which extends to the edges of the sphere but not beyond.
 
 # plot the hyperhemisphere: 'front' and 'back'. In this case we are actually going to flip it and use the 'back' interface.

@@ -16,6 +16,7 @@ def make_TMM_lookuptable(
     coherency_list=None,
     prof_layers=None,
     sides=None,
+    overwrite=False,
 ):
     """
     Takes a layer stack and calculates and stores lookup tables for use with the ray-tracer.
@@ -35,6 +36,7 @@ def make_TMM_lookuptable(
     calculated and stored. Layer 0 is the incidence medium.
     :param sides: List of which sides of incidence should all parameters be calculated for; 1 indicates incidence from \
     the front and -1 is rear incidence. Default = [1, -1]
+    :param overwrite: boolean. If True, existing saved lookup tables will be overwritten. Default = False.
     :return: xarray Dataset with the R, A, T and (if relevant) absorption profile coefficients for each \
     wavelength, angle, polarization, side of incidence.
     """
@@ -43,7 +45,7 @@ def make_TMM_lookuptable(
         sides = [1, -1]
 
     savepath = os.path.join(structpath, surf_name + ".nc")
-    if os.path.isfile(savepath):
+    if os.path.isfile(savepath) and not overwrite:
         print("Existing lookup table found")
         allres = xr.open_dataset(savepath)
     else:
@@ -52,8 +54,11 @@ def make_TMM_lookuptable(
         thetas = np.linspace(0, (np.pi / 2) - 1e-3, n_angles)
         if prof_layers is not None:
             profile = True
+            prof_layers_rev = len(layers) - np.array(prof_layers[::-1]) + 1
+            prof_layer_list = [prof_layers, prof_layers_rev.tolist()]
         else:
             profile = False
+            prof_layer_list = [None, None]
 
         n_layers = len(layers)
         optlayers = OptiStack(layers, substrate=transmission, incidence=incidence)
@@ -122,11 +127,13 @@ def make_TMM_lookuptable(
         pass_options = {}
 
         pass_options["wavelengths"] = wavelengths
-        pass_options["depth_spacing"] = 1e5 # we don't actually want to calculate a profile, so the depth spacing
+        pass_options["depth_spacing"] = 1e5
+        # we don't actually want to calculate a profile, so the depth spacing
         # doesn't matter, but it needs to be set to something. Larger value means we don't make extremely large arrays
         # no reason during the calculation
 
         for i1, side in enumerate(sides):
+            prof_layer_side = prof_layer_list[i1]
             R_loop = np.empty((len(wavelengths), n_angles))
             T_loop = np.empty((len(wavelengths), n_angles))
             Alayer_loop = np.empty((n_angles, len(wavelengths), n_layers))
@@ -145,12 +152,13 @@ def make_TMM_lookuptable(
 
                     tmm_struct = tmm_structure(optstacks[i1])
                     res = tmm_struct.calculate(
-                        pass_options, profile=profile, layers=prof_layers
+                        pass_options, profile=profile, layers=prof_layer_side
                     )
 
                     R_loop[:, i3] = np.real(res["R"])
                     T_loop[:, i3] = np.real(res["T"])
                     Alayer_loop[i3, :, :] = np.real(res["A_per_layer"])
+
                     if profile:
                         Aprof_loop[i3, :, :, :] = np.real(res["profile_coeff"])
 
@@ -161,6 +169,8 @@ def make_TMM_lookuptable(
 
                 if side == -1:
                     Alayer_loop = np.flip(Alayer_loop, axis=2)
+                    # layers were upside down to do calculation; want labelling to be with
+                    # respect to side = 1 for consistency
                     if profile:
                         Aprof_loop = np.flip(Aprof_loop, axis=2)
 

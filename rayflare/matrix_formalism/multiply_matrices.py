@@ -175,7 +175,8 @@ def dot_wl_u2d(mat, vec):
 
 
 def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
-    per_bin = v_1 - v_2
+
+    per_bin = v_1 - v_2  # total absorption per bin
     abscos = np.abs(np.cos(thetas))
     denom = 1 - np.exp(-alphas[:, None] * d / abscos[None, :])
     norm = np.divide(per_bin, denom, where=denom != 0)
@@ -198,6 +199,90 @@ def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
     corrected = scale[:, None] * result
 
     return corrected
+
+
+def load_redistribution_matrices(
+    results_path, n_a_in, n_interfaces, layer_names, front_or_rear, calc_prof_list=None
+):
+
+    R = []
+    T = []
+    A = []
+    P = []
+    I = []
+
+    if front_or_rear == "front":
+        n_max = n_interfaces
+
+    else:
+        n_max = n_interfaces - 1
+
+    for i1 in range(n_max):
+
+        mat_path = os.path.join(
+            results_path, layer_names[i1] + front_or_rear + "RT.npz"
+        )
+        absmat_path = os.path.join(
+            results_path, layer_names[i1] + front_or_rear + "A.npz"
+        )
+
+        fullmat = load_npz(mat_path)
+        absmat = load_npz(absmat_path)
+
+        if front_or_rear == "front":  # matrices for front incidence
+
+            if len(fullmat.shape) == 3:
+                R.append(fullmat[:, :n_a_in, :])
+                T.append(fullmat[:, n_a_in:, :])
+                A.append(absmat)
+
+            else:
+
+                R.append(fullmat[:n_a_in, :])
+                T.append(fullmat[n_a_in:, :])
+                A.append(absmat)
+
+        else:  # matrices for rear incidence
+            if len(fullmat.shape) == 3:
+                R.append(fullmat[:, n_a_in:, :])
+                T.append(fullmat[:, :n_a_in, :])
+                A.append(absmat)
+
+            else:
+                R.append(fullmat[n_a_in:, :])
+                T.append(fullmat[:n_a_in, :])
+                A.append(absmat)
+
+        if calc_prof_list[i1] is not None:
+            profmat_path = os.path.join(
+                results_path, layer_names[i1] + front_or_rear + "profmat.nc"
+            )
+            prof_int = xr.load_dataset(profmat_path)
+            profile = prof_int["profile"]
+            intgr = prof_int["intgr"]
+            P.append(profile)
+            I.append(intgr)
+
+        else:
+            P.append([])
+            I.append([])
+
+    return R, T, A, P, I
+
+
+def append_per_pass_info(i1, vr, vt, a, vf_2, vb_1, Tb, Tf, Af, Ab):
+
+    vr[i1].append(
+        dot_wl(Tb[i1], vf_2[i1])
+    )  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
+    vt[i1].append(
+        dot_wl(Tf[i1 + 1], vb_1[i1])
+    )  # transmitted into medium below through back surface
+
+    a[i1 + 1].append(dot_wl(Af[i1 + 1], vb_1[i1]))  # absorbed in 2nd surface
+    a[i1].append(dot_wl(Ab[i1], vf_2[i1]))  # absorbed in 1st surface (from the back)
+
+    return vr, vt, a
 
 
 def matrix_multiplication(
@@ -239,9 +324,17 @@ def matrix_multiplication(
 
     thetas = angle_vector[:n_a_in, 1]
 
+    if options["phi_in"] != "all" and options["phi_in"] > options["phi_symmetry"]:
+        # fold phi_in back into phi_symmetry
+        print("fold")
+        phi_in = fold_phi(options["phi_in"], options["phi_symmetry"])
+
+    else:
+        phi_in = options["phi_in"]
+
     v0 = make_v0(
         options["theta_in"],
-        options["phi_in"],
+        phi_in,
         num_wl,
         options["n_theta_bins"],
         options["c_azimuth"],
@@ -265,137 +358,74 @@ def matrix_multiplication(
                 np.arange(0, bulk_thick[i1], options["depth_spacing_bulk"])
             )
 
-    # front incidence matrices
-    Rf = []
-    Tf = []
-    Af = []
-    Pf = []
-    If = []
+    # load redistribution matrices
 
-    for i1 in range(n_interfaces):
-        mat_path = os.path.join(results_path, layer_names[i1] + "frontRT.npz")
-        absmat_path = os.path.join(results_path, layer_names[i1] + "frontA.npz")
+    Rf, Tf, Af, Pf, If = load_redistribution_matrices(
+        results_path, n_a_in, n_interfaces, layer_names, "front", calc_prof_list
+    )
 
-        fullmat = load_npz(mat_path)
-        absmat = load_npz(absmat_path)
-
-        if len(fullmat.shape) == 3:
-            Rf.append(fullmat[:, :n_a_in, :])
-            Tf.append(fullmat[:, n_a_in:, :])
-            Af.append(absmat)
-
-        else:
-
-            Rf.append(fullmat[:n_a_in, :])
-            Tf.append(fullmat[n_a_in:, :])
-            Af.append(absmat)
-
-        if calc_prof_list[i1] is not None:
-            profmat_path = os.path.join(
-                results_path, layer_names[i1] + "frontprofmat.nc"
-            )
-            prof_int = xr.load_dataset(profmat_path)
-            profile = prof_int["profile"]
-            intgr = prof_int["intgr"]
-            Pf.append(profile)
-            If.append(intgr)
-
-        else:
-            Pf.append([])
-            If.append([])
-
-    # rear incidence matrices
-    Rb = []
-    Tb = []
-    Ab = []
-    Pb = []
-    Ib = []
-
-    for i1 in range(n_interfaces - 1):
-        mat_path = os.path.join(results_path, layer_names[i1] + "rearRT.npz")
-        absmat_path = os.path.join(results_path, layer_names[i1] + "rearA.npz")
-
-        fullmat = load_npz(mat_path)
-        absmat = load_npz(absmat_path)
-
-        if len(fullmat.shape) == 3:
-            Rb.append(fullmat[:, n_a_in:, :])
-            Tb.append(fullmat[:, :n_a_in, :])
-            Ab.append(absmat)
-
-        else:
-            Rb.append(fullmat[n_a_in:, :])
-            Tb.append(fullmat[:n_a_in, :])
-            Ab.append(absmat)
-
-        if calc_prof_list[i1] is not None:
-            profmat_path = os.path.join(
-                results_path, layer_names[i1] + "rearprofmat.nc"
-            )
-            prof_int = xr.load_dataset(profmat_path)
-            profile = prof_int["profile"]
-            intgr = prof_int["intgr"]
-            Pb.append(profile)
-            Ib.append(intgr)
-
-        else:
-            Pb.append([])
-            Ib.append([])
+    Rb, Tb, Ab, Pb, Ib = load_redistribution_matrices(
+        results_path, n_a_in, n_interfaces, layer_names, "rear", calc_prof_list
+    )
 
     len_calcs = np.array([len(x) if x is not None else 0 for x in calc_prof_list])
 
+    a = [[] for _ in range(n_interfaces)]
+    vr = [[] for _ in range(n_bulks)]
+    vt = [[] for _ in range(n_bulks)]
+    A = [[] for _ in range(n_bulks)]
+
+    vf_1 = [[] for _ in range(n_interfaces)]
+    vb_1 = [[] for _ in range(n_interfaces)]
+    vf_2 = [[] for _ in range(n_interfaces)]
+    vb_2 = [[] for _ in range(n_interfaces)]
+
     if np.any(len_calcs > 0) or options.bulk_profile:
+        # need to calculate profiles in either the bulk or the interfaces
 
-        a = [[] for _ in range(n_interfaces)]
         a_prof = [[] for _ in range(n_interfaces)]
-        vr = [[] for _ in range(n_bulks)]
-        vt = [[] for _ in range(n_bulks)]
-        A = [[] for _ in range(n_bulks)]
         A_prof = [[] for _ in range(n_bulks)]
-
-        vf_1 = [[] for _ in range(n_interfaces)]
-        vb_1 = [[] for _ in range(n_interfaces)]
-        vf_2 = [[] for _ in range(n_interfaces)]
-        vb_2 = [[] for _ in range(n_interfaces)]
+        # print("Initial intensity", np.sum(v0, axis=1))
 
         for i1 in range(n_bulks):
 
             # v0 is actually travelling down, but no reason to start in 'outgoing' ray format.
             vf_1[i1] = dot_wl(Tf[i1], v0)  # pass through front surface
+            # print(vf_1[i1])
             # vf_1: incoming to outgoing
+            # print("Transmitted through front", np.sum(vf_1[i1], axis=1))
 
             vr[i1].append(dot_wl(Rf[i1], v0))  # reflected from front surface
+            # print("Reflected from front", np.sum(vr[i1][-1], axis=1))
             a[i1].append(
                 dot_wl(Af[i1], v0)
             )  # absorbed in front surface at first interaction
+            # print("Absorbed in front", np.sum(a[i1][-1], axis=1))
 
             if len(If[i1]) > 0:
                 scale = ((np.sum(Af[i1].todense(), 1) * v0) / If[i1]).fillna(0)
+                # print(((np.sum(Af[i1].todense(), 1) * v0) / If[i1]))
+                # print("Af", Af[i1].todense())
+                # print("v0", v0)
+                # print("last few points of Pf:", Pf[i1][:, -5:, :])
                 scaled_prof = scale * Pf[i1]
                 a_prof[i1].append(np.sum(scaled_prof, 1))
+                # print("SHAPE:", a_prof[i1][-1].shape)
+                # print("Integrated absorbed:", np.trapz(a_prof[i1][-1], dx=options.depth_spacing*1e9, axis=1))
 
             power = np.sum(vf_1[i1], axis=1)
+            # print("Power remaining", power)
 
             # rep
             i2 = 1
 
-            # print(angle_vector[:, 1])
-
-            # nonzero = np.argmax(vf_1[0][0, :])
-            # nonzero = np.where(vf_1[0][0,:] > 0)[0]
-            # print(nonzero)
-            # print(angle_vector[nonzero, 1]*180/np.pi)
-
             while np.any(power > options["I_thresh"]):
                 vf_1[i1] = dot_wl_u2d(down2up, vf_1[i1])  # outgoing to incoming
-                # nonzero = np.argmax(vf_1[0][0, :])
-                # print(nonzero)
-                # nonzero = np.where(vf_1[0][0, :] > 0)[0]
-                # print(angle_vector[nonzero, 1] * 180 / np.pi)
-                # # vf_1: incoming (now, fixed)
+                # print("Travelling down int, before", np.sum(vf_1[i1], axis=1))
                 # vb_1: incoming (just absorption through bulk)
                 vb_1[i1] = dot_wl(D[i1], vf_1[i1])  # pass through bulk, downwards
                 # vb_1 already an incoming ray
+                # print("Travelling down int, after ", np.sum(vb_1[i1], axis=1))
 
                 if len(If[i1 + 1]) > 0:
 
@@ -403,9 +433,12 @@ def matrix_multiplication(
                         (np.sum(Af[i1 + 1].todense(), 1) * vb_1[i1]) / If[i1 + 1]
                     ).fillna(0)
                     scaled_prof = scale * Pf[i1 + 1]
+                    # print("Pf, back surface", Pf[i1+1])
                     a_prof[i1 + 1].append(np.sum(scaled_prof, 1))
+                    # print("Integrated absorbed (back):", np.trapz(a_prof[i1 + 1][-1], dx=options.depth_spacing * 1e9, axis=1))
 
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
+                # print("Total absorbed, back", A[i1][-1])
 
                 if options.bulk_profile:
                     A_prof[i1].append(
@@ -419,30 +452,23 @@ def matrix_multiplication(
                             A[i1][-1],
                         )
                     )
+                    # print("bulk profile (down) integrated", np.trapz(A_prof[i1][-1], dx=options.depth_spacing_bulk, axis=1))
 
                 vb_2[i1] = dot_wl(
                     Rf[i1 + 1], vb_1[i1]
                 )  # reflect from back surface. incoming -> up
+                # print("Reflected from back", np.sum(vb_2[i1], axis=1))
                 # vb_2: outgoing
                 vf_2[i1] = dot_wl(D[i1], vb_2[i1])  # pass through bulk, upwards
-                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
-                # vf_2: incoming
+                # print("Travelling up int, after", np.sum(vf_2[i1], axis=1))
 
-                # nonzero = np.argmax(vf_2[0][0, :])
-                # nonzero = np.where(vf_2[0][0, :] > 0)[0]
-                # print(nonzero)
-                # print('vf2', angle_vector[nonzero, 1] * 180 / np.pi)
-
-                if len(Ib[i1]) > 0:
-                    scale = ((np.sum(Ab[i1].todense(), 1) * vf_2[i1]) / Ib[i1]).fillna(
-                        0
-                    )
-                    scaled_prof = scale * Pb[i1]
-                    a_prof[i1].append(np.sum(scaled_prof, 1))
-
-                A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
+                A[i1].append(
+                    np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1)
+                )  # binning doesn't matter here because summing
+                # print("Bulk A (total):", A[i1][-1])
 
                 if options.bulk_profile:
+                    # vb_2 needs to be transformed to incoming ray format
                     A_prof[i1].append(
                         np.flip(
                             bulk_profile_calc(
@@ -457,10 +483,33 @@ def matrix_multiplication(
                             1,
                         )
                     )
+                    # print("bulk profile (up) integrated", np.trapz(A_prof[i1][-1], dx=options.depth_spacing_bulk, axis=1))
+
+                vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
+                # vf_2: incoming
+                # print("Travelling up, before R", np.sum(vf_2[i1], axis=1))
+
+                if len(Ib[i1]) > 0:
+                    scale = ((np.sum(Ab[i1].todense(), 1) * vf_2[i1]) / Ib[i1]).fillna(
+                        0
+                    )
+                    scaled_prof = scale * Pb[i1]
+                    # print("Pb", Pb[i1])
+                    a_prof[i1].append(np.sum(scaled_prof, 1))
+                    # print("SHAPE:", a_prof[i1][-1].shape)
+                    # print("Integrated absorbed (front surface, rear inc):",
+                    #       np.trapz(a_prof[i1][-1], dx=options.depth_spacing * 1e9, axis=1))
 
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1])  # reflect from front surface
+                # print("Reflected from front", np.sum(vf_1[i1], axis=1))
                 # vf_1 will be outgoing, gets fixed at start of next loop
                 power = np.sum(vf_1[i1], axis=1)
+
+                vr, vt, a = append_per_pass_info(
+                    i1, vr, vt, a, vf_2, vb_1, Tb, Tf, Af, Ab
+                )
+
+                # print("Absorbed from back", np.sum(a[i1][-1], axis=1))
 
                 print(
                     "After iteration",
@@ -469,98 +518,9 @@ def matrix_multiplication(
                     np.max(power),
                 )
 
-                vr[i1].append(
-                    dot_wl(Tb[i1], vf_2[i1])
-                )  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
-                vt[i1].append(
-                    dot_wl(Tf[i1 + 1], vb_1[i1])
-                )  # transmitted into medium below through back surface
-                a[i1 + 1].append(
-                    dot_wl(Af[i1 + 1], vb_1[i1])
-                )  # absorbed in 2nd surface
-                a[i1].append(
-                    dot_wl(Ab[i1], vf_2[i1])
-                )  # absorbed in 1st surface (from the back)
-
                 i2 += 1
 
-        vr = [np.array(item) for item in vr]
-        vt = [np.array(item) for item in vt]
-        a = [np.array(item) for item in a]
-        A = [np.array(item) for item in A]
-        A_prof = [np.array(item) for item in A_prof]
-
-        a_prof = [np.array(item) for item in a_prof]
-
-        results_per_pass = {
-            "r": vr,
-            "t": vt,
-            "a": a,
-            "A": A,
-            "a_prof": a_prof,
-            "A_prof": A_prof,
-        }
-
-        sum_dims = ["bulk_index", "wl"]
-        sum_coords = {"bulk_index": np.arange(0, n_bulks), "wl": options["wavelengths"]}
-        R = xr.DataArray(
-            np.array([np.sum(item, (0, 2)) for item in vr]),
-            dims=sum_dims,
-            coords=sum_coords,
-            name="R",
-        )
-        T = xr.DataArray(
-            np.array([np.sum(item, (0, 2)) for item in vt]),
-            dims=sum_dims,
-            coords=sum_coords,
-            name="T",
-        )
-        A_bulk = xr.DataArray(
-            np.array([np.sum(item, 0) for item in A]),
-            dims=sum_dims,
-            coords=sum_coords,
-            name="A_bulk",
-        )
-
-        A_interface = xr.DataArray(
-            np.array([np.sum(item, (0, 2)) for item in a]),
-            dims=["surf_index", "wl"],
-            coords={
-                "surf_index": np.arange(0, n_interfaces),
-                "wl": options["wavelengths"],
-            },
-            name="A_interface",
-        )
-        profile = []
-        for j1, item in enumerate(a_prof):
-            if len(item) > 0:
-                item[item < 0] = 0
-                profile.append(
-                    xr.DataArray(
-                        np.sum(item, 0),
-                        dims=["wl", "z"],
-                        coords={"wl": options["wavelengths"]},
-                        name="A_profile" + str(j1),
-                    )
-                )  # not necessarily same number of z coords per layer stack
-
-        RAT = xr.merge([R, A_bulk, A_interface, T])
-
-        bulk_profile = [np.sum(prof_el, 0) for prof_el in A_prof]
-
-        return RAT, results_per_pass, profile, bulk_profile
-
-    else:
-
-        a = [[] for _ in range(n_interfaces)]
-        vr = [[] for _ in range(n_bulks)]
-        vt = [[] for _ in range(n_bulks)]
-        A = [[] for _ in range(n_bulks)]
-
-        vf_1 = [[] for _ in range(n_interfaces)]
-        vb_1 = [[] for _ in range(n_interfaces)]
-        vf_2 = [[] for _ in range(n_interfaces)]
-        vb_2 = [[] for _ in range(n_interfaces)]
+    else:  # no profile calculation in bulk or interfaces
 
         for i1 in range(n_bulks):
 
@@ -594,55 +554,95 @@ def matrix_multiplication(
                     np.max(power),
                 )
 
-                vr[i1].append(
-                    dot_wl(Tb[i1], vf_2[i1])
-                )  # matrix travelling up in medium 0, i.e. reflected overall by being transmitted through front surface
-                vt[i1].append(
-                    dot_wl(Tf[i1 + 1], vb_1[i1])
-                )  # transmitted into medium below through back surface
-
-                a[i1 + 1].append(
-                    dot_wl(Af[i1 + 1], vb_1[i1])
-                )  # absorbed in 2nd surface
-                a[i1].append(
-                    dot_wl(Ab[i1], vf_2[i1])
-                )  # absorbed in 1st surface (from the back)
+                vr, vt, a = append_per_pass_info(
+                    i1, vr, vt, a, vf_2, vb_1, Tb, Tf, Af, Ab
+                )
 
                 i2 += 1
 
-        vr = [np.array(item) for item in vr]
-        vt = [np.array(item) for item in vt]
-        a = [np.array(item) for item in a]
-        A = [np.array(item) for item in A]
+    vr = [np.array(item) for item in vr]
+    vt = [np.array(item) for item in vt]
+    a = [np.array(item) for item in a]
+    A = [np.array(item) for item in A]
 
-        results_per_pass = {"r": vr, "t": vt, "a": a, "A": A}
+    sum_dims = ["bulk_index", "wl"]
+    sum_coords = {"bulk_index": np.arange(0, n_bulks), "wl": options["wavelengths"]}
 
-        sum_dims = ["bulk_index", "wl"]
-        sum_coords = {"bulk_index": np.arange(0, n_bulks), "wl": options["wavelengths"]}
-        R = xr.DataArray(
-            np.array([np.sum(item, (0, 2)) for item in vr]),
+    R = xr.DataArray(
+        np.array([np.sum(item, (0, 2)) for item in vr]),
+        dims=sum_dims,
+        coords=sum_coords,
+        name="R",
+    )
+
+    if i2 > 1:
+
+        A_bulk = xr.DataArray(
+            np.array([np.sum(item, 0) for item in A]),
             dims=sum_dims,
             coords=sum_coords,
-            name="R",
+            name="A_bulk",
         )
-        if i2 > 1:
-            A_bulk = xr.DataArray(
-                np.array([np.sum(item, 0) for item in A]),
-                dims=sum_dims,
-                coords=sum_coords,
-                name="A_bulk",
-            )
 
-            T = xr.DataArray(
-                np.array([np.sum(item, (0, 2)) for item in vt]),
-                dims=sum_dims,
-                coords=sum_coords,
-                name="T",
+        T = xr.DataArray(
+            np.array([np.sum(item, (0, 2)) for item in vt]),
+            dims=sum_dims,
+            coords=sum_coords,
+            name="T",
+        )
+
+        if np.any(len_calcs > 0) or options.bulk_profile:
+
+            A_prof = [np.array(item) for item in A_prof]
+
+            a_prof = [np.array(item) for item in a_prof]
+
+            results_per_pass = {
+                "r": vr,
+                "t": vt,
+                "a": a,
+                "A": A,
+                "a_prof": a_prof,
+                "A_prof": A_prof,
+            }
+
+            A_interface = xr.DataArray(
+                np.array([np.sum(item, (0, 2)) for item in a]),
+                dims=["surf_index", "wl"],
+                coords={
+                    "surf_index": np.arange(0, n_interfaces),
+                    "wl": options["wavelengths"],
+                },
+                name="A_interface",
             )
+            profile = []
+            for j1, item in enumerate(a_prof):
+                if len(item) > 0:
+                    item[item < 0] = 0
+                    profile.append(
+                        xr.DataArray(
+                            np.sum(item, 0),
+                            dims=["wl", "z"],
+                            coords={"wl": options["wavelengths"]},
+                            name="A_profile" + str(j1),
+                        )
+                    )  # not necessarily same number of z coords per layer stack
+
+            bulk_profile = [np.sum(prof_el, 0) for prof_el in A_prof]
+            RAT = xr.merge([R, A_bulk, A_interface, T])
+
+            return RAT, results_per_pass, profile, bulk_profile
+
+        else:
+
+            results_per_pass = {"r": vr, "t": vt, "a": a, "A": A}
 
             RAT = xr.merge([R, A_bulk, T])
 
-        else:
-            RAT = xr.merge([R])
+            return RAT, results_per_pass
+
+    else:
+        RAT = xr.merge([R])
+        results_per_pass = {"r": vr, "t": vt, "a": a, "A": A}
 
         return RAT, results_per_pass

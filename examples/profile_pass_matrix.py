@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cycler import cycler
 
+import os
+
 # GaAs/GaAs/Si solar cell
 
 # ARC
@@ -46,12 +48,14 @@ options.nx = 5
 options.ny = 5
 options.depth_spacing = si("1nm")
 options.depth_spacing_bulk = si("100nm")
-options.phi_symmetry = np.pi/2
+options.phi_symmetry = np.pi / 2
 _, _, angle_vector = make_angle_vector(
     options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
 )
 options.bulk_profile = True
 options.n_rays = options.nx**2 * int(len(angle_vector) / 2)
+
+# custom materials are in HIT_emissivity.py
 
 Air = material("Air")()
 Al2O3 = material("Al2O3")()
@@ -66,8 +70,8 @@ GaInP = material("GaInP")(In=0.5)
 Si = material("Si")()
 
 # download_db() # only need to run this once to download database from refractiveindex.info
-MgF2_pageid = str(search_db("MgF2/Rodriguez")[0][0])
-Ta2O5_pageid = str(search_db("Ta2O5/Rodriguez")[0][0])
+MgF2_pageid = str(search_db(os.path.join("MgF2", "Rodriguez-de Marcos"))[0][0])
+Ta2O5_pageid = str(search_db(os.path.join("MgF2", "Rodriguez-de Marcos"))[0][0])
 MgF2 = material(MgF2_pageid, nk_db=True)()
 Ta2O5 = material(Ta2O5_pageid, nk_db=True)()
 
@@ -176,7 +180,7 @@ profile_Si = results[3][0]
 profile_back = results[2][1]
 
 positions, absorb_fn = make_absorption_function(
-    [profile_front, profile_Si, profile_back], SC, options, True
+    results, SC, options,
 )
 
 external_R = RAT["R"][0, :]
