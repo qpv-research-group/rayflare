@@ -93,6 +93,8 @@ Options used only by the TMM
   first layer in the structure.
 
 
+
+
 .. automodule:: rayflare.options
     :members:
     :undoc-members:

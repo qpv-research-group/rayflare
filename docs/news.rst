@@ -12,11 +12,13 @@ Version 1.2.0 released (2023-03-21)
 - New functions to generate textures: rough pyramids, rough planar surfaces, and (rough or smooth) hemispherical caps.
   See :ref:`here <textures>` for further details.
 
+
 **Possible backwards compatibility issues:**
 
 - The :literal:`make_absorption_function` function now requires a slightly different input format (the full result
   of the optical calculation, rather than just the profile part). This is to standardize its behaviour across all
   methods. See :ref:`the documentation <utilities>` for more details.
+
 
 This is a major release with a lot of new features and fixes. The biggest change is the introduction
 of functionality for ray-tracing simulations: previously, it was possible to use ray-tracing in conjunction with the

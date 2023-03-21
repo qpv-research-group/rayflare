@@ -14,7 +14,8 @@ The idea behind RayFlare is to provide a comprehensive and flexible optical mode
 the following base methods are included:
 
 - **Ray-tracing (RT)**: Geometric optics. Suitable for calculating reflection and refraction due to large-scale (compared to the wavelength)
-  textures, which are described in terms of a triangulated surface.
+  textures, which are described in terms of a triangulated surface. It is also possible to calculate
+  reflection/transmission/absorption probabilities at interfaces using TMM.
 - **Transfer-matrix method (TMM)**: Suitable for calculating interference effects in thin-films (transparent or absorbing).
 - **Rigorous coupled-wave analysis (RCWA)**: Maxwell solver for calculating diffraction effects from periodic structures
 

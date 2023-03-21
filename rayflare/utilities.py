@@ -313,12 +313,13 @@ def get_savepath(save_location, project_name):
 
     :param save_location: string - location where the calculated redistribution matrices should be stored. Currently recognized are:
 
-              - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
-              - 'current', which stores the results in the current working directory
-              - or you can specify the full path location for wherever you want the results to be stored.
+        - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
+        - 'current', which stores the results in the current working directory
+        - or you can specify the full path location for wherever you want the results to be stored.
 
-              In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
+        In each case, the results will be stored in a subfolder with the name of the project (options.project_name)
     :param project_name: the project name (string)
+
     :return: full file path where matrices are stored (string)
     """
     if save_location == "current":
