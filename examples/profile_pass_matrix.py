@@ -1,5 +1,4 @@
 import numpy as np
-import os
 
 from rayflare.textures import regular_pyramids
 from rayflare.structure import Interface, BulkLayer, Structure
@@ -14,7 +13,7 @@ from solcore.solar_cell import SolarCell, Layer, Junction
 from solcore.solar_cell_solver import solar_cell_solver
 from solcore.light_source import LightSource
 from solcore.constants import q
-from solcore.absorption_calculator import search_db, download_db
+from solcore.absorption_calculator import search_db
 
 # imports for plotting
 import matplotlib.pyplot as plt

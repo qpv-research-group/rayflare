@@ -487,7 +487,7 @@ def RT_wl(
 
 
 def make_lookuptable_rt_structure(
-    textures, materials, incidence, transmission, options, save_location="default"
+    textures, materials, incidence, transmission, options, save_location="default", overwrite=False,
 ):
 
     inc_for_lookuptable = []
@@ -573,6 +573,7 @@ def make_lookuptable_rt_structure(
             coherency_list=coh_list,
             prof_layers=prof_layers,
             sides=None,
+            overwrite=overwrite,
         )
 
     return tmm_or_fresnel, savepath, n_layers, prof_layers_list, widths
@@ -743,6 +744,7 @@ class rt_structure:
     :param use_TMM: if True, use TMM to pre-compute lookup tables for the structure. Surface layers
             most be specified in the relevant textures.
     :param save_location: location to save the lookup tables; only used if pre-computing lookup tables using TMM
+    :param overwrite: if True, overwrite any existing lookup tables; only used if pre-computing lookup tables using TMM
     """
 
     def __init__(
@@ -755,6 +757,7 @@ class rt_structure:
         options=None,
         use_TMM=False,
         save_location="default",
+        overwrite=False,
     ):
 
         self.textures = textures
@@ -797,7 +800,7 @@ class rt_structure:
                     self.prof_layers,
                     self.interface_layer_widths,
                 ) = make_lookuptable_rt_structure(
-                    textures, materials, incidence, transmission, options, save_location
+                    textures, materials, incidence, transmission, options, save_location, overwrite,
                 )
 
         else:

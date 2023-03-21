@@ -48,7 +48,7 @@ wavelengths = np.linspace(300, 1200, 150) * 1e-9
 options = default_options()
 options.n_rays = 2000
 options.randomize_surface = True
-options.project_name = "GaInP_GaAs_Si_spacer_tmm_rt"
+options.project_name = "GaAs_GaAs_Si_spacer_tmm_rt"
 options.wavelengths = wavelengths
 
 # Set up materials
@@ -68,6 +68,7 @@ Si = material("Si")()
 Al = material("Al")()
 Air = material("Air")()
 NOA = material(str(epoxy_result[0]), nk_db=True)()
+NOA = material("Si3N4")()
 Al2O3 = material("Al2O3")()
 Ag = material("Ag_Jiang")()
 aSi_i = material("aSi_i")()
@@ -76,6 +77,7 @@ aSi_n = material("aSi_n")()
 ITO_back = material("ITO_back")()
 InAlP = material("AlInP")(Al=0.53)
 GaInP = material("GaInP")(In=0.49)
+AlGaAs = material("AlGaAs")(Al=0.8)
 
 # from solcore.material_system import create_new_material
 # cur_path = os.path.dirname(os.path.abspath(__file__))
@@ -91,21 +93,36 @@ aSi_i = material("aSi_i")()
 aSi_p = material("aSi_p")()
 aSi_n = material("aSi_n")()
 
+plt.figure()
+plt.plot(wavelengths*1e9, GaAs.n(wavelengths), label='GaAs')
+plt.plot(wavelengths*1e9, GaInP.n(wavelengths), label='GaInP')
+plt.plot(wavelengths*1e9, NOA.n(wavelengths), label='epoxy')
+plt.plot(wavelengths*1e9, Si.n(wavelengths), label='Si')
+plt.show()
+
+# x = np.linspace(0, 1, 6)
+#
+# for Al in x:
+#     AlGaAs = material("AlGaAs")(Al=Al)
+#     plt.plot(wavelengths*1e9, AlGaAs.n(wavelengths), label=Al)
+# plt.legend()
+# plt.show()
 
 front_layers = [
     Layer(50e-9, MgF2),  # ARC 1
     Layer(40e-9, Ta2O5),  # ARC 2
-    Layer(50e-9, GaInP),  # tunnel junction/cell 1 window layer
-    Layer(1000e-9, GaAs),  # cell 1
+    Layer(30e-9, InAlP),  # tunnel junction/cell 1 window layer
+    Layer(150e-9, GaAs),  # cell 1
     Layer(120e-9, GaInP),  # tunnel junction/cell 2 window layer
-    Layer(1000e-9, GaAs),  # cell 2
+    Layer(3000e-9, GaAs),  # cell 2
     Layer(120e-9, GaInP),  # cell 2 BSF
+    # Layer(20e-6, AlGaAs), # spacer to reduce interference losses
 ]
 
 front_labels = [
     r"MgF$_2$",
     r"Ta$_2$O$_5$",
-    "GaInP (window)",
+    "InAlP (window)",
     "GaAs (cell 1)",
     "GaInP (tunnel/window)",
     "GaAs (cell 2)",
@@ -132,11 +149,12 @@ back_surface = regular_pyramids(upright=False, interface_layers=Si_back_layers)
 rt_str = rt_structure(
     textures=[front_surface, Si_surface, back_surface],
     materials=[NOA, Si],
-    widths=[200e-6, 150e-6],
+    widths=[200e-6, 250e-6],
     incidence=Air,
     transmission=Al,
     use_TMM=True,
     options=options,
+    overwrite=True,
 )
 
 
@@ -164,9 +182,9 @@ for j1, layer_res in enumerate(result["A_per_interface"][2].T):
         Si_back_plot_res.append(layer_res)
         Si_back_plot_labels.append(Si_back_labels[j1])
 
-plt.figure()
-plt.plot(options.wavelengths * 1e9, result["T"], label="T")
-plt.plot(options.wavelengths * 1e9, result["R"], label="R")
+plt.figure(figsize=(8, 4))
+plt.plot(options.wavelengths * 1e9, result["T"], label="T (Al)")
+plt.plot(options.wavelengths * 1e9, result["R"], '--', label="R")
 
 if len(front_plot_res) > 0:
     plt.plot(
@@ -189,7 +207,10 @@ if len(Si_back_plot_res) > 0:
         label=Si_back_plot_labels,
     )
 
-plt.legend()
+plt.legend(bbox_to_anchor=(1.05, 1))
+plt.xlabel("Wavelength (nm)")
+plt.ylabel("R/A/T")
+plt.tight_layout()
 plt.show()
 
 # limiting currents:
@@ -203,7 +224,7 @@ light_source = LightSource(
 
 photon_flux = light_source.spectrum(wavelengths)[1]
 
-J_GaInP = (
+J_GaAs_1 = (
     q
     * np.trapz(
         result["A_per_interface"][0][:, cell_layer_ind[0] - 1] * photon_flux,
@@ -211,7 +232,7 @@ J_GaInP = (
     )
     / 10
 )
-J_GaAs = (
+J_GaAs_2 = (
     q
     * np.trapz(
         result["A_per_interface"][0][:, cell_layer_ind[1] - 1] * photon_flux,
@@ -220,3 +241,5 @@ J_GaAs = (
     / 10
 )
 J_Si = q * np.trapz(result["A_per_layer"][:, 1] * photon_flux, wavelengths) / 10
+
+print(J_GaAs_1, J_GaAs_2, J_Si)
