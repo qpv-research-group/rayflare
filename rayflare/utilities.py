@@ -21,8 +21,10 @@ def make_absorption_function(result, structure, options):
             object, a rcwa_structure object or a rt_structure object.
     :param options: the options used to calculate the optical result.
 
-    :return all_positions, diff_absorb_fn: a list of positions along the structure (in units of m), and a function that can be used to
-            calculate the absorption at any position along the structure (in units of m-1). This includes all the layers which were present
+    :return: all_positions, diff_absorb_fn. a list of positions along the structure (in units of m),
+            and a function that can be used to
+            calculate the absorption at any position along the structure (in units of m-1). This includes all the layers
+            which were present
             in structure, not just those where absorption profiles were requested (if relevant).
     """
 
