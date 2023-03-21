@@ -2,6 +2,12 @@ News & Updates
 ================
 .. _news:
 
+To update to the latest version of RayFlare, run the following command in your terminal:
+
+.. code-block:: bash
+
+   pip install rayflare --upgrade
+
 Version 1.2.0 released (2023-03-21)
 ------------------------------------
 

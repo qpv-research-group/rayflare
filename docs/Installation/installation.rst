@@ -117,6 +117,16 @@ reflected in the installed version without having to reinstall), change the last
     pip install -e .'[dev]'
 
 
+Updating RayFlare
+------------------
+
+If you have previously installed RayFlare using pip and want to upgrade to the latest version:
+
+.. code-block:: bash
+
+   pip install rayflare --upgrade
+
+
 Setting things up to use/develop
 -----------------------------------
 
