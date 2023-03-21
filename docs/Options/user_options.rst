@@ -1,5 +1,6 @@
 Options
 =======
+.. _options:
 
 The function default_options is provided so not every
 value has to be set manually by the user each time. All the user options, and their meanings, are listed below. As a general
@@ -10,7 +11,8 @@ General options/options for matrix framework
 
 - **wavelengths**: wavelengths at which to carry out calculations (in m)
 - **theta_in**: polar angle of incident light (in radians)
-- **phi_in**: azimuthal angle of incident light (in radians)
+- **phi_in**: azimuthal angle of incident light (in radians). If you are using the angular redistribution matrix framework,
+  you can also set this to 'all' to spread the incident light evenly over all the azimuthal bins
 - **phi_symmetry**: used by the matrix framework. Defines symmetry element [0, phi_symmetry] into which values of phi can be collapsed (in radians)
 - **n_theta_bins**: used by the matrix framework. Number of polar angle bins used in the angular redistribution matrices (integer)
 - **I_thresh**: used by the matrix framework and the ray-tracer. The fraction of incident power remaining below which is
@@ -44,7 +46,8 @@ Options used only by the ray-tracer
 - **nx**: number of surface points to scan across in the x direction
 - **ny**: number of surface points to scan across in the y direction
 - **random_ray_position**: if True, rather than scanning across the surface, nx*ny random surface points for ray incidence are generated
-- **avoid_edges**: avoid edge of the unit cell (may be useful for surfaces based on AFM scans etc.)
+- **x_limits** and **y_limits**: limits of the x and y ranges to scan incident rays across (list/tuple of length 2). This
+  should be in the same units as those used to specify the size of the ray-tracing texture.
 - **randomize_surface**: used only by the ray-tracing algorithm for a whole structure (i.e. not if using ray-tracing in the matrix framework).
   If True, the ray position is randomized before interaction with every surface, mimicking the effect of e.g. random pyramids even though
   the unit cell corresponds to regular pyramids

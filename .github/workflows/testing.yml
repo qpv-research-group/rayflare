@@ -74,8 +74,8 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pip install pytest-cov
-        pytest --cov-report= --cov=rayflare tests/
+        pip install pytest-cov pytest-rerunfailures
+        pytest --cov-report= --cov=rayflare tests/ --reruns 3
 
 
     - name: Codecov

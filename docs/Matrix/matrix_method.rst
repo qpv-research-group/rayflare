@@ -1,5 +1,6 @@
 Angular redistribution matrix method
 ====================================
+.. _matrix:
 
 As described in the :ref:`overview <overview>`, the angular redistribution matrix method is used to couple the front and back
 surfaces and calculate reflection, absorption, transmission and absorption profiles through matrix multiplication.

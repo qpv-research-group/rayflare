@@ -4,6 +4,11 @@
 [![Documentation Status](https://readthedocs.org/projects/rayflare/badge/?version=latest)](https://rayflare.readthedocs.io/en/latest/?badge=latest)
 [![status](https://joss.theoj.org/papers/15647ef7b3dd688b47c1b802a4f50a67/status.svg)](https://joss.theoj.org/papers/15647ef7b3dd688b47c1b802a4f50a67)
 
+**Important**: Please check out the [news & updates](https://rayflare.readthedocs.io/en/latest/news.html) page for the most recent updates
+and changes, including any possible backwards compatibility issues.  If you have questions, issues, etc., please check the
+documentation and (open and closed) [issues](https://github.com/qpv-research-group/rayflare/issues) first,
+or open a new issue using the relevant template.
+
 # rayflare
 Open-source, integrated optical modelling of complex stacks. RayFlare incorporates the transfer-matrix method (TMM), 
 ray-tracing and rigorous coupled-wave analysis (RCWA/FMM), in addition to an angular redistribution matrix method which allows multiple 

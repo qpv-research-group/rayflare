@@ -2,24 +2,22 @@ import numpy as np
 import os
 
 from solcore.structure import Layer
-from solcore import material
+from solcore import material, si
 from solcore.light_source import LightSource
 from solcore.constants import q
 
-from rayflare.textures import regular_pyramids
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import calculate_RAT, process_structure
-from rayflare.utilities import get_savepath
+from rayflare.ray_tracing import rt_structure
+from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
-from rayflare.angles import theta_summary, make_angle_vector
-
-from sparse import load_npz
 
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import seaborn as sns
+from scipy.ndimage.filters import gaussian_filter1d
 
 from cycler import cycler
+
 
 pal = sns.cubehelix_palette()
 
@@ -62,7 +60,6 @@ options.n_theta_bins = 30
 options.nx = 2
 options.ny = 2
 options.depth_spacing = 1e-9
-options.phi_symmetry = np.pi / 2
 
 Si = material("Si")()
 Air = material("Air")()
@@ -177,8 +174,6 @@ Jph_Perovskite = (
 pal = sns.cubehelix_palette(13, start=0.5, rot=-0.9)
 pal.reverse()
 
-from scipy.ndimage.filters import gaussian_filter1d
-
 ysmoothed = gaussian_filter1d(allres, sigma=2, axis=0)
 
 bulk_A_text = ysmoothed[:, 4]
@@ -218,121 +213,111 @@ ax.text(
     ha="center",
 )
 ax.text(900, 0.5, "Si: \n" + str(round(Jph_Si, 1)) + " mA/cm$^2$", ha="center")
-
-fig.savefig("perovskite_Si_summary.pdf", bbox_inches="tight", format="pdf")
 plt.show()
 
 
-label = [str(x) if (x) % 5 == 0 else None for x in np.arange(22)]
+## ray-tracing
 
-pal = sns.cubehelix_palette(24, start=2.8, rot=0.7)
-pal.reverse()
-fig = plt.figure(figsize=(8, 3.5))
-ax = fig.add_subplot(1, 2, 1)
-ax.stackplot(options["wavelengths"] * 1e9, R_per_pass[1:25], colors=pal, labels=label)
-ax.set_xlim([1000, 1200])
-ax.set_xlabel("Wavelength (nm)")
-ax.set_ylabel("Escape reflection")
-ax.set_ylim([0, 0.3])
-ax.text(960, 0.3, "a)")
-ax.legend(loc="upper left")
-# fig.savefig('perovskite_Si_R_per_pass.pdf', bbox_inches='tight', format='pdf')
+nxy = 25
+
+calc = True
+
+# setting options
+options = default_options()
+options.wavelengths = np.linspace(300, 1201, 50) * 1e-9
+options.nx = nxy
+options.ny = nxy
+options.n_rays = 2 * nxy**2
+options.depth_spacing = si("1um")
+options.parallel = True
+
+Spiro = [1.65, 0]
+SnO2 = [2, 0]
 
 
-# label = [str(x) if (x) % 5 == 0 else None for x in np.arange(25)]
-# pal = sns.cubehelix_palette(25, start=2.8, rot=0.7)
-# pal.reverse()
-# fig=plt.figure()
-ax2 = fig.add_subplot(1, 2, 2)
-ax2.stackplot(
-    options["wavelengths"] * 1e9,
-    results_per_pass["A"][0][0:24],
-    colors=pal,
-    labels=label,
+triangle_surf = regular_pyramids(55, upright=True, size=1)
+triangle_surf_back = regular_pyramids(55, upright=False, size=1)
+
+flat_surf = planar_surface(size=2)  # pyramid size in microns
+triangle_surf = regular_pyramids(55, upright=False, size=2)
+
+# set up ray-tracing options
+rtstr = rt_structure(
+    textures=[triangle_surf] * 7 + [triangle_surf_back] * 4,
+    materials=[
+        MgF2,
+        IZO,
+        C60,
+        Perovskite,
+        aSi_n,
+        aSi_i,
+        Si,
+        aSi_i,
+        aSi_p,
+        ITO_back,
+    ],
+    widths=[
+        100e-9,
+        110e-9,
+        15e-9,
+        440e-9,
+        6.5e-9,
+        6.5e-9,
+        260e-6,
+        6.5e-6,
+        6.5e-6,
+        240e-9,
+    ],
+    incidence=Air,
+    transmission=Ag,
 )
-ax2.set_xlim([1000, 1200])
-ax2.set_xlabel("Wavelength (nm)")
-ax2.set_ylabel("Bulk (Si) absorption per pass")
-ax2.set_ylim([0, 1])
-ax2.text(960, 1, "b)")
-# ax2.legend(loc='upper right')
-fig.savefig("perovskite_Si_A_R_per_pass.pdf", bbox_inches="tight", format="pdf")
-plt.show()
+result = rtstr.calculate(options)
 
-
-if front_surf.prof_layers is not None:
-    profile = results[2]
-    bpf = results[3]  # bulk profule
-    layer_widths = []
-
-    for i1, struct in enumerate(SC):
-        if isinstance(struct, Interface):
-            layer_widths.append((np.array(struct.widths) * 1e9).tolist())
-
-    offset = np.cumsum([0] + layer_widths[0])
-    prof_plot = profile[0]
-    print(profile[0].shape)
-    material_labels = ["Perovskite"]
-    pal2 = sns.cubehelix_palette(4, start=0.5, rot=-0.9)
-
-    fig = plt.figure()
-    ax = plt.subplot(111)
-    j1 = 0
-    for j1, i1 in enumerate([0, 5, 19]):
-        ax.plot(
-            prof_plot[i1, :],
-            color=pal2[j1 + 1],
-            label=str(round(options["wavelengths"][i1] * 1e9, 1)),
-        )
-        j1 += 1
-    ax.set_ylabel("Absorbed energy density (nm$^{-1}$)")
-    ax.legend(title="Wavelength (nm)")
-    ax.set_xlabel("Distance into surface (nm)")
-    ax.set_ylim(0, 0.017)
-    ax.set_xlim(0, 750)
-
-    plt.show()
-
-
-palhf = sns.cubehelix_palette(256, start=0.5, rot=-0.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-
-_, _, angle_vector = make_angle_vector(
-    options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
+fig = plt.figure(figsize=(9, 3.7))
+plt.subplot(1, 1, 1)
+plt.plot(
+    wavelengths * 1e9,
+    result["R"],
+    "-o",
+    color=pal[0],
+    label=r"R$_{total}$",
+    fillstyle="none",
 )
-
-mat_path = get_savepath("default", options["project_name"])
-
-sprs_rear = load_npz(os.path.join(mat_path, SC[0].name + "rearRT.npz"))
-
-wl_to_plot = 1100e-9
-
-wl_index = np.argmin(np.abs(wavelengths - wl_to_plot))
-
-full_r = sprs_rear[wl_index].todense()
-
-summat = theta_summary(full_r, angle_vector, options["n_theta_bins"], "rear")
-summat_back = summat[options["n_theta_bins"] :]
-whole_mat_imshow = summat_back.rename({r"$\theta_{in}$": "a", r"$\theta_{out}$": "b"})
-
-whole_mat_imshow = whole_mat_imshow.assign_coords(
-    a=np.sin(whole_mat_imshow.coords["a"]).data,
-    b=np.sin(whole_mat_imshow.coords["b"]).data,
+plt.plot(
+    wavelengths * 1e9,
+    result["R0"],
+    "-o",
+    color=pal[1],
+    label=r"R$_0$",
+    fillstyle="none",
+)
+plt.plot(
+    wavelengths * 1e9, result["T"], "-o", color=pal[2], label=r"T", fillstyle="none"
+)
+plt.plot(
+    wavelengths * 1e9,
+    result["A_per_layer"][:, 3],
+    "-o",
+    color=pal[3],
+    label=r"A",
+    fillstyle="none",
+)
+plt.plot(
+    wavelengths * 1e9,
+    result["A_per_layer"][:, 6],
+    "-o",
+    color=pal[3],
+    label=r"A",
+    fillstyle="none",
 )
 
+plt.title("a)", loc="left")
+plt.plot(-1, -1, "-ok", label="RayFlare")
+plt.plot(-1, -1, "--k", label="PVLighthouse")
+plt.xlabel("Wavelength (nm)")
+plt.ylabel("R / A / T")
+plt.ylim(0, 1)
+plt.xlim(300, 1200)
 
-whole_mat_imshow = whole_mat_imshow.rename(
-    {"a": r"$\sin(\theta_{in})$", "b": r"$\sin(\theta_{out})$"}
-)
-
-
-palhf = sns.cubehelix_palette(256, start=0.5, rot=-0.9)
-palhf.reverse()
-seamap = mpl.colors.ListedColormap(palhf)
-
-fig = plt.figure(figsize=(4.5, 3.5))
-ax = fig.add_subplot(1, 1, 1, aspect="equal")
-ax = whole_mat_imshow.plot.imshow(ax=ax, cmap=seamap)
-
+plt.legend()
 plt.show()

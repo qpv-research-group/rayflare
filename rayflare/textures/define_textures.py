@@ -9,7 +9,7 @@ from rayflare.ray_tracing.rt import RTSurface
 import numpy as np
 
 
-def xyz_texture(x, y, z):
+def xyz_texture(x, y, z, **kwargs):
     """Defines RTSurface textures for ray-tracing based on lists of x, y and z coordinates provided by the user.
 
     :param x: list of x (in-plane) coordinates of points on the surface texture (1D numpy array)
@@ -19,15 +19,15 @@ def xyz_texture(x, y, z):
 
     """
     Points = np.vstack([x, y, z]).T
-    surf_fi = RTSurface(Points)
+    surf_fi = RTSurface(Points, **kwargs)
 
     Points_ri = np.vstack([x, y, -z]).T
-    surf_ri = RTSurface(Points_ri)
+    surf_ri = RTSurface(Points_ri, **kwargs)
 
     return [surf_fi, surf_ri]
 
 
-def heights_texture(z_points, x_width, y_width):
+def heights_texture(z_points, x_width, y_width, **kwargs):
     """Defines RTSurface textures for ray-tracing based on a 2D array of z coordinates and the width along the x and
     y directions.
 
@@ -47,4 +47,4 @@ def heights_texture(z_points, x_width, y_width):
 
     z = z_points.flatten()
 
-    return xyz_texture(x, y, z)
+    return xyz_texture(x, y, z, **kwargs)

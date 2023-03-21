@@ -6,8 +6,8 @@ from configparser import ConfigParser
 
 
 def gen_data_files(*dirs):
-    """ Creates the list of files (not necessarily python files) that need to be
-    installed together with the rest of stuff """
+    """Creates the list of files (not necessarily python files) that need to be
+    installed together with the rest of stuff"""
     results = []
     exclude = [".DS_Store", "__pycache__", "egg", ".git"]
     for src_dir in dirs:
@@ -56,7 +56,7 @@ install_requires = [
     "xarray",
     "sparse",
     "joblib",
-    "seaborn"
+    "seaborn",
 ]
 
 
@@ -92,6 +92,6 @@ setup(
     include_package_data=True,
     setup_requires="pytest-runner",
     install_requires=install_requires,
-    #tests_require=tests_require,
-    #extras_require=extras_require,
+    # tests_require=tests_require,
+    # extras_require=extras_require,
 )
