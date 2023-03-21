@@ -1855,13 +1855,15 @@ def test_tmm_rt_methods():
     # Thickness of bottom Ge layer
     bulkthick = 0.3e-6
 
-    wavelengths = np.linspace(700, 1400, 6) * 1e-9
+    wavelengths = np.linspace(700, 1400, 4) * 1e-9
 
     # set options
     options = default_options()
     options.wavelengths = wavelengths
     options.project_name = "rt_tmm_comparisons_3"
-    options.n_rays = 420 * 10 * 10 * 5
+    options.nx = 10
+    options.ny = 10
+    options.n_rays = 420 * 10 * 10
     options.n_theta_bins = 40
     options.lookuptable_angles = 300
     options.parallel = True

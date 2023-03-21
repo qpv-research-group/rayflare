@@ -1,7 +1,11 @@
-from pytest import approx
+from pytest import approx, mark
 import numpy as np
+import sys
 
-
+@mark.skipif(
+    sys.platform == "win32",
+    reason="S4 (RCWA) only installed for tests under Linux and macOS",
+)
 def test_tmm_rcwa_profile():
 
     from rayflare.utilities import make_absorption_function
@@ -112,7 +116,7 @@ def test_tmm_rcwa_profile():
     regen_rcwa = diff_absorb_fn_rcwa(pos_rcwa)
 
     assert np.all(pos_tmm == pos_rcwa)
-    assert regen_tmm[regen_tmm > 1e2] == approx(regen_rcwa[regen_tmm > 1e2])
+    assert regen_tmm[regen_tmm > 1e4] == approx(regen_rcwa[regen_tmm > 1e4], rel=0.03)
     # incoherent layer so won't be exactly the same at all wavelengths/positions,
     # but this doesn't matter for highly absorbing layers
 

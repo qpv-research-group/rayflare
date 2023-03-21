@@ -119,8 +119,6 @@ def RT(
             n_theta_bins, phi_sym, c_az, theta_spacing
         )
 
-        print(len(angle_vector) / 2)
-
         if only_incidence_angle:
             print("Calculating matrix only for incidence theta/phi")
             if options["theta_in"] == 0:
@@ -298,7 +296,6 @@ def RT_wl(
     phi_out = np.zeros((n_angles, nx * ny))
     A_surface_layers = np.zeros((n_angles, nx * ny, n_abs_layers))
     theta_local_incidence = np.zeros((n_angles, nx * ny))
-    print("n angles", n_angles, nx * ny)
 
     for i2 in range(n_angles):
 
