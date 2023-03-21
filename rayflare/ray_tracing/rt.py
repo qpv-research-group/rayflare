@@ -1981,7 +1981,7 @@ def single_interface_check(
                     # assume it is reflected back into layer it came from
                     d[2] = -d[2]
 
-                    o_t = np.real(acos(d[2] / (np.linalg.norm(d))))
+                    o_t = np.real(acos(d[2] / np.linalg.norm(d)))
                     o_p = np.real(atan2(d[1], d[0]))
                     return 0, o_t, o_p, r_a, d, 0, n_interactions, side
 
@@ -2007,7 +2007,7 @@ def single_interface_check(
 
             else:
 
-                o_t = np.real(acos(d[2] / (np.linalg.norm(d))))
+                o_t = np.real(acos(d[2] / np.linalg.norm(d)))
                 o_p = np.real(atan2(d[1], d[0]))
 
                 if np.sign(d0[2]) == np.sign(d[2]):
@@ -2128,7 +2128,7 @@ def single_cell_check(
 
             n_misses += 1
 
-            o_t = np.real(acos(d[2] / (np.linalg.norm(d))))
+            o_t = np.real(acos(d[2] / np.linalg.norm(d)))
             o_p = np.real(atan2(d[1], d[0]))
 
             if np.sign(d0[2]) == np.sign(d[2]):
