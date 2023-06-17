@@ -1144,7 +1144,7 @@ def parallel_inner(
     print("1wl")
 
     # thetas and phis divided into
-    thetas = np.zeros(n_reps * nx * ny)
+    thetas = np.empty(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
     n_passes = np.zeros(n_reps * nx * ny)
     n_interactions = np.zeros(n_reps * nx * ny)
@@ -1645,7 +1645,7 @@ def single_ray_stack(
                 np.random.rand() * surf.Ly,
                 surf.zcov,
             ]
-            # TODO: fix divide by zero warning and subsequent nonsensical r_a
+
             if d[2] == 0:
                 # ray travelling parallel to surface
                 # print("parallel ray")

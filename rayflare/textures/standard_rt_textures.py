@@ -482,7 +482,8 @@ def rough_planar_surface(
 
 
 def hemisphere_surface(
-    size=1, n_per_side=20, radius=0.5, offset=0, noise_angle=0, stretch=1, **kwargs
+    size=1, n_per_side=20, radius=0.5, offset=0, noise_angle=0, stretch=1,
+        upright=True, **kwargs
 ):
 
     """Creates a planar surface with a hemispherical cap embedded in it. The planar part of the surface can be
@@ -564,6 +565,10 @@ def hemisphere_surface(
 
     all_points[:, 0] = all_points[:, 0] + size / 2
     all_points[:, 1] = all_points[:, 1] + size / 2
+
+    if not upright:
+        all_points[:, 2] = -all_points[:, 2]
+        print("flipping")
 
     surfs = xyz_texture(*all_points.T, coverage_height=0, **kwargs)
 
