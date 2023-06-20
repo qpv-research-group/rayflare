@@ -28,7 +28,16 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
     char_angle = math.radians(elevation_angle)
     Lx = size * 1
     Ly = size * 1
-    h = Lx * math.tan(char_angle) / 2
+
+    if "height_distribution" in kwargs:
+        h = np.random.choice(kwargs["height_distribution"]["h"],
+                                      p=kwargs["height_distribution"]["p"])
+        print("picking from distribution", h)
+
+    else:
+        h = Lx * math.tan(char_angle) / 2
+        print("fixed h", h)
+
     x = np.array([0, Lx / 2, Lx, 0, Lx])
     y = np.array([0, Ly / 2, 0, Ly, Ly])
 

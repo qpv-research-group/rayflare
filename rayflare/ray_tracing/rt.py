@@ -1380,6 +1380,17 @@ class RTSurface:
                                 at which both the x and y coordinate are minimized.
         """
 
+        if "height_distribution" in kwargs:
+        #     return from a probability distribution instead of fixed values. This
+        #     will change the height of the pyramids (assume only pyramids for now)
+        #     but not the size of the unit cell. Simplices also do not change.
+        #     Changing: Points, P_0s, P_1s, P_2s, crossP, N, z_min, z_max, z_cov if
+        #     it's not 0 (but for pyramids it is).
+            self.distribution = kwargs["height_distribution"]
+
+        else:
+            self.distribution = None
+
         tri = Delaunay(Points[:, [0, 1]])
         self.simplices = tri.simplices
         self.Points = Points
@@ -1405,7 +1416,7 @@ class RTSurface:
         if "coverage_height" in kwargs:
             self.zcov = kwargs["coverage_height"]
 
-        # catch exception here in case the surface is not regular
+        # TODO: catch exception here in case the surface is not regular
         else:
             self.zcov = Points[:, 2][
                 np.all(
@@ -1433,6 +1444,175 @@ class RTSurface:
 
             if "prof_layers" in kwargs:
                 self.prof_layers = kwargs["prof_layers"]
+
+    def __deepcopy__(self, memo):
+        copy = type(self)(Points=self.Points, coverage_height=self.zcov)
+        memo[id(self)] = copy
+
+        keys = self.__dict__.keys()
+
+        for key in keys:
+            if key != "interface_layers":
+                setattr(copy, key, deepcopy(getattr(self, key), memo))
+
+        return copy
+
+    def find_area(self):
+        xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
+        cos_theta = np.sum((xyz[0] - xyz[1]) * (xyz[2] - xyz[1]), 1)
+
+        theta = np.arccos(cos_theta)
+        self.area = np.sum(
+            (
+                0.5
+                * np.linalg.norm(xyz[0] - xyz[1], axis=1)
+                * np.linalg.norm(xyz[2] - xyz[1], axis=1)
+                * np.sin(theta)
+            )
+        ) / (self.Lx * self.Ly)
+
+    def shift(self, z_shift):
+        self.Points[:, 2] = self.Points[:, 2] - z_shift
+        self.P_0s = self.Points[self.simplices[:, 0]]
+        self.P_1s = self.Points[self.simplices[:, 1]]
+        self.P_2s = self.Points[self.simplices[:, 2]]
+        self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
+        self.z_min = min(self.Points[:, 2])
+        self.z_max = max(self.Points[:, 2])
+
+        self.zcov = self.zcov - z_shift
+
+    def refresh(self):
+
+        if self.distribution is not None:
+
+            # print("update")
+
+            new_height = np.random.choice(self.distribution["h"],
+                                             p=self.distribution["p"])
+
+            h_i = np.argmax(np.abs(self.Points[:,2]))
+            scaling = np.abs(new_height/(self.Points[:,2][h_i] - self.zcov))
+
+            self.Points[:,2] = scaling*(self.Points[:,2] - self.zcov) + self.zcov
+
+            self.P_0s = self.Points[self.simplices[:, 0]]
+            self.P_1s = self.Points[self.simplices[:, 1]]
+            self.P_2s = self.Points[self.simplices[:, 2]]
+            self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
+            self.N = self.crossP / np.linalg.norm(self.crossP, axis=1)[:, None]
+            self.z_min = min(self.Points[:, 2])
+            self.z_max = max(self.Points[:, 2])
+
+
+class RTSurface_dist:
+    """Class which is used to store information about the surface which is used for ray-tracing."""
+
+    def __init__(self, Points, interface_layers=None, **kwargs):
+        """Initializes the surface.
+        Parameters:
+
+        :param Points: A numpy array of shape (n, 3) where n is the number of points on the surface. The columns are the
+                        x, y and z coordinates of the points.
+        :param interface_layers: a list of layers (typically, Solcore Layer objects) which are on the interface. Optional.
+        :param coverage_height: The height at which the surface is expected to cover the whole unit cell. If this is not
+                                provided (None), this function will try to guess the coverage height by finding the height
+                                at which both the x and y coordinate are minimized.
+        """
+
+
+        # return from a probability distribution instead of fixed values. This
+        # will change the height of the pyramids (assume only pyramids for now)
+        # but not the size of the unit cell. Simplices also do not change.
+        # Changing: Points, P_0s, P_1s, P_2s, crossP, N, z_min, z_max, z_cov if
+        # it's not 0 (but for pyramids it is).
+
+        tri = Delaunay(Points[:, [0, 1]])
+        self.simplices = tri.simplices
+        self.Lx = abs(min(Points[:, 0]) - max(Points[:, 0]))
+        self.Ly = abs(min(Points[:, 1]) - max(Points[:, 1]))
+        self.x_min = min(Points[:, 0])
+        self.x_max = max(Points[:, 0])
+        self.y_min = min(Points[:, 1])
+        self.y_max = max(Points[:, 1])
+        self.size = self.P_0s.shape[0]
+
+        # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
+        # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
+        # like regular pyramids but doesn't work well for e.g. AFM scans, hyperhemisphere
+
+        if "coverage_height" in kwargs:
+            self.zcov = kwargs["coverage_height"]
+
+        # TODO: catch exception here in case the surface is not regular
+        else:
+            self.zcov = Points[:, 2][
+                np.all(
+                    np.array(
+                        [
+                            Points[:, 0] == min(Points[:, 0]),
+                            Points[:, 1] == min(Points[:, 1]),
+                        ]
+                    ),
+                    axis=0,
+                )
+            ][0]
+
+        if "name" in kwargs:
+            self.name = kwargs["name"]
+
+        else:
+            self.name = ""
+
+        if interface_layers is not None:
+            self.interface_layers = interface_layers
+
+            if "coherency_list" in kwargs:
+                self.coherency_list = kwargs["coherency_list"]
+
+            if "prof_layers" in kwargs:
+                self.prof_layers = kwargs["prof_layers"]
+
+        self.Points = Points
+        self.P_0s = Points[tri.simplices[:, 0]]
+        self.P_1s = Points[tri.simplices[:, 1]]
+        self.P_2s = Points[tri.simplices[:, 2]]
+        self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
+        self.N = self.crossP / np.linalg.norm(self.crossP, axis=1)[:, None]
+        self.z_min = min(Points[:, 2])
+        self.z_max = max(Points[:, 2])
+
+    @property
+    def Points(self):
+        pass
+
+    @property
+    def P_0s(self):
+        pass
+
+    @property
+    def P_1s(self):
+        pass
+
+    @property
+    def P_2s(self):
+        pass
+
+    @property
+    def crossP(self):
+        pass
+
+    @property
+    def N(self):
+        pass
+
+    @property
+    def z_min(self):
+        pass
+
+    @property
+    def z_max(self):
+        pass
 
     def __deepcopy__(self, memo):
         copy = type(self)(Points=self.Points, coverage_height=self.zcov)
@@ -1933,7 +2113,6 @@ def single_interface_check(
 ):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
-    # weird stuff happens around edges; can get transmission counted as reflection
     d0 = d
     intersect = True
     checked_translation = False
@@ -1952,10 +2131,13 @@ def single_interface_check(
             if i1 > 1:
                 which_side, _ = exit_side(r_a, d, Lx, Ly)
                 r_a = r_a + translation[which_side]
+                # if random pyramid, need to change surface at this point
+                tri.refresh()
                 checked_translation = True
 
             else:
                 if n_misses < 100:
+                    # TODO: should be able to set how many tries to end after here
                     # misses surface. Try again
                     if d[2] < 0:  # coming from above
                         r_a = np.array(
@@ -2003,6 +2185,9 @@ def single_interface_check(
                 ex, t = exit_side(r_a, d, Lx, Ly)
 
                 r_a = r_a + t * d + translation[ex]
+                # also change surface here
+                tri.refresh()
+
                 checked_translation = True
 
             else:
