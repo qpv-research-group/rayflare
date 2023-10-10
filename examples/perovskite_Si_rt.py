@@ -16,7 +16,7 @@ wavelengths = np.linspace(300, 1200, 40) * 1e-9
 
 options = default_options()
 options.wavelengths = wavelengths
-options.nx = 20
+options.nx = 5
 options.ny = options.nx
 options.n_rays = 4 * options.nx**2
 options.depth_spacing = 1e-9
@@ -34,8 +34,8 @@ from solcore.material_system import create_new_material
 cur_path = cur_path = os.path.dirname(os.path.abspath(__file__))
 create_new_material(
     "Perovskite_CsBr_1p6eV",
-    os.path.join(cur_path, "data/CsBr10p_1to2_n_shifted.txt"),
-    os.path.join(cur_path, "data/CsBr10p_1to2_k_shifted.txt"),
+    os.path.join(cur_path, "../../solcore-education/solcore-workshop/notebooks/data/CsBr10p_1to2_n_shifted.txt"),
+    os.path.join(cur_path, "../../solcore-education/solcore-workshop/notebooks/data/CsBr10p_1to2_k_shifted.txt"),
 )
 create_new_material(
     "ITO_lowdoping",

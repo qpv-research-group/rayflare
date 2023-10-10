@@ -144,7 +144,7 @@ positions, diff_absorb_fn = make_absorption_function(
     result_rt, rtstr, options,
 )
 
-options.positions = positions
+options_sc.position = positions
 
 solar_cell = SolarCell(
     [

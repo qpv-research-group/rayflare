@@ -301,7 +301,7 @@ def RT_wl(
 
         theta = thetas_in[i2]
         phi = phis_in[i2]
-        r = abs((h + 1e-6) / cos(theta))
+        r = abs((h + 1e-9) / cos(theta))
         r_a_0 = np.real(
             np.array(
                 [r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]
@@ -431,6 +431,11 @@ def RT_wl(
     )
     A_mat = abs_scale * A_mat
     out_mat[np.isnan(out_mat)] = 0
+
+    if np.any(out_mat < 0):
+        print("NEGATIVE")
+        out_mat[out_mat < 0] = 0
+
     A_mat[np.isnan(A_mat)] = 0
 
     out_mat = COO(out_mat)  # sparse matrix
@@ -1765,7 +1770,7 @@ def single_ray_stack(
 
     if direction_i == 1 and mat_i > 0:
         surf_index = mat_i
-        z_offset = -cum_width[surf_above] - 1e-6
+        z_offset = -cum_width[surf_above] - 1e-9
         # print('z_offset', z_offset, r_a_0)
 
     elif direction == 1 and mat_i == 0:
@@ -1774,7 +1779,7 @@ def single_ray_stack(
 
     else:
         surf_index = mat_i - 1
-        z_offset = -cum_width[surf_below] + 1e-6
+        z_offset = -cum_width[surf_below] + 1e-9
 
     stop = False
     I = 1
@@ -1811,6 +1816,10 @@ def single_ray_stack(
         depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
 
     n_interactions = 0
+
+    # print('# ray')
+
+    # print(' '.join(map(str, r_a)))
 
     while not stop:
 
@@ -1921,6 +1930,8 @@ def single_ray_stack(
             )
 
             n_passes = n_passes + 1
+
+            # print(' '.join(map(str, r_a)))
 
     return (
         I,
@@ -2113,6 +2124,7 @@ def single_interface_check(
 ):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
+    tri.refresh()
     d0 = d
     intersect = True
     checked_translation = False
