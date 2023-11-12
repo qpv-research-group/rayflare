@@ -36,15 +36,13 @@ wavelengths = np.linspace(np.log(300), np.log(16 * 1000), 104)
 wavelengths = np.round(np.floor(np.exp(wavelengths)) * 1e-9, 12)
 
 options = default_options()
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.project_name = "HIT_notebook"
 options.n_rays = 5000
 options.n_theta_bins = 20
 options.nx = 5
 options.ny = 5
-_, _, angle_vector = make_angle_vector(
-    options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
-)
+_, _, angle_vector = make_angle_vector(options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"])
 options.bulk_profile = True
 options.phi_symmetry = np.pi / 2
 
@@ -70,12 +68,8 @@ back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_n), Layer(240e-9, ITO_
 surf = regular_pyramids(elevation_angle=55, upright=True)
 surf_back = regular_pyramids(elevation_angle=55, upright=False)
 
-front_surf = Interface(
-    "RT_TMM", texture=surf, layers=front_materials, name="HIT_front", coherent=True
-)
-back_surf = Interface(
-    "RT_TMM", texture=surf_back, layers=back_materials, name="HIT_back", coherent=True
-)
+front_surf = Interface("RT_TMM", texture=surf, layers=front_materials, name="HIT_front", coherent=True)
+back_surf = Interface("RT_TMM", texture=surf_back, layers=back_materials, name="HIT_back", coherent=True)
 
 
 bulk_Si = BulkLayer(170e-6, Si, name="Si_bulk")  # bulk thickness in m
@@ -117,11 +111,7 @@ allres = np.flip(
 # calculated photogenerated current (Jsc with 100% EQE)
 
 spectr_flux = LightSource(
-    source_type="standard",
-    version="AM1.5g",
-    x=wavelengths,
-    output_units="photon_flux_per_m",
-    concentration=1,
+    source_type="standard", version="AM1.5g", x=wavelengths, output_units="photon_flux_per_m", concentration=1
 ).spectrum(wavelengths)[1]
 
 Jph_Si = q * np.trapz(RAT["A_bulk"][0] * spectr_flux, wavelengths) / 10  # mA/cm2
@@ -155,16 +145,16 @@ noITO_emissivity = np.loadtxt("data/emissivity_noITO.csv", delimiter=",")
 # plot total R, A, T
 fig = plt.figure(figsize=(5, 4))
 ax = plt.subplot(111)
-ax.semilogx(options["wavelengths"] * 1e6, R_escape + R_0, "--k", label=r"$R_{total}$")
-ax.semilogx(options["wavelengths"] * 1e6, R_0, "-.k", label=r"$R_0$")
+ax.semilogx(options["wavelength"] * 1e6, R_escape + R_0, "--k", label=r"$R_{total}$")
+ax.semilogx(options["wavelength"] * 1e6, R_0, "-.k", label=r"$R_0$")
 ax.stackplot(
-    options["wavelengths"] * 1e6,
+    options["wavelength"] * 1e6,
     allres,
     labels=["Ag", "Back ITO", "a-Si (back)", "Bulk Si", "a-Si (front)", "Front ITO"],
 )
 ax.semilogx(emissivity[:, 0], emissivity[:, 1], "-k")
 ax.set_xlabel(r"Wavelength ($\mu$m)")
 ax.set_ylabel("Absorption/Emissivity")
-ax.set_xlim(min(options["wavelengths"] * 1e6), max(options["wavelengths"] * 1e6))
+ax.set_xlim(min(options["wavelength"] * 1e6), max(options["wavelength"] * 1e6))
 ax.set_ylim(0, 1)
 plt.show()

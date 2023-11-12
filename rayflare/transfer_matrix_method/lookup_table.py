@@ -1,9 +1,12 @@
 import xarray as xr
 import numpy as np
 from rayflare.transfer_matrix_method.tmm import tmm_structure
+from rayflare.utilities import get_wavelength
 import os
 from solcore.absorption_calculator import OptiStack
 
+import logging
+logging.basicConfig(format='%(levelname)s: %(message)s',level=logging.INFO)
 
 def make_TMM_lookuptable(
     layers,
@@ -46,10 +49,11 @@ def make_TMM_lookuptable(
 
     savepath = os.path.join(structpath, surf_name + ".nc")
     if os.path.isfile(savepath) and not overwrite:
-        print("Existing lookup table found")
+        logging.info("Existing lookup table found")
         allres = xr.open_dataset(savepath)
     else:
-        wavelengths = options["wavelengths"]
+        get_wavelength(options)
+        wavelengths = options["wavelength"]
         n_angles = options["lookuptable_angles"]
         thetas = np.linspace(0, (np.pi / 2) - 1e-3, n_angles)
         if prof_layers is not None:
@@ -126,7 +130,7 @@ def make_TMM_lookuptable(
 
         pass_options = {}
 
-        pass_options["wavelengths"] = wavelengths
+        pass_options["wavelength"] = wavelengths
         pass_options["depth_spacing"] = 1e5
         # we don't actually want to calculate a profile, so the depth spacing
         # doesn't matter, but it needs to be set to something. Larger value means we don't make extremely large arrays

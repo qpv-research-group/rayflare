@@ -6,6 +6,7 @@
 # Contact: p.pearce@unsw.edu.au
 
 import numpy as np
+from solcore.state import State
 
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare.structure import Interface, RTgroup, BulkLayer
@@ -15,7 +16,7 @@ from rayflare.transfer_matrix_method import TMM
 from rayflare.angles import make_angle_vector
 from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
 from rayflare.utilities import get_savepath
-
+from rayflare import logger
 
 def process_structure(SC, options, save_location="default", overwrite=False):
     """
@@ -35,6 +36,9 @@ def process_structure(SC, options, save_location="default", overwrite=False):
     :param overwrite: boolean - if True, will overwrite any existing results in the save_location. If False, will re-use
             any existing results (based on the project name, save_location and names of the surfaces) if they are available.
     """
+
+    if isinstance(options, dict):
+        options = State(options)
 
     def determine_only_incidence(sd, j1, oia):
         if sd == "front" and j1 == 0 and oia:
@@ -72,7 +76,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
             # Check: is this an interface type which requires a lookup table?
 
             if struct.method == "RT_TMM":
-                print("Making lookuptable for element " + str(i1) + " in structure")
+                logger.info(f"Making RT/TMM lookuptable for element {i1} in structure")
                 if i1 == 0:  # top interface
                     incidence = SC.incidence
                 else:  # not top interface
@@ -117,11 +121,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
                 which_sides = ["front", "rear"]
 
             if struct.method == "Mirror":
-                theta_spacing = (
-                    options["theta_spacing"]
-                    if hasattr(options, "theta_spacing")
-                    else "sin"
-                )
+                theta_spacing = options.theta_spacing if "theta_spacing" in options else "sin"
 
                 theta_intv, phi_intv, angle_vector = make_angle_vector(
                     options["n_theta_bins"],
@@ -142,11 +142,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
                 )
 
             if struct.method == "Lambertian":
-                theta_spacing = (
-                    options["theta_spacing"]
-                    if hasattr(options, "theta_spacing")
-                    else "sin"
-                )
+                theta_spacing = options.theta_spacing if "theta_spacing" in options else "sin"
 
                 theta_intv, _, angle_vector = make_angle_vector(
                     options["n_theta_bins"],
@@ -167,11 +163,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
                 )
 
             if struct.method == "TMM":
-                print(
-                    "Making matrix for planar surface using TMM for element "
-                    + str(i1)
-                    + " in structure"
-                )
+                logger.info(f"Making matrix for planar surface using TMM for element {i1} in structure")
 
                 coherent, coherency_list = determine_coherency(struct)
 
@@ -196,11 +188,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
                     )
 
             if struct.method == "RT_TMM":
-                print(
-                    "Ray tracing with TMM lookup table for element "
-                    + str(i1)
-                    + " in structure"
-                )
+                logger.info(f"Ray tracing with TMM lookup table for element {i1} in structure")
 
                 prof = struct.prof_layers
                 n_abs_layers = len(struct.layers)
@@ -229,11 +217,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
                     )
 
             if struct.method == "RT_Fresnel":
-                print(
-                    "Ray tracing with Fresnel equations for element "
-                    + str(i1)
-                    + " in structure"
-                )
+                logger.info(f"Ray tracing with Fresnel equations for element {i1} in structure")
 
                 group = RTgroup(textures=[struct.texture])
                 for side in which_sides:
@@ -258,7 +242,7 @@ def process_structure(SC, options, save_location="default", overwrite=False):
                     )
 
             if struct.method == "RCWA":
-                print("RCWA calculation for element " + str(i1) + " in structure")
+                logger.info(f"RCWA calculation for element {i1} in structure")
 
                 prof = struct.prof_layers
 

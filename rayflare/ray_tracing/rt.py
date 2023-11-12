@@ -17,11 +17,13 @@ from sparse import COO, save_npz, stack
 from joblib import Parallel, delayed
 from copy import deepcopy
 from warnings import warn
+from solcore.state import State
 
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths, get_savepath
+from rayflare.utilities import get_matrices_or_paths, get_savepath, get_wavelength
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 
+from rayflare import logger
 
 def RT(
     group,
@@ -46,7 +48,7 @@ def RT(
     :param incidence: incidence medium
     :param transmission: transmission medium
     :param surf_name: name of the surface (to save matrices)
-    :param options: dictionary of options
+    :param options: user options (State object)
     :param structpath: file path where matrices will be stored or loaded from
     :param Fr_or_TMM: whether to use the Fresnel equations (0) or a TMM lookup table (1)
     :param front_or_rear: whether light is incident from the front or rear
@@ -76,7 +78,8 @@ def RT(
         return path_or_mats
 
     else:
-        wavelengths = options["wavelengths"]
+        get_wavelength(options)
+        wavelengths = options["wavelength"]
         n_rays = options["n_rays"]
         nx = options["nx"]
         ny = options["ny"]
@@ -91,7 +94,7 @@ def RT(
             n_jobs = 1
 
         else:
-            n_jobs = options["n_jobs"] if hasattr(options, "n_jobs") else -1
+            n_jobs = options.n_jobs if "n_jobs" in options else -1
 
         if calc_profile is not None:
             depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
@@ -111,16 +114,14 @@ def RT(
         else:
             lookuptable = None
 
-        theta_spacing = (
-            options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
-        )
+        theta_spacing = options.theta_spacing if "theta_spacing" in options else "sin"
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(
             n_theta_bins, phi_sym, c_az, theta_spacing
         )
 
         if only_incidence_angle:
-            print("Calculating matrix only for incidence theta/phi")
+            logger.info("Calculating matrix only for incidence theta/phi")
             if options["theta_in"] == 0:
                 th_in = 0.0001
             else:
@@ -290,7 +291,7 @@ def RT_wl(
     depth_spacing,
     side,
 ):
-    print("wavelength = ", wl * 1e9)
+    logger.info(f"RT calculation for wavelength = {wl * 1e9} nm")
 
     theta_out = np.zeros((n_angles, nx * ny))
     phi_out = np.zeros((n_angles, nx * ny))
@@ -301,7 +302,7 @@ def RT_wl(
 
         theta = thetas_in[i2]
         phi = phis_in[i2]
-        r = abs((h + 1e-9) / cos(theta))
+        r = abs((h + 1e-8) / cos(theta))
         r_a_0 = np.real(
             np.array(
                 [r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]
@@ -386,8 +387,6 @@ def RT_wl(
     n_rays_in_bin = np.zeros(int(len(angle_vector) / 2))
     n_rays_in_bin_abs = np.zeros(int(len(angle_vector) / 2))
 
-    # print(side, theta_local_incidence)
-
     binned_local_angles = np.digitize(theta_local_incidence, theta_intv, right=True) - 1
 
     local_angle_mat = np.zeros(
@@ -411,7 +410,6 @@ def RT_wl(
                 n_rays_in_bin_abs[bin_in[l1] - offset] += 1
                 per_layer = A_surface_layers[l1, l2]
                 A_mat[:, bin_in[l1] - offset] += per_layer
-                # print(side, binned_local_angles[l1, l2], bin_in[l1], offset)
                 local_angle_mat[binned_local_angles[l1, l2], bin_in[l1] - offset] += 1
 
     # normalize
@@ -431,15 +429,10 @@ def RT_wl(
     )
     A_mat = abs_scale * A_mat
     out_mat[np.isnan(out_mat)] = 0
-
-    if np.any(out_mat < 0):
-        print("NEGATIVE")
-        out_mat[out_mat < 0] = 0
-
     A_mat[np.isnan(A_mat)] = 0
 
-    out_mat = COO(out_mat)  # sparse matrix
-    A_mat = COO(A_mat)
+    out_mat = COO.from_numpy(out_mat)  # sparse matrix
+    A_mat = COO.from_numpy(A_mat)
 
     if Fr_or_TMM > 0:
         local_angle_mat = np.divide(
@@ -449,14 +442,12 @@ def RT_wl(
             out=np.zeros_like(local_angle_mat),
         )
         local_angle_mat[np.isnan(local_angle_mat)] = 0
-        local_angle_mat = COO(local_angle_mat)
+        local_angle_mat = COO.from_numpy(local_angle_mat)
 
         if calc_profile is not None:
             n_a_in = int(len(angle_vector) / 2)
             thetas = angle_vector[:n_a_in, 1]
             unique_thetas = np.unique(thetas)
-
-            # print(side, "local angle mat", local_angle_mat.todense())
 
             profile = make_profiles_wl(
                 unique_thetas,
@@ -548,11 +539,6 @@ def make_lookuptable_rt_structure(
             widths.append(None)
 
     savepath = get_savepath(save_location, options["project_name"])
-
-    # print(len(layers_for_lookuptable), len(inc_for_lookuptable),
-    #           len(trn_for_lookuptable), len(coherent_for_lookuptable),
-    #             len(coherency_list_for_lookuptable), len(names_for_lookuptable),
-    #             len(prof_layers_for_lookuptable))
 
     for (layers, inc, trn, coh, coh_list, name, prof_layers) in zip(
         layers_for_lookuptable,
@@ -664,7 +650,7 @@ def calculate_interface_profiles(
         ans_front = (
             params_front.groupby("angle", squeeze=False)
             .map(profile_per_angle, z=z_list, offset=offsets, side=1)
-            .drop("coeff")
+            .drop_vars("coeff")
         )
 
         profile_front = ans_front.reduce(np.sum, ["angle"]).fillna(0)
@@ -704,7 +690,7 @@ def calculate_interface_profiles(
         ans_back = (
             params_back.groupby("angle", squeeze=False)
             .map(profile_per_angle, z=z_list, offset=offsets, side=-1)
-            .drop("coeff")
+            .drop_vars("coeff")
         )
 
         profile_back = ans_back.reduce(np.sum, ["angle"]).fillna(0)
@@ -722,11 +708,11 @@ def calculate_interface_profiles(
     scale_profile = np.real(
         np.divide(
             A_corr,
-            integrated_profile,
-            where=integrated_profile > 0,
+            integrated_profile.data,
+            where=integrated_profile.data > 0,
             out=np.zeros_like(A_corr),
         )
-    ).data
+    )
 
     interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
 
@@ -789,7 +775,7 @@ class rt_structure:
         self.width = np.sum(widths)
 
         if use_TMM:
-            print("Pre-computing TMM lookup table(s)")
+            logger.info("Pre-computing TMM lookup table(s)")
 
             if options is None:
                 raise (ValueError("Must provide options to pre-compute lookup tables"))
@@ -832,7 +818,11 @@ class rt_structure:
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
-        wavelengths = options["wavelengths"]
+        if isinstance(options, dict):
+            options = State(options)
+
+        get_wavelength(options)
+        wavelengths = options["wavelength"]
         theta = options["theta_in"]
         phi = options["phi_in"]
         I_thresh = options["I_thresh"]
@@ -845,7 +835,7 @@ class rt_structure:
             n_jobs = 1
 
         else:
-            n_jobs = options["n_jobs"] if hasattr(options, "n_jobs") else -1
+            n_jobs = options.n_jobs if "n_jobs" in options else -1
 
         widths = self.widths[:]
         widths.insert(0, 0)
@@ -888,7 +878,7 @@ class rt_structure:
             alphas[i1] = mat.k(wavelengths) * 4 * np.pi / (wavelengths * 1e6)
 
         h = max(surfaces[0].Points[:, 2])
-        r = abs((h + 1e-6) / cos(theta))
+        r = abs((h + 1e-8) / cos(theta))
         r_a_0 = np.real(
             np.array(
                 [r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]
@@ -927,13 +917,6 @@ class rt_structure:
         # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
         # how many times we need to repeat
         n_reps = int(np.ceil(options["n_rays"] / (nx * ny)))
-
-        # thetas and phis divided into
-        # thetas = np.zeros((n_reps * nx * ny, len(wavelengths)))
-        # phis = np.zeros((n_reps * nx * ny, len(wavelengths)))
-        # n_passes = np.zeros((n_reps * nx * ny, len(wavelengths)))
-        # n_interactions = np.zeros((n_reps * nx * ny, len(wavelengths)))
-        # Is = np.zeros((n_reps * nx * ny, len(wavelengths)))
 
         pol = options["pol"]
         randomize = options["randomize_surface"]
@@ -1146,10 +1129,10 @@ def parallel_inner(
         additional_tmm_args = [{} for _ in range(len(surfaces))]
         A_in_interfaces = 0
 
-    print("1wl")
+    logger.info("Calculating next wavelength...")
 
     # thetas and phis divided into
-    thetas = np.empty(n_reps * nx * ny)
+    thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
     n_passes = np.zeros(n_reps * nx * ny)
     n_interactions = np.zeros(n_reps * nx * ny)
@@ -1329,7 +1312,7 @@ def make_profiles_wl(
 
     params = (
         data["Aprof"]
-        .drop(["layer", "side", "angle", "pol"])
+        .drop_vars(["layer", "side", "angle", "pol"])
         .transpose("local_theta", "layer", "coeff")
     )
 
@@ -1360,7 +1343,7 @@ def make_profiles_wl(
         params.loc[dict(layer=prof_layers)]
         .groupby("global_index")
         .map(profile_per_angle, z=z_list, offset=offsets, side=side, nz=nz)
-        .drop("coeff")
+        .drop_vars("coeff")
     )
     ans = ans.fillna(0)
 
@@ -1399,6 +1382,8 @@ class RTSurface:
         tri = Delaunay(Points[:, [0, 1]])
         self.simplices = tri.simplices
         self.Points = Points
+        self.original_Points = deepcopy(Points)
+        self.height_ind = np.argmax(np.abs(self.Points[:,2]))
         self.P_0s = Points[tri.simplices[:, 0]]
         self.P_1s = Points[tri.simplices[:, 1]]
         self.P_2s = Points[tri.simplices[:, 2]]
@@ -1421,7 +1406,7 @@ class RTSurface:
         if "coverage_height" in kwargs:
             self.zcov = kwargs["coverage_height"]
 
-        # TODO: catch exception here in case the surface is not regular
+        # catch exception here in case the surface is not regular
         else:
             self.zcov = Points[:, 2][
                 np.all(
@@ -1491,15 +1476,12 @@ class RTSurface:
 
         if self.distribution is not None:
 
-            # print("update")
-
             new_height = np.random.choice(self.distribution["h"],
                                              p=self.distribution["p"])
 
-            h_i = np.argmax(np.abs(self.Points[:,2]))
-            scaling = np.abs(new_height/(self.Points[:,2][h_i] - self.zcov))
+            scaling = np.abs(new_height/(self.original_Points[:,2][self.height_ind] - self.zcov))
 
-            self.Points[:,2] = scaling*(self.Points[:,2] - self.zcov) + self.zcov
+            self.Points[:,2] = scaling*(self.original_Points[:,2] - self.zcov) + self.zcov
 
             self.P_0s = self.Points[self.simplices[:, 0]]
             self.P_1s = self.Points[self.simplices[:, 1]]
@@ -1508,153 +1490,6 @@ class RTSurface:
             self.N = self.crossP / np.linalg.norm(self.crossP, axis=1)[:, None]
             self.z_min = min(self.Points[:, 2])
             self.z_max = max(self.Points[:, 2])
-
-
-class RTSurface_dist:
-    """Class which is used to store information about the surface which is used for ray-tracing."""
-
-    def __init__(self, Points, interface_layers=None, **kwargs):
-        """Initializes the surface.
-        Parameters:
-
-        :param Points: A numpy array of shape (n, 3) where n is the number of points on the surface. The columns are the
-                        x, y and z coordinates of the points.
-        :param interface_layers: a list of layers (typically, Solcore Layer objects) which are on the interface. Optional.
-        :param coverage_height: The height at which the surface is expected to cover the whole unit cell. If this is not
-                                provided (None), this function will try to guess the coverage height by finding the height
-                                at which both the x and y coordinate are minimized.
-        """
-
-
-        # return from a probability distribution instead of fixed values. This
-        # will change the height of the pyramids (assume only pyramids for now)
-        # but not the size of the unit cell. Simplices also do not change.
-        # Changing: Points, P_0s, P_1s, P_2s, crossP, N, z_min, z_max, z_cov if
-        # it's not 0 (but for pyramids it is).
-
-        tri = Delaunay(Points[:, [0, 1]])
-        self.simplices = tri.simplices
-        self.Lx = abs(min(Points[:, 0]) - max(Points[:, 0]))
-        self.Ly = abs(min(Points[:, 1]) - max(Points[:, 1]))
-        self.x_min = min(Points[:, 0])
-        self.x_max = max(Points[:, 0])
-        self.y_min = min(Points[:, 1])
-        self.y_max = max(Points[:, 1])
-        self.size = self.P_0s.shape[0]
-
-        # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
-        # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
-        # like regular pyramids but doesn't work well for e.g. AFM scans, hyperhemisphere
-
-        if "coverage_height" in kwargs:
-            self.zcov = kwargs["coverage_height"]
-
-        # TODO: catch exception here in case the surface is not regular
-        else:
-            self.zcov = Points[:, 2][
-                np.all(
-                    np.array(
-                        [
-                            Points[:, 0] == min(Points[:, 0]),
-                            Points[:, 1] == min(Points[:, 1]),
-                        ]
-                    ),
-                    axis=0,
-                )
-            ][0]
-
-        if "name" in kwargs:
-            self.name = kwargs["name"]
-
-        else:
-            self.name = ""
-
-        if interface_layers is not None:
-            self.interface_layers = interface_layers
-
-            if "coherency_list" in kwargs:
-                self.coherency_list = kwargs["coherency_list"]
-
-            if "prof_layers" in kwargs:
-                self.prof_layers = kwargs["prof_layers"]
-
-        self.Points = Points
-        self.P_0s = Points[tri.simplices[:, 0]]
-        self.P_1s = Points[tri.simplices[:, 1]]
-        self.P_2s = Points[tri.simplices[:, 2]]
-        self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
-        self.N = self.crossP / np.linalg.norm(self.crossP, axis=1)[:, None]
-        self.z_min = min(Points[:, 2])
-        self.z_max = max(Points[:, 2])
-
-    @property
-    def Points(self):
-        pass
-
-    @property
-    def P_0s(self):
-        pass
-
-    @property
-    def P_1s(self):
-        pass
-
-    @property
-    def P_2s(self):
-        pass
-
-    @property
-    def crossP(self):
-        pass
-
-    @property
-    def N(self):
-        pass
-
-    @property
-    def z_min(self):
-        pass
-
-    @property
-    def z_max(self):
-        pass
-
-    def __deepcopy__(self, memo):
-        copy = type(self)(Points=self.Points, coverage_height=self.zcov)
-        memo[id(self)] = copy
-
-        keys = self.__dict__.keys()
-
-        for key in keys:
-            if key != "interface_layers":
-                setattr(copy, key, deepcopy(getattr(self, key), memo))
-
-        return copy
-
-    def find_area(self):
-        xyz = np.stack((self.P_0s, self.P_1s, self.P_2s))
-        cos_theta = np.sum((xyz[0] - xyz[1]) * (xyz[2] - xyz[1]), 1)
-
-        theta = np.arccos(cos_theta)
-        self.area = np.sum(
-            (
-                0.5
-                * np.linalg.norm(xyz[0] - xyz[1], axis=1)
-                * np.linalg.norm(xyz[2] - xyz[1], axis=1)
-                * np.sin(theta)
-            )
-        ) / (self.Lx * self.Ly)
-
-    def shift(self, z_shift):
-        self.Points[:, 2] = self.Points[:, 2] - z_shift
-        self.P_0s = self.Points[self.simplices[:, 0]]
-        self.P_1s = self.Points[self.simplices[:, 1]]
-        self.P_2s = self.Points[self.simplices[:, 2]]
-        self.crossP = np.cross(self.P_1s - self.P_0s, self.P_2s - self.P_0s)
-        self.z_min = min(self.Points[:, 2])
-        self.z_max = max(self.Points[:, 2])
-
-        self.zcov = self.zcov - z_shift
 
 
 def calc_R(n1, n2, theta, pol):
@@ -1674,11 +1509,11 @@ def calc_R(n1, n2, theta, pol):
         ** 2
     )
     if pol == "s":
-        # print(n1, n2, theta, pol, Rs)
         return Rs
+
     if pol == "p":
-        # print(n1, n2, theta, pol, Rp)
         return Rp
+
     else:
         return (Rs + Rp) / 2
 
@@ -1725,7 +1560,6 @@ def single_ray_stack(
     periodic=1,
 ):
 
-    # print("NEW RAY")
     single_surface = {0: single_cell_check, 1: single_interface_check}
     # use single_cell_check if not periodic, single_interface_check if is periodic
 
@@ -1770,7 +1604,7 @@ def single_ray_stack(
 
     if direction_i == 1 and mat_i > 0:
         surf_index = mat_i
-        z_offset = -cum_width[surf_above] - 1e-9
+        z_offset = -cum_width[surf_above] - 1e-8
         # print('z_offset', z_offset, r_a_0)
 
     elif direction == 1 and mat_i == 0:
@@ -1779,7 +1613,7 @@ def single_ray_stack(
 
     else:
         surf_index = mat_i - 1
-        z_offset = -cum_width[surf_below] + 1e-9
+        z_offset = -cum_width[surf_below] + 1e-8
 
     stop = False
     I = 1
@@ -1816,10 +1650,6 @@ def single_ray_stack(
         depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
 
     n_interactions = 0
-
-    # print('# ray')
-
-    # print(' '.join(map(str, r_a)))
 
     while not stop:
 
@@ -1931,8 +1761,6 @@ def single_ray_stack(
 
             n_passes = n_passes + 1
 
-            # print(' '.join(map(str, r_a)))
-
     return (
         I,
         profile,  # bulk profile only. Profile in interfaces gets calculated after ray-tracing is done.
@@ -2028,10 +1856,8 @@ def single_ray_interface(
 def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     stop = False
     ratio = alpha / np.real(abs(cos(theta)))
-    # print("internal angle", theta*180/np.pi, direction)
     DA_u = I_i * ratio * np.exp((-ratio * positions))
     I_back = I_i * np.exp(-ratio * width)
-    # print("theta int", theta, direction)
 
     if I_back < I_thresh:
         stop = True
@@ -2124,7 +1950,6 @@ def single_interface_check(
 ):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
-    tri.refresh()
     d0 = d
     intersect = True
     checked_translation = False
@@ -2149,7 +1974,6 @@ def single_interface_check(
 
             else:
                 if n_misses < 100:
-                    # TODO: should be able to set how many tries to end after here
                     # misses surface. Try again
                     if d[2] < 0:  # coming from above
                         r_a = np.array(

@@ -12,7 +12,6 @@ from copy import deepcopy
 import math
 import numpy as np
 
-
 def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
     """Defines RTSurface textures for ray-tracing of regular upright or inverted regular square-base pyramids.
 
@@ -32,11 +31,9 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
     if "height_distribution" in kwargs:
         h = np.random.choice(kwargs["height_distribution"]["h"],
                                       p=kwargs["height_distribution"]["p"])
-        print("picking from distribution", h)
 
     else:
         h = Lx * math.tan(char_angle) / 2
-        print("fixed h", h)
 
     x = np.array([0, Lx / 2, Lx, 0, Lx])
     y = np.array([0, Ly / 2, 0, Ly, Ly])
@@ -577,7 +574,6 @@ def hemisphere_surface(
 
     if not upright:
         all_points[:, 2] = -all_points[:, 2]
-        print("flipping")
 
     surfs = xyz_texture(*all_points.T, coverage_height=0, **kwargs)
 

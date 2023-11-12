@@ -15,7 +15,7 @@ try:
     import S4
 except Exception as err:
     print(
-        "WARNING: The RCWA solver will not be available because an S4 installation has not been found."
+        "WARNING: The S4 solver will not be available because an S4 installation has not been found."
     )
 
 

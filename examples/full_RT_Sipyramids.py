@@ -31,7 +31,7 @@ calc = True
 
 # setting options
 options = default_options()
-options.wavelengths = np.linspace(300, 1201, 50) * 1e-9
+options.wavelength = np.linspace(300, 1201, 50) * 1e-9
 options.nx = nxy
 options.ny = nxy
 options.n_rays = 2 * nxy**2
@@ -43,52 +43,30 @@ options.n_jobs = -1
 PVlighthouse = np.loadtxt("data/RAT_data_300um_2um_55.csv", delimiter=",", skiprows=1)
 
 if calc:
-
     flat_surf = planar_surface(size=2)  # pyramid size in microns
     triangle_surf = regular_pyramids(55, upright=False, size=2)
 
     # set up ray-tracing options
     rtstr = rt_structure(
-        textures=[triangle_surf, flat_surf],
-        materials=[Si],
-        widths=[si("300um")],
-        incidence=Air,
-        transmission=Air,
+        textures=[triangle_surf, flat_surf], materials=[Si], widths=[si("300um")], incidence=Air, transmission=Air
     )
     result_new = rtstr.calculate(options)
     result = result_new
 
     result = np.vstack(
-        (
-            options["wavelengths"] * 1e9,
-            result["R"],
-            result["R0"],
-            result["T"],
-            result["A_per_layer"][:, 0],
-        )
+        (options["wavelength"] * 1e9, result["R"], result["R0"], result["T"], result["A_per_layer"][:, 0])
     ).T
     np.savetxt("data/rayflare_fullrt_300um_2umpyramids_300_1200nm_3", result)
 
 else:
     result = np.loadtxt("data/rayflare_fullrt_300um_2umpyramids_300_1200nm_3")
-    PVlighthouse = np.loadtxt(
-        "data/RAT_data_300um_2um_55.csv", delimiter=",", skiprows=1
-    )
+    PVlighthouse = np.loadtxt("data/RAT_data_300um_2um_55.csv", delimiter=",", skiprows=1)
 
 
 fig = plt.figure(figsize=(9, 3.7))
 plt.subplot(1, 2, 1)
-plt.plot(
-    result[:, 0],
-    result[:, 1],
-    "-o",
-    color=pal[0],
-    label=r"R$_{total}$",
-    fillstyle="none",
-)
-plt.plot(
-    result[:, 0], result[:, 2], "-o", color=pal[1], label=r"R$_0$", fillstyle="none"
-)
+plt.plot(result[:, 0], result[:, 1], "-o", color=pal[0], label=r"R$_{total}$", fillstyle="none")
+plt.plot(result[:, 0], result[:, 2], "-o", color=pal[1], label=r"R$_0$", fillstyle="none")
 plt.plot(result[:, 0], result[:, 3], "-o", color=pal[2], label=r"T", fillstyle="none")
 plt.plot(result[:, 0], result[:, 4], "-o", color=pal[3], label=r"A", fillstyle="none")
 plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 2], "--", color=pal[0])
@@ -105,18 +83,13 @@ plt.xlim(300, 1200)
 
 plt.legend()
 
-A_single_pass = 1 - np.exp(-200e-6 * Si.alpha(options["wavelengths"]))
+A_single_pass = 1 - np.exp(-200e-6 * Si.alpha(options["wavelength"]))
 A_single_pass_PVL = 1 - np.exp(-200e-6 * Si.alpha(PVlighthouse[:, 0] / 1e9))
-lambertian = 4 * Si.n(options["wavelengths"]) ** 2
+lambertian = 4 * Si.n(options["wavelength"]) ** 2
 
 plt.subplot(1, 2, 2)
 plt.plot(result[:, 0], result[:, 4] / A_single_pass, "-k", label="RayFlare raytracer")
-plt.plot(
-    PVlighthouse[:, 0],
-    PVlighthouse[:, 5] / A_single_pass_PVL,
-    "--b",
-    label="PVLighthouse",
-)
+plt.plot(PVlighthouse[:, 0], PVlighthouse[:, 5] / A_single_pass_PVL, "--b", label="PVLighthouse")
 plt.legend(loc="upper left")
 plt.xlabel("Wavelength (nm)")
 plt.ylabel("Path length enhancement")

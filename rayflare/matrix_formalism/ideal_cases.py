@@ -73,8 +73,8 @@ def lambertian_matrix(
 
         A_matrix = np.zeros((1, int(len(angle_vector) / 2)))
 
-        allArray = COO(whole_matrix)
-        absArray = COO(A_matrix)
+        allArray = COO.from_numpy(whole_matrix)
+        absArray = COO.from_numpy(A_matrix)
 
         if save:
             save_npz(path_or_mats[0], allArray)
@@ -152,8 +152,8 @@ def mirror_matrix(
 
         A_matrix = np.zeros((1, len(overall_bin)))
 
-        allArray = COO(whole_matrix)
-        absArray = COO(A_matrix)
+        allArray = COO.from_numpy(whole_matrix)
+        absArray = COO.from_numpy(A_matrix)
 
         if save:
             save_npz(path_or_mats[0], allArray)

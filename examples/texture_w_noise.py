@@ -20,7 +20,7 @@ noise_height = 0.1
 wavelengths = np.linspace(300, 1200, 40) * 1e-9
 
 options = default_options()
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.n_theta_bins = 100
 options.nx = 30
 options.ny = options.nx
@@ -45,12 +45,7 @@ IZO = material("IZO")()
 C60 = material("C60")()
 
 # stack based on doi:10.1038/s41563-018-0115-4
-front_materials = [
-    Layer(100e-9, MgF2),
-    Layer(110e-9, IZO),
-    Layer(15e-9, C60),
-    Layer(1e-9, LiF),
-]
+front_materials = [Layer(100e-9, MgF2), Layer(110e-9, IZO), Layer(15e-9, C60), Layer(1e-9, LiF)]
 # Layer(440e-9, Perovskite),
 
 Si_materials = [Layer(6.5e-9, aSi_n), Layer(6.5e-9, aSi_i)]
@@ -61,27 +56,17 @@ options.project_name = "perovskite_Si_RT_rough"
 
 
 triangle_surf_smooth = regular_pyramids(
-    elevation_angle=55,
-    upright=True,
-    size=1,
-    interface_layers=Si_materials,
-    name="Si_front",
+    elevation_angle=55, upright=True, size=1, interface_layers=Si_materials, name="Si_front"
 )
 
 triangle_surf_back = regular_pyramids(
-    elevation_angle=55,
-    upright=False,
-    size=1,
-    interface_layers=back_materials,
-    name="Si_back",
+    elevation_angle=55, upright=False, size=1, interface_layers=back_materials, name="Si_back"
 )
 pal = sns.color_palette("husl", n_colors=len(front_materials) + len(back_materials) + 3)
 
 cols = cycler("color", pal)
 
-params = {
-    "axes.prop_cycle": cols,
-}
+params = {"axes.prop_cycle": cols}
 
 plt.rcParams.update(params)
 
@@ -90,7 +75,6 @@ noise_heights = np.linspace(0, 0.3, 5)
 results = []
 
 for j1, nh in enumerate(noise_heights):
-
     start = time()
 
     triangle_surf = rough_pyramids(
@@ -163,23 +147,10 @@ for i1, res in enumerate(results):
     plt.plot(wavelengths * 1e9, res["T"], alpha=alpha[i1], color=pal[1])
     plt.plot(wavelengths * 1e9, res["A_per_layer"][:, 0], alpha=alpha[i1], color=pal[2])
     plt.plot(wavelengths * 1e9, res["A_per_layer"][:, 1], alpha=alpha[i1], color=pal[3])
-    plt.plot(
-        wavelengths * 1e9,
-        np.sum(res["A_per_interface"][0], axis=1),
-        alpha=alpha[i1],
-        color=pal[4],
-    )
-    plt.plot(
-        wavelengths * 1e9,
-        np.sum(res["A_per_interface"][2], axis=1),
-        alpha=alpha[i1],
-        color=pal[5],
-    )
+    plt.plot(wavelengths * 1e9, np.sum(res["A_per_interface"][0], axis=1), alpha=alpha[i1], color=pal[4])
+    plt.plot(wavelengths * 1e9, np.sum(res["A_per_interface"][2], axis=1), alpha=alpha[i1], color=pal[5])
 
-plt.legend(
-    ["R", r"T$_{Ag}$", "Pero", "Si", "front interface", "back interface"],
-    loc=(0.55, 0.35),
-)
+plt.legend(["R", r"T$_{Ag}$", "Pero", "Si", "front interface", "back interface"], loc=(0.55, 0.35))
 plt.xlim(300, 1200)
 plt.ylim(0, 1)
 

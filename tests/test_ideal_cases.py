@@ -22,23 +22,17 @@ def test_perfect_mirror():
 
     options = {"phi_symmetry": np.pi / 4}
 
-    theta_intv, phi_intv, angle_vector = make_angle_vector(
-        20, options["phi_symmetry"], 0.25
-    )
+    theta_intv, phi_intv, angle_vector = make_angle_vector(20, options["phi_symmetry"], 0.25)
 
     R_ind = int(len(angle_vector) / 2)
 
-    mat, _ = mirror_matrix(
-        angle_vector, theta_intv, phi_intv, "test", options, "test", "front", False
-    )
+    mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, "test", options, "test", "front", False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(1)
     assert np.sum(mat, 1)[R_ind:].todense() == approx(0)
 
-    mat, _ = mirror_matrix(
-        angle_vector, theta_intv, phi_intv, "test", options, "test", "rear", False
-    )
+    mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, "test", options, "test", "rear", False)
 
     assert np.sum(mat, 0).todense() == approx(1)
     assert np.sum(mat, 1)[:R_ind].todense() == approx(0)
@@ -79,9 +73,7 @@ def test_lambertian_process():
     bulk_Ge = BulkLayer(bulkthick, Ge, name="Ge_bulk")  # bulk thickness in m
 
     SC = Structure([front_surf, bulk_Ge, back_surf], incidence=Air, transmission=Ge)
-    SC_mirror = Structure(
-        [front_surf, bulk_Ge, back_surf_2], incidence=Air, transmission=Ge
-    )
+    SC_mirror = Structure([front_surf, bulk_Ge, back_surf_2], incidence=Air, transmission=Ge)
 
     process_structure(SC, options)
     process_structure(SC_mirror, options)

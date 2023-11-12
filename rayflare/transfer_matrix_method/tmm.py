@@ -6,7 +6,7 @@ from solcore.absorption_calculator import tmm_core_vec as tmm
 from solcore.absorption_calculator import OptiStack
 
 from rayflare.angles import make_angle_vector, fold_phi
-from rayflare.utilities import get_matrices_or_paths
+from rayflare.utilities import get_matrices_or_paths, get_wavelength
 
 
 def TMM(
@@ -100,8 +100,8 @@ def TMM(
             # absorption
             A_mat[:, i1] = Alayer_prob
 
-        fullmat = COO(RT_mat)
-        A_mat = COO(A_mat)
+        fullmat = COO.from_numpy(RT_mat)
+        A_mat = COO.from_numpy(A_mat)
         return fullmat, A_mat
 
     def make_prof_matrix_wl(wl):
@@ -133,11 +133,10 @@ def TMM(
 
     else:
 
-        wavelengths = options["wavelengths"]
+        get_wavelength(options)
+        wavelengths = options["wavelength"]
 
-        theta_spacing = (
-            options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
-        )
+        theta_spacing = options.theta_spacing if "theta_spacing" in options else "sin"
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(
             options["n_theta_bins"],
@@ -252,7 +251,7 @@ def TMM(
         pass_options = {}
         pass_options["coherent"] = coherent
         pass_options["coherency_list"] = coherency_list
-        pass_options["wavelengths"] = wavelengths
+        pass_options["wavelength"] = wavelengths
         pass_options["depth_spacing"] = options["depth_spacing"]
 
         for pol in pols:
@@ -587,7 +586,8 @@ class tmm_structure:
                 (fn.A1, fn.A2, np.real(fn.A3), np.imag(fn.A3), fn.a1, fn.a3)
             )  # shape is (6, n_layers, num_wl)
 
-        wavelength = options["wavelengths"] * 1e9
+        get_wavelength(options)
+        wavelength = options["wavelength"] * 1e9
         pol = options["pol"]
         angle = options["theta_in"]
 

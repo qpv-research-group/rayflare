@@ -15,7 +15,7 @@ from cycler import cycler
 wavelengths = np.linspace(300, 1200, 40) * 1e-9
 
 options = default_options()
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.nx = 5
 options.ny = options.nx
 options.n_rays = 4 * options.nx**2
@@ -43,9 +43,7 @@ create_new_material(
     os.path.join(cur_path, "data/model_back_ito_k.txt"),
 )
 create_new_material(
-    "Ag_Jiang",
-    os.path.join(cur_path, "data/Ag_UNSW_n.txt"),
-    os.path.join(cur_path, "data/Ag_UNSW_k.txt"),
+    "Ag_Jiang", os.path.join(cur_path, "data/Ag_UNSW_n.txt"), os.path.join(cur_path, "data/Ag_UNSW_k.txt")
 )
 create_new_material(
     "aSi_i",
@@ -63,15 +61,9 @@ create_new_material(
     os.path.join(cur_path, "data/model_n_a_silicon_k.txt"),
 )
 create_new_material(
-    "MgF2_RdeM",
-    os.path.join(cur_path, "data/MgF2_RdeM_n.txt"),
-    os.path.join(cur_path, "data/MgF2_RdeM_k.txt"),
+    "MgF2_RdeM", os.path.join(cur_path, "data/MgF2_RdeM_n.txt"), os.path.join(cur_path, "data/MgF2_RdeM_k.txt")
 )
-create_new_material(
-    "C60",
-    os.path.join(cur_path, "data/C60_Ren_n.txt"),
-    os.path.join(cur_path, "data/C60_Ren_k.txt"),
-)
+create_new_material("C60", os.path.join(cur_path, "data/C60_Ren_n.txt"), os.path.join(cur_path, "data/C60_Ren_k.txt"))
 create_new_material(
     "IZO",
     os.path.join(cur_path, "data/IZO_Ballif_rO2_10pcnt_n.txt"),
@@ -108,20 +100,11 @@ back_materials = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_p), Layer(240e-9, ITO_
 options.project_name = "perovskite_Si_rt"
 
 triangle_surf = regular_pyramids(
-    elevation_angle=55,
-    upright=True,
-    size=1,
-    interface_layers=front_materials,
-    name="coh_front",
-    prof_layers=[5],
+    elevation_angle=55, upright=True, size=1, interface_layers=front_materials, name="coh_front", prof_layers=[5]
 )
 
 triangle_surf_back = regular_pyramids(
-    elevation_angle=55,
-    upright=False,
-    size=1,
-    interface_layers=back_materials,
-    name="Si_back",
+    elevation_angle=55, upright=False, size=1, interface_layers=back_materials, name="Si_back"
 )
 
 rtstr_coh = rt_structure(
@@ -173,9 +156,7 @@ pal = sns.color_palette("husl", n_colors=len(front_materials) + len(back_materia
 
 cols = cycler("color", pal)
 
-params = {
-    "axes.prop_cycle": cols,
-}
+params = {"axes.prop_cycle": cols}
 
 plt.rcParams.update(params)
 
@@ -191,9 +172,7 @@ plt.plot(
     "-o",
     label=[None, "IZO", "C60", None, "Perovskite", None, None],
 )
-plt.plot(
-    wavelengths * 1e9, result_coh["A_per_interface"][1], "-o", label=[None, None, "ITO"]
-)
+plt.plot(wavelengths * 1e9, result_coh["A_per_interface"][1], "-o", label=[None, None, "ITO"])
 
 plt.plot(wavelengths * 1e9, result_inc["R"], "--ko", mfc="none")
 plt.plot(wavelengths * 1e9, result_inc["T"], mfc="none")
@@ -215,9 +194,7 @@ wl_Eg = wavelengths < 800e-9
 
 pal = sns.cubehelix_palette(sum(wl_Eg), reverse=True)
 cols = cycler("color", pal)
-params = {
-    "axes.prop_cycle": cols,
-}
+params = {"axes.prop_cycle": cols}
 plt.rcParams.update(params)
 
 pos = np.arange(0, 440, options.depth_spacing * 1e9)

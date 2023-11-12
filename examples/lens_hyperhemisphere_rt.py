@@ -17,9 +17,7 @@ r = 0.8  # radius of hyperhemisphere
 h = 0.242  # height shift of hyperhemisphere
 
 n_thetas = 20  # 100 used for paper data
-exp_points = (
-    13  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
-)
+exp_points = 13  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
 nxs = 30  # 70 points used for paper data
 thetas = np.linspace(0, np.pi / 2 - 0.05, n_thetas)  # 100 angles used for paper data
 
@@ -37,9 +35,7 @@ edge_points = back.Points[back.Points[:, 2] == 0]
 edge_points = np.vstack([edge_points, [0, 0, 0]])  # add point at centre
 
 
-flat_surf = xyz_texture(
-    edge_points[:, 0], edge_points[:, 1], edge_points[:, 2], coverage_height=0
-)
+flat_surf = xyz_texture(edge_points[:, 0], edge_points[:, 1], edge_points[:, 2], coverage_height=0)
 # this is a flat surface which extends to the edges of the sphere but not beyond.
 
 # plot the hyperhemisphere: 'front' and 'back'. In this case we are actually going to flip it and use the 'back' interface.
@@ -100,11 +96,7 @@ plt.show()
 
 
 rtstr = rt_structure(
-    textures=[flat_surf, hyperhemi],
-    materials=[GaAs],
-    widths=[d_bulk],
-    incidence=Air,
-    transmission=Air,
+    textures=[flat_surf, hyperhemi], materials=[GaAs], widths=[d_bulk], incidence=Air, transmission=Air
 )
 
 # structure:
@@ -121,7 +113,9 @@ options = default_options()
 options.x_limits = [-0.05, 0.05]  # area of the diode
 options.y_limits = [-0.05, 0.05]
 
-options.initial_material = 1  # the rays start in the GaAs (material index 1) rather than in the air above the cell (material index 0)
+options.initial_material = (
+    1  # the rays start in the GaAs (material index 1) rather than in the air above the cell (material index 0)
+)
 options.initial_direction = 1  # default initial direction, which is 1 (downwards)
 
 
@@ -131,7 +125,7 @@ options.periodic = 0
 pal = sns.color_palette("rocket", 4)
 
 
-options.wavelengths = np.array([6e-6])
+options.wavelength = np.array([6e-6])
 options.parallel = False
 options.n_rays = nxs**2
 
@@ -146,40 +140,16 @@ n_interactions = np.zeros(len(thetas))
 theta_distribution = np.zeros((len(thetas), options.n_rays))
 
 if os.path.isfile(
-    "sphere_raytrace_totalT_2e"
-    + str(exp_points)
-    + "_"
-    + str(nxs)
-    + "_points_"
-    + str(options.n_rays)
-    + "_rays_2.txt"
+    "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays_2.txt"
 ):
     T_total = np.loadtxt(
-        "sphere_raytrace_totalT_2e"
-        + str(exp_points)
-        + "_"
-        + str(nxs)
-        + "_points_"
-        + str(options.n_rays)
-        + "_rays.txt"
+        "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt"
     )
     n_interactions = np.loadtxt(
-        "sphere_raytrace_ninter_2e"
-        + str(exp_points)
-        + "_"
-        + str(nxs)
-        + "_points_"
-        + str(options.n_rays)
-        + "_rays.txt"
+        "sphere_raytrace_ninter_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt"
     )
     theta_distribution = np.loadtxt(
-        "sphere_raytrace_thetas_2e"
-        + str(exp_points)
-        + "_"
-        + str(nxs)
-        + "_points_"
-        + str(options.n_rays)
-        + "_rays.txt"
+        "sphere_raytrace_thetas_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt"
     )
 
 else:
@@ -193,33 +163,15 @@ else:
         theta_distribution[j1] = result["thetas"]
 
     np.savetxt(
-        "sphere_raytrace_totalT_2e"
-        + str(exp_points)
-        + "_"
-        + str(nxs)
-        + "_points_"
-        + str(options.n_rays)
-        + "_rays.txt",
+        "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt",
         T_total,
     )
     np.savetxt(
-        "sphere_raytrace_ninter_2e"
-        + str(exp_points)
-        + "_"
-        + str(nxs)
-        + "_points_"
-        + str(options.n_rays)
-        + "_rays.txt",
+        "sphere_raytrace_ninter_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt",
         n_interactions,
     )
     np.savetxt(
-        "sphere_raytrace_thetas_2e"
-        + str(exp_points)
-        + "_"
-        + str(nxs)
-        + "_points_"
-        + str(options.n_rays)
-        + "_rays.txt",
+        "sphere_raytrace_thetas_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt",
         theta_distribution,
     )
 

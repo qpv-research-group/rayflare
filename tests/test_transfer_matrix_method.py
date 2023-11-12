@@ -5,14 +5,8 @@ import numpy as np
 def test_tmm_structure():
     from rayflare.transfer_matrix_method import tmm_structure
 
-    options = dict(
-        wavelengths=np.array([]),
-        pol="s",
-        coherent=True,
-        coherency_list=None,
-        theta_in=0,
-        depth_spacing=10,
-    )
+    options = dict(wavelengths=np.array([]), pol="s", coherent=True, coherency_list=None,
+                   theta_in=0, depth_spacing=10)
     tmm_setup = tmm_structure([])
     RAT = tmm_setup.calculate(options)
 
@@ -41,28 +35,14 @@ def test_inc_coh_tmm():
 
     wl = np.linspace(400, 1200, 5)
 
-    c_list = [
-        ["c", "c", "c", "c"],
-        ["c", "c", "c", "i"],
-        ["c", "i", "i", "c"],
-        ["i", "i", "i", "i"],
-    ]
+    c_list = [["c", "c", "c", "c"], ["c", "c", "c", "i"], ["c", "i", "i", "c"], ["i", "i", "i", "i"]]
 
-    options = dict(
-        wavelengths=wl * 1e-9,
-        pol="u",
-        coherent=False,
-        coherency_list=None,
-        theta_in=0,
-        depth_spacing=10,
-    )
+    options = dict(wavelengths=wl * 1e-9, pol="u", coherent=False, coherency_list=None, theta_in=0, depth_spacing=10)
 
     results = []
     for cl in c_list:
         options["coherency_list"] = cl
-        tmm_setup = tmm_structure(
-            optical_struct, incidence=Air, transmission=Air, no_back_reflection=False
-        )
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
         RAT = tmm_setup.calculate(options)
         results.append(np.sum(RAT["A_per_layer"], 1))
 
@@ -100,23 +80,14 @@ def test_sp_pol():
 
     wl = np.linspace(400, 1200, 10)
 
-    options = dict(
-        wavelengths=wl * 1e-9,
-        pol="u",
-        coherent=True,
-        coherency_list=None,
-        theta_in=0,
-        depth_spacing=10,
-    )
+    options = dict(wavelength=wl * 1e-9, pol="u", coherent=True, coherency_list=None, theta_in=0, depth_spacing=10)
 
     results_s = []
     options["pol"] = "s"
 
     for angle in [0, np.pi / 4, np.pi / 3, 0.49 * np.pi]:
         options["theta_in"] = angle
-        tmm_setup = tmm_structure(
-            optical_struct, incidence=Air, transmission=Air, no_back_reflection=False
-        )
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
         RAT = tmm_setup.calculate(options)
         results_s.append(np.sum(RAT["A_per_layer"], 1))
 
@@ -127,9 +98,7 @@ def test_sp_pol():
 
     for angle in [0, np.pi / 4, np.pi / 3, 0.49 * np.pi]:
         options["theta_in"] = angle
-        tmm_setup = tmm_structure(
-            optical_struct, incidence=Air, transmission=Air, no_back_reflection=False
-        )
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
         RAT = tmm_setup.calculate(options)
         results_p.append(np.sum(RAT["A_per_layer"], 1))
 
@@ -140,9 +109,7 @@ def test_sp_pol():
 
     for angle in [0, np.pi / 4, np.pi / 3, 0.49 * np.pi]:
         options["theta_in"] = angle
-        tmm_setup = tmm_structure(
-            optical_struct, incidence=Air, transmission=Air, no_back_reflection=False
-        )
+        tmm_setup = tmm_structure(optical_struct, incidence=Air, transmission=Air, no_back_reflection=False)
         RAT = tmm_setup.calculate(options)
         results_u.append(np.sum(RAT["A_per_layer"], 1))
 
@@ -222,13 +189,13 @@ def test_tmm_structure_abs():
 
     # anti-reflection coating
 
-    wavelengths = np.linspace(250, 1900, 200) * 1e-9
+    wavelength = np.linspace(250, 1900, 200) * 1e-9
 
-    RCWA_wl = wavelengths
+    RCWA_wl = wavelength
 
     options = {
         "pol": "s",
-        "wavelengths": RCWA_wl,
+        "wavelength": RCWA_wl,
         "parallel": True,
         "n_jobs": -1,
         "theta_in": 0,
@@ -250,9 +217,7 @@ def test_tmm_structure_abs():
         ]
     )
 
-    tmm_setup = tmm_structure(
-        solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False
-    )
+    tmm_setup = tmm_structure(solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False)
 
     integrated = np.zeros((6, 3))
     j1 = 0
@@ -264,13 +229,7 @@ def test_tmm_structure_abs():
             tmm_result = tmm_setup.calculate(options)
 
             integr = (
-                1e4
-                * np.trapz(
-                    wavelengths[:, None] * 1e9 * tmm_result["A_per_layer"],
-                    wavelengths * 1e9,
-                    axis=0,
-                )
-                / 1e9
+                1e4 * np.trapz(wavelength[:, None] * 1e9 * tmm_result["A_per_layer"], wavelength * 1e9, axis=0) / 1e9
             )
 
             integrated[j1, :] = integr[1:]
@@ -291,7 +250,6 @@ def test_tmm_structure_abs():
 
 
 def test_RAT_angle_pol_ninc():
-
     from solcore import si, material
     from solcore.structure import Layer
     from rayflare.transfer_matrix_method import tmm_structure
@@ -304,12 +262,12 @@ def test_RAT_angle_pol_ninc():
     InGaP_e_barrier = material("GaInP")(In=0.5)
     Ag = material("Ag")()
 
-    wavelengths = np.linspace(303, 1000, 10) * 1e-9
+    wavelength = np.linspace(303, 1000, 10) * 1e-9
 
     # define the problem
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelength
 
     SiN = material("Si3N4")()
 
