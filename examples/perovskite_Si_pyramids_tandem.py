@@ -55,7 +55,7 @@ cur_path = os.path.dirname(os.path.abspath(__file__))
 wavelengths = np.linspace(300, 1200, 50) * 1e-9
 
 options = default_options()
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.project_name = "perovskite_Si_example"
 options.n_rays = 2000
 options.n_theta_bins = 30
@@ -118,9 +118,7 @@ front_surf = Interface(
 # front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_widthcorr',
 #                        coherent=True)
 
-back_surf = Interface(
-    "RT_TMM", texture=surf_back, layers=back_materials, name="aSi_ITO_2", coherent=True
-)
+back_surf = Interface("RT_TMM", texture=surf_back, layers=back_materials, name="aSi_ITO_2", coherent=True)
 
 
 bulk_Si = BulkLayer(260e-6, Si, name="Si_bulk")  # bulk thickness in m
@@ -147,14 +145,7 @@ results_per_layer_back = np.sum(results_per_pass["a"][1], 0)
 
 allres = np.flip(
     np.hstack(
-        (
-            R_0[:, None],
-            R_escape[:, None],
-            results_per_layer_front,
-            RAT["A_bulk"].T,
-            results_per_layer_back,
-            RAT["T"].T,
-        )
+        (R_0[:, None], R_escape[:, None], results_per_layer_front, RAT["A_bulk"].T, results_per_layer_back, RAT["T"].T)
     ),
     1,
 )
@@ -162,17 +153,11 @@ allres = np.flip(
 # calculated photogenerated current (Jsc with 100% EQE)
 
 spectr_flux = LightSource(
-    source_type="standard",
-    version="AM1.5g",
-    x=wavelengths,
-    output_units="photon_flux_per_m",
-    concentration=1,
+    source_type="standard", version="AM1.5g", x=wavelengths, output_units="photon_flux_per_m", concentration=1
 ).spectrum(wavelengths)[1]
 
 Jph_Si = q * np.trapz(RAT["A_bulk"][0] * spectr_flux, wavelengths) / 10  # mA/cm2
-Jph_Perovskite = (
-    q * np.trapz(results_per_layer_front[:, 3] * spectr_flux, wavelengths) / 10
-)  # mA/cm2
+Jph_Perovskite = q * np.trapz(results_per_layer_front[:, 3] * spectr_flux, wavelengths) / 10  # mA/cm2
 
 pal = sns.cubehelix_palette(13, start=0.5, rot=-0.9)
 pal.reverse()
@@ -187,7 +172,7 @@ bulk_A_text = ysmoothed[:, 4]
 fig = plt.figure(figsize=(5, 4))
 ax = plt.subplot(111)
 ax.stackplot(
-    options["wavelengths"] * 1e9,
+    options["wavelength"] * 1e9,
     allres.T,
     labels=[
         "Ag",
@@ -211,12 +196,7 @@ ax.set_xlabel("Wavelength (nm)")
 ax.set_ylabel("R/A/T")
 ax.set_xlim(300, 1200)
 ax.set_ylim(0, 1)
-ax.text(
-    530,
-    0.5,
-    "Perovskite: \n" + str(round(Jph_Perovskite, 1)) + " mA/cm$^2$",
-    ha="center",
-)
+ax.text(530, 0.5, "Perovskite: \n" + str(round(Jph_Perovskite, 1)) + " mA/cm$^2$", ha="center")
 ax.text(900, 0.5, "Si: \n" + str(round(Jph_Si, 1)) + " mA/cm$^2$", ha="center")
 
 fig.savefig("perovskite_Si_summary.pdf", bbox_inches="tight", format="pdf")
@@ -229,7 +209,7 @@ pal = sns.cubehelix_palette(24, start=2.8, rot=0.7)
 pal.reverse()
 fig = plt.figure(figsize=(8, 3.5))
 ax = fig.add_subplot(1, 2, 1)
-ax.stackplot(options["wavelengths"] * 1e9, R_per_pass[1:25], colors=pal, labels=label)
+ax.stackplot(options["wavelength"] * 1e9, R_per_pass[1:25], colors=pal, labels=label)
 ax.set_xlim([1000, 1200])
 ax.set_xlabel("Wavelength (nm)")
 ax.set_ylabel("Escape reflection")
@@ -244,12 +224,7 @@ ax.legend(loc="upper left")
 # pal.reverse()
 # fig=plt.figure()
 ax2 = fig.add_subplot(1, 2, 2)
-ax2.stackplot(
-    options["wavelengths"] * 1e9,
-    results_per_pass["A"][0][0:24],
-    colors=pal,
-    labels=label,
-)
+ax2.stackplot(options["wavelength"] * 1e9, results_per_pass["A"][0][0:24], colors=pal, labels=label)
 ax2.set_xlim([1000, 1200])
 ax2.set_xlabel("Wavelength (nm)")
 ax2.set_ylabel("Bulk (Si) absorption per pass")
@@ -279,11 +254,7 @@ if front_surf.prof_layers is not None:
     ax = plt.subplot(111)
     j1 = 0
     for j1, i1 in enumerate([0, 5, 19]):
-        ax.plot(
-            prof_plot[i1, :],
-            color=pal2[j1 + 1],
-            label=str(round(options["wavelengths"][i1] * 1e9, 1)),
-        )
+        ax.plot(prof_plot[i1, :], color=pal2[j1 + 1], label=str(round(options["wavelength"][i1] * 1e9, 1)))
         j1 += 1
     ax.set_ylabel("Absorbed energy density (nm$^{-1}$)")
     ax.legend(title="Wavelength (nm)")
@@ -298,9 +269,7 @@ palhf = sns.cubehelix_palette(256, start=0.5, rot=-0.9)
 palhf.reverse()
 seamap = mpl.colors.ListedColormap(palhf)
 
-_, _, angle_vector = make_angle_vector(
-    options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
-)
+_, _, angle_vector = make_angle_vector(options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"])
 
 mat_path = get_savepath("default", options["project_name"])
 
@@ -317,14 +286,11 @@ summat_back = summat[options["n_theta_bins"] :]
 whole_mat_imshow = summat_back.rename({r"$\theta_{in}$": "a", r"$\theta_{out}$": "b"})
 
 whole_mat_imshow = whole_mat_imshow.assign_coords(
-    a=np.sin(whole_mat_imshow.coords["a"]).data,
-    b=np.sin(whole_mat_imshow.coords["b"]).data,
+    a=np.sin(whole_mat_imshow.coords["a"]).data, b=np.sin(whole_mat_imshow.coords["b"]).data
 )
 
 
-whole_mat_imshow = whole_mat_imshow.rename(
-    {"a": r"$\sin(\theta_{in})$", "b": r"$\sin(\theta_{out})$"}
-)
+whole_mat_imshow = whole_mat_imshow.rename({"a": r"$\sin(\theta_{in})$", "b": r"$\sin(\theta_{out})$"})
 
 
 palhf = sns.cubehelix_palette(256, start=0.5, rot=-0.9)

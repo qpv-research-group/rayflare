@@ -20,15 +20,13 @@ wavelengths = np.linspace(300, 1850, 60) * 1e-9
 pal = sns.color_palette("husl", len(wavelengths))
 cols = cycler("color", pal)
 
-params = {
-    "axes.prop_cycle": cols,
-}
+params = {"axes.prop_cycle": cols}
 
 plt.rcParams.update(params)
 
 # set options
 options = default_options()
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.project_name = "rt_tmm_comparisons"
 options.n_rays = 100000
 options.n_theta_bins = 50
@@ -52,12 +50,7 @@ Air = material("Air")()
 Ta2O5 = material("TaOx1")()  # Ta2O5 (SOPRA database)
 MgF2 = material("MgF2")()  # MgF2 (SOPRA database)
 
-front_materials = [
-    Layer(120e-9, MgF2),
-    Layer(74e-9, Ta2O5),
-    Layer(464e-9, GaInP),
-    Layer(1682e-9, GaAs),
-]
+front_materials = [Layer(120e-9, MgF2), Layer(74e-9, Ta2O5), Layer(464e-9, GaInP), Layer(1682e-9, GaAs)]
 
 back_materials = [Layer(100e-9, SiN)]
 
@@ -73,48 +66,18 @@ surf_pyr_upright = regular_pyramids(upright=True)
 surf_planar = planar_surface()
 
 front_surf = Interface(
-    "TMM",
-    layers=front_materials,
-    texture=surf_planar,
-    name="GaInP_GaAs_TMM",
-    coherent=True,
-    prof_layers=[3, 4],
+    "TMM", layers=front_materials, texture=surf_planar, name="GaInP_GaAs_TMM", coherent=True, prof_layers=[3, 4]
 )
 
 front_surf_pyr = Interface(
-    "TMM",
-    layers=front_materials,
-    texture=surf_pyr_upright,
-    name="GaInP_GaAs_RT",
-    coherent=True,
-    prof_layers=[3, 4],
+    "TMM", layers=front_materials, texture=surf_pyr_upright, name="GaInP_GaAs_RT", coherent=True, prof_layers=[3, 4]
 )
 
-back_surf = Interface(
-    "RT_TMM",
-    layers=back_materials,
-    texture=surf_pyr,
-    name="SiN_RT_TMM",
-    coherent=True,
-)
+back_surf = Interface("RT_TMM", layers=back_materials, texture=surf_pyr, name="SiN_RT_TMM", coherent=True)
 
-back_surf_planar = Interface(
-    "TMM",
-    layers=back_materials,
-    texture=surf_pyr,
-    name="SiN_TMM",
-    coherent=True,
-)
+back_surf_planar = Interface("TMM", layers=back_materials, texture=surf_pyr, name="SiN_TMM", coherent=True)
 
-SC = Structure(
-    [
-        front_surf_pyr,
-        bulk_Ge,
-        back_surf_planar,
-    ],
-    incidence=Air,
-    transmission=Ag,
-)
+SC = Structure([front_surf_pyr, bulk_Ge, back_surf_planar], incidence=Air, transmission=Ag)
 
 
 process_structure(SC, options)
@@ -127,36 +90,15 @@ prof_front = results_RT[2][0]
 # sum over passes
 results_per_layer_front_RT = np.sum(results_per_pass_RT["a"][0], 0)
 
-front_surf_rt = planar_surface(
-    interface_layers=front_materials,
-    prof_layers=[3, 4],
-)  # pyramid size in microns
+front_surf_rt = planar_surface(interface_layers=front_materials, prof_layers=[3, 4])  # pyramid size in microns
 
-front_surf_rt_pyr = regular_pyramids(
-    interface_layers=front_materials,
-    prof_layers=[3, 4],
-)  # pyramid size in microns
+front_surf_rt_pyr = regular_pyramids(interface_layers=front_materials, prof_layers=[3, 4])  # pyramid size in microns
 
-back_surf_rt = regular_pyramids(
-    upright=False, interface_layers=back_materials
-)  # pyramid size in microns
+back_surf_rt = regular_pyramids(upright=False, interface_layers=back_materials)  # pyramid size in microns
 
-back_surf_rt_planar = planar_surface(
-    interface_layers=back_materials
-)  # pyramid size in microns
+back_surf_rt_planar = planar_surface(interface_layers=back_materials)  # pyramid size in microns
 
-rtstr = rt_structure(
-    [
-        front_surf_rt,
-        back_surf_rt_planar,
-    ],
-    [Ge],
-    [bulkthick],
-    Air,
-    Ag,
-    options,
-    use_TMM=True,
-)
+rtstr = rt_structure([front_surf_rt, back_surf_rt_planar], [Ge], [bulkthick], Air, Ag, options, use_TMM=True)
 # RT + TMM
 
 options.n_rays = 4000

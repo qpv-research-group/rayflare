@@ -54,15 +54,16 @@ install_requires = [
     "numpy",
     "solcore",
     "xarray",
-    "sparse",
+    "sparse<=0.14.0",
     "joblib",
     "seaborn",
+    "inkstone",
 ]
 
 
 setup(
     name="rayflare",
-    version="1.2.0",
+    version="1.2.1",
     description="Python-based integrated optical modelling",
     long_description=long_description,
     long_description_content_typgie="text/markdown",
@@ -73,7 +74,7 @@ setup(
     author="Phoebe Pearce",
     author_email="phoebe.pearce15@imperial.ac.uk",
     license="GNU GPLv3",
-    python_requires=">=3.6",
+    python_requires=">=3.6, <3.12",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",
@@ -90,7 +91,7 @@ setup(
     packages=find_packages(exclude=[]),
     package_data={"": ["*.*"]},
     include_package_data=True,
-    setup_requires="pytest-runner",
+    # setup_requires="pytest-runner",
     install_requires=install_requires,
     # tests_require=tests_require,
     # extras_require=extras_require,

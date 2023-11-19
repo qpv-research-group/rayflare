@@ -8,3 +8,4 @@ matplotlib==3.5.1
 scipy==1.7.3
 solcore==5.7.5
 nbsphinx==0.8.8
+inkstone==0.3.12

@@ -49,14 +49,12 @@ options = default_options()
 options.n_rays = 2000
 options.randomize_surface = True
 options.project_name = "GaAs_GaAs_Si_spacer_tmm_rt"
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 
 # Set up materials
 # from solcore.absorption_calculator import download_db
 # download_db() # uncomment to download the database if you haven't already
-epoxy_result = search_db("NOA-61")[
-    0
-]  # Norland optical adhesive 61. n = 1.5, typical for materials used in this way
+epoxy_result = search_db("NOA-61")[0]  # Norland optical adhesive 61. n = 1.5, typical for materials used in this way
 
 MgF2_pageid = str(search_db(os.path.join("MgF2", "Rodriguez-de Marcos"))[0][0])
 Ta2O5_pageid = str(search_db(os.path.join("Ta2O5", "Rodriguez-de Marcos"))[0][0])
@@ -94,10 +92,10 @@ aSi_p = material("aSi_p")()
 aSi_n = material("aSi_n")()
 
 plt.figure()
-plt.plot(wavelengths*1e9, GaAs.n(wavelengths), label='GaAs')
-plt.plot(wavelengths*1e9, GaInP.n(wavelengths), label='GaInP')
-plt.plot(wavelengths*1e9, NOA.n(wavelengths), label='epoxy')
-plt.plot(wavelengths*1e9, Si.n(wavelengths), label='Si')
+plt.plot(wavelengths * 1e9, GaAs.n(wavelengths), label="GaAs")
+plt.plot(wavelengths * 1e9, GaInP.n(wavelengths), label="GaInP")
+plt.plot(wavelengths * 1e9, NOA.n(wavelengths), label="epoxy")
+plt.plot(wavelengths * 1e9, Si.n(wavelengths), label="Si")
 plt.show()
 
 # x = np.linspace(0, 1, 6)
@@ -140,9 +138,7 @@ Si_back_layers = [Layer(6.5e-9, aSi_i), Layer(6.5e-9, aSi_n), Layer(240e-9, ITO_
 
 Si_back_labels = ["a-Si i", "a-Si n", "ITO (back)"]
 
-front_surface = planar_surface(
-    interface_layers=front_layers, prof_layers=cell_layer_ind
-)
+front_surface = planar_surface(interface_layers=front_layers, prof_layers=cell_layer_ind)
 Si_surface = regular_pyramids(upright=True, interface_layers=Si_front_layers)
 back_surface = regular_pyramids(upright=False, interface_layers=Si_back_layers)
 
@@ -183,29 +179,19 @@ for j1, layer_res in enumerate(result["A_per_interface"][2].T):
         Si_back_plot_labels.append(Si_back_labels[j1])
 
 plt.figure(figsize=(8, 4))
-plt.plot(options.wavelengths * 1e9, result["T"], label="T (Al)")
-plt.plot(options.wavelengths * 1e9, result["R"], '--', label="R")
+plt.plot(options.wavelength * 1e9, result["T"], label="T (Al)")
+plt.plot(options.wavelength * 1e9, result["R"], "--", label="R")
 
 if len(front_plot_res) > 0:
-    plt.plot(
-        options.wavelengths * 1e9, np.array(front_plot_res).T, label=front_plot_labels
-    )
+    plt.plot(options.wavelength * 1e9, np.array(front_plot_res).T, label=front_plot_labels)
 
 if len(Si_front_plot_res) > 0:
-    plt.plot(
-        options.wavelengths * 1e9,
-        np.array(Si_front_plot_res).T,
-        label=Si_front_plot_labels,
-    )
+    plt.plot(options.wavelength * 1e9, np.array(Si_front_plot_res).T, label=Si_front_plot_labels)
 
-plt.plot(options.wavelengths * 1e9, result["A_per_layer"][:, 1], label="Si")
+plt.plot(options.wavelength * 1e9, result["A_per_layer"][:, 1], label="Si")
 
 if len(Si_back_plot_res) > 0:
-    plt.plot(
-        options.wavelengths * 1e9,
-        np.array(Si_back_plot_res).T,
-        label=Si_back_plot_labels,
-    )
+    plt.plot(options.wavelength * 1e9, np.array(Si_back_plot_res).T, label=Si_back_plot_labels)
 
 plt.legend(bbox_to_anchor=(1.05, 1))
 plt.xlabel("Wavelength (nm)")
@@ -215,31 +201,12 @@ plt.show()
 
 # limiting currents:
 
-light_source = LightSource(
-    source_type="standard",
-    version="AM1.5g",
-    x=wavelengths,
-    output_units="photon_flux_per_m",
-)
+light_source = LightSource(source_type="standard", version="AM1.5g", x=wavelengths, output_units="photon_flux_per_m")
 
 photon_flux = light_source.spectrum(wavelengths)[1]
 
-J_GaAs_1 = (
-    q
-    * np.trapz(
-        result["A_per_interface"][0][:, cell_layer_ind[0] - 1] * photon_flux,
-        wavelengths,
-    )
-    / 10
-)
-J_GaAs_2 = (
-    q
-    * np.trapz(
-        result["A_per_interface"][0][:, cell_layer_ind[1] - 1] * photon_flux,
-        wavelengths,
-    )
-    / 10
-)
+J_GaAs_1 = q * np.trapz(result["A_per_interface"][0][:, cell_layer_ind[0] - 1] * photon_flux, wavelengths) / 10
+J_GaAs_2 = q * np.trapz(result["A_per_interface"][0][:, cell_layer_ind[1] - 1] * photon_flux, wavelengths) / 10
 J_Si = q * np.trapz(result["A_per_layer"][:, 1] * photon_flux, wavelengths) / 10
 
 print(J_GaAs_1, J_GaAs_2, J_Si)

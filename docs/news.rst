@@ -8,6 +8,18 @@ To update to the latest version of RayFlare, run the following command in your t
 
    pip install rayflare --upgrade
 
+Version 1.2.1 released (2023-11-19)
+------------------------------------
+**Highlights:**
+
+- New RCWA method ([Inkstone](https://github.com/alexysong/inkstone) now intergrated with RayFlare.
+  This is an all-Python program which is therefore easy to install (unlike S4). This means all core u
+  functionality of RayFlare is now available without the need to compile anything on your computer.
+  Users can toggle between S4 and Inkstone by setting the ``RCWA_method`` option.
+- Calculations with unpolarized light using RCWA should be faster now.
+- The ``wavelengths`` user options is now called ``wavelength``, for compatibility with Solcore.
+  ``wavelengths`` still works, but will be deprecated in future.
+
 Version 1.2.0 released (2023-03-21)
 ------------------------------------
 

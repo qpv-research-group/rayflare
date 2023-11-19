@@ -5,7 +5,7 @@
 #
 # Contact: p.pearce@unsw.edu.au
 
-from rayflare.state import State
+from solcore.state import State
 import numpy as np
 
 
@@ -15,7 +15,7 @@ class default_options(State):
     """
 
     def __init__(self):
-        self.wavelengths = np.linspace(300, 1800, 300) * 1e-9
+        self.wavelength = np.linspace(300, 1800, 300) * 1e-9
         self.phi_in = 0
         self.theta_in = 0
         self.phi_symmetry = np.pi / 2
@@ -44,6 +44,7 @@ class default_options(State):
             WeismannFormulation=False,
             Verbosity=0,
         )
+        self.RCWA_method = 'S4'
 
         self.orders = 10
 

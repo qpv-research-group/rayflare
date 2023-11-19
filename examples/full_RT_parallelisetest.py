@@ -29,7 +29,7 @@ triangle_surf = regular_pyramids(30)
 
 options = default_options()
 
-options.wavelengths = np.linspace(700, 1800, 7) * 1e-9
+options.wavelength = np.linspace(700, 1800, 7) * 1e-9
 options.theta_in = 45 * np.pi / 180
 options.nx = 5
 options.ny = 5
@@ -49,15 +49,11 @@ result_new = rtstr.calculate(options)
 result = result_new
 
 plt.figure()
-plt.plot(options["wavelengths"] * 1e9, result["R"])
-plt.plot(options["wavelengths"] * 1e9, result["T"])
-plt.plot(options["wavelengths"] * 1e9, result["A_per_layer"])
-plt.plot(
-    options["wavelengths"] * 1e9,
-    result["R"] + result["T"] + np.sum(result["A_per_layer"], 1),
-    "g",
-)
-plt.plot(options["wavelengths"] * 1e9, result["R0"], "--")
+plt.plot(options["wavelength"] * 1e9, result["R"])
+plt.plot(options["wavelength"] * 1e9, result["T"])
+plt.plot(options["wavelength"] * 1e9, result["A_per_layer"])
+plt.plot(options["wavelength"] * 1e9, result["R"] + result["T"] + np.sum(result["A_per_layer"], 1), "g")
+plt.plot(options["wavelength"] * 1e9, result["R0"], "--")
 plt.legend(["R", "T", "L1", "L2", "L3", "tot", "R0"])
 plt.show()
 
@@ -81,15 +77,11 @@ result_old = rtstr.calculate(options)
 result = result_old
 
 plt.figure()
-plt.plot(options["wavelengths"] * 1e9, result["R"])
-plt.plot(options["wavelengths"] * 1e9, result["T"])
-plt.plot(options["wavelengths"] * 1e9, result["A_per_layer"])
-plt.plot(
-    options["wavelengths"] * 1e9,
-    result["R"] + result["T"] + np.sum(result["A_per_layer"], 1),
-    "g",
-)
-plt.plot(options["wavelengths"] * 1e9, result["R0"])
+plt.plot(options["wavelength"] * 1e9, result["R"])
+plt.plot(options["wavelength"] * 1e9, result["T"])
+plt.plot(options["wavelength"] * 1e9, result["A_per_layer"])
+plt.plot(options["wavelength"] * 1e9, result["R"] + result["T"] + np.sum(result["A_per_layer"], 1), "g")
+plt.plot(options["wavelength"] * 1e9, result["R0"])
 plt.legend(["R", "T", "L1", "L2", "L3", "tot", "R0"])
 plt.show()
 
@@ -105,9 +97,9 @@ strt = tmm_structure(stack, incidence=Air, transmission=Air, no_back_reflection=
 output = strt.calculate(options, profile=True, layers=[1, 2, 3])
 
 plt.figure()
-plt.plot(options["wavelengths"] * 1e9, output["R"])
-plt.plot(options["wavelengths"] * 1e9, output["T"])
-plt.plot(options["wavelengths"] * 1e9, output["A_per_layer"])
+plt.plot(options["wavelength"] * 1e9, output["R"])
+plt.plot(options["wavelength"] * 1e9, output["T"])
+plt.plot(options["wavelength"] * 1e9, output["A_per_layer"])
 plt.legend(["R", "T", "L1", "L2", "L3"])
 plt.ylim(0, 1)
 plt.show()

@@ -61,15 +61,11 @@ wavelengths = np.linspace(300, 1190, 20) * 1e-9
 
 options = default_options()
 options.n_rays = 1000
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 
 # set up ray-tracing options
 rtstr = rt_structure(
-    textures=[random_surf, flat_surf],
-    materials=[Si],
-    widths=[200e-6],
-    incidence=Air,
-    transmission=Air,
+    textures=[random_surf, flat_surf], materials=[Si], widths=[200e-6], incidence=Air, transmission=Air
 )
 result = rtstr.calculate(options)
 
@@ -94,14 +90,8 @@ plt.ylim(0, 1)
 plt.show()
 
 plt.figure()
-plt.plot(
-    wavelengths * 1e9,
-    np.mean(result["n_interactions"], 1),
-    label="Mean number of surface interactions",
-)
-plt.plot(
-    wavelengths * 1e9, np.mean(result["n_passes"], 1), label="Mean number of passes"
-)
+plt.plot(wavelengths * 1e9, np.mean(result["n_interactions"], 1), label="Mean number of surface interactions")
+plt.plot(wavelengths * 1e9, np.mean(result["n_passes"], 1), label="Mean number of passes")
 plt.xlabel("Wavelength (nm)")
 plt.ylabel("N")
 plt.autoscale(tight=True)

@@ -2,12 +2,9 @@ from pytest import approx, mark
 import numpy as np
 import sys
 
-@mark.skipif(
-    sys.platform == "win32",
-    reason="S4 (RCWA) only installed for tests under Linux and macOS",
-)
-def test_tmm_rcwa_profile():
 
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+def test_tmm_rcwa_profile():
     from rayflare.utilities import make_absorption_function
     from rayflare.transfer_matrix_method import tmm_structure
     from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
@@ -38,18 +35,14 @@ def test_tmm_rcwa_profile():
     options.coherent = False
     options.coherency_list = ["c", "i"]
 
-    tmmstr = tmm_structure(
-        [Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)],
-        incidence=Air,
-        transmission=Air,
-    )
+    tmmstr = tmm_structure([Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)], incidence=Air, transmission=Air)
     result_tmm = tmmstr.calculate_profile(options)
 
     rcwastr = rcwa_structure(
         [Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)],
         incidence=Air,
         transmission=Air,
-        size=((50, 0), (0,50)),
+        size=((50, 0), (0, 50)),
         options=options,
     )
     result_rcwa = rcwastr.calculate_profile(options)
@@ -64,27 +57,17 @@ def test_tmm_rcwa_profile():
     p_material_GaAs_width = tmmstr.layer_stack.widths[0] * 1e-9 - n_material_GaAs_width
 
     n_material_GaAs = GaAs_SC(
-        Nd=si(3e18, "cm-3"),
-        hole_diffusion_length=si("400nm"),
-        electron_mobility=50e-4,
-        relative_permittivity=12.4,
+        Nd=si(3e18, "cm-3"), hole_diffusion_length=si("400nm"), electron_mobility=50e-4, relative_permittivity=12.4
     )
     p_material_GaAs = GaAs_SC(
-        Na=si(1e17, "cm-3"),
-        electron_diffusion_length=si("1um"),
-        electron_mobility=100e-4,
-        relative_permittivity=12.4,
+        Na=si(1e17, "cm-3"), electron_diffusion_length=si("1um"), electron_mobility=100e-4, relative_permittivity=12.4
     )
 
     n_material_Si_width = si("500nm")
     p_material_Si_width = tmmstr.layer_stack.widths[1] * 1e-9 - n_material_Si_width
 
     n_material_Si = Si_SC(
-        T=T,
-        Nd=si(1e21, "cm-3"),
-        hole_diffusion_length=si("10um"),
-        electron_mobility=50e-4,
-        relative_permittivity=11.68,
+        T=T, Nd=si(1e21, "cm-3"), hole_diffusion_length=si("10um"), electron_mobility=50e-4, relative_permittivity=11.68
     )
     p_material_Si = Si_SC(
         T=T,
@@ -104,13 +87,9 @@ def test_tmm_rcwa_profile():
     V = np.linspace(0, 2, 200)
     options_sc.voltages = V
 
-    pos_tmm, diff_absorb_fn = make_absorption_function(
-        result_tmm, tmmstr, options
-    )
+    pos_tmm, diff_absorb_fn = make_absorption_function(result_tmm, tmmstr, options)
 
-    pos_rcwa, diff_absorb_fn_rcwa = make_absorption_function(
-        result_rcwa, rcwastr, options
-    )
+    pos_rcwa, diff_absorb_fn_rcwa = make_absorption_function(result_rcwa, rcwastr, options)
 
     regen_tmm = diff_absorb_fn(pos_tmm)
     regen_rcwa = diff_absorb_fn_rcwa(pos_rcwa)
@@ -124,16 +103,8 @@ def test_tmm_rcwa_profile():
         [
             Junction(
                 [
-                    Layer(
-                        width=n_material_GaAs_width,
-                        material=n_material_GaAs,
-                        role="emitter",
-                    ),
-                    Layer(
-                        width=p_material_GaAs_width,
-                        material=p_material_GaAs,
-                        role="base",
-                    ),
+                    Layer(width=n_material_GaAs_width, material=n_material_GaAs, role="emitter"),
+                    Layer(width=p_material_GaAs_width, material=p_material_GaAs, role="base"),
                 ],
                 sn=2,
                 sp=2,
@@ -141,14 +112,8 @@ def test_tmm_rcwa_profile():
             ),
             Junction(
                 [
-                    Layer(
-                        width=n_material_Si_width,
-                        material=n_material_Si,
-                        role="emitter",
-                    ),
-                    Layer(
-                        width=p_material_Si_width, material=p_material_Si, role="base"
-                    ),
+                    Layer(width=n_material_Si_width, material=n_material_Si, role="emitter"),
+                    Layer(width=p_material_Si_width, material=p_material_Si, role="base"),
                 ],
                 sn=1,
                 sp=1,
@@ -165,16 +130,8 @@ def test_tmm_rcwa_profile():
         [
             Junction(
                 [
-                    Layer(
-                        width=n_material_GaAs_width,
-                        material=n_material_GaAs,
-                        role="emitter",
-                    ),
-                    Layer(
-                        width=p_material_GaAs_width,
-                        material=p_material_GaAs,
-                        role="base",
-                    ),
+                    Layer(width=n_material_GaAs_width, material=n_material_GaAs, role="emitter"),
+                    Layer(width=p_material_GaAs_width, material=p_material_GaAs, role="base"),
                 ],
                 sn=2,
                 sp=2,
@@ -182,14 +139,8 @@ def test_tmm_rcwa_profile():
             ),
             Junction(
                 [
-                    Layer(
-                        width=n_material_Si_width,
-                        material=n_material_Si,
-                        role="emitter",
-                    ),
-                    Layer(
-                        width=p_material_Si_width, material=p_material_Si, role="base"
-                    ),
+                    Layer(width=n_material_Si_width, material=n_material_Si, role="emitter"),
+                    Layer(width=p_material_Si_width, material=p_material_Si, role="base"),
                 ],
                 sn=1,
                 sp=1,
@@ -208,7 +159,6 @@ def test_tmm_rcwa_profile():
 
 
 def test_matrix_method_profile():
-
     from rayflare.textures import regular_pyramids
     from rayflare.structure import Interface, BulkLayer, Structure
     from rayflare.matrix_formalism import calculate_RAT, process_structure
@@ -229,9 +179,7 @@ def test_matrix_method_profile():
     options.ny = 5
     options.depth_spacing = si("1nm")
     options.depth_spacing_bulk = si("10um")
-    _, _, angle_vector = make_angle_vector(
-        options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"]
-    )
+    _, _, angle_vector = make_angle_vector(options["n_theta_bins"], options["phi_symmetry"], options["c_azimuth"])
     options.bulk_profile = True
     options.n_rays = options.nx**2 * int(len(angle_vector) / 2)
 
@@ -292,16 +240,10 @@ def test_matrix_method_profile():
     width_bulk = bulk_Si.width
     widths_back = back_surf.widths
 
-    positions, absorb_fn = make_absorption_function(
-        results, SC, options
-    )
+    positions, absorb_fn = make_absorption_function(results, SC, options)
 
-    pos_front = np.arange(
-        0, np.sum(widths_front) * 1e9 - 1e-12, options.depth_spacing * 1e9
-    )
-    pos_bulk = np.sum(widths_front) * 1e6 + np.arange(
-        0, width_bulk * 1e6 - 1e-12, options.depth_spacing_bulk * 1e6
-    )
+    pos_front = np.arange(0, np.sum(widths_front) * 1e9 - 1e-12, options.depth_spacing * 1e9)
+    pos_bulk = np.sum(widths_front) * 1e6 + np.arange(0, width_bulk * 1e6 - 1e-12, options.depth_spacing_bulk * 1e6)
     pos_back = (
         np.sum(widths_front) * 1e9
         + width_bulk * 1e9
@@ -331,7 +273,6 @@ def test_matrix_method_profile():
 
 
 def test_rt_tmm_profile():
-
     from rayflare.textures import regular_pyramids, planar_surface
     from rayflare.options import default_options
     from rayflare.ray_tracing import rt_structure
@@ -385,14 +326,10 @@ def test_rt_tmm_profile():
 
     Si_back_layers = [Layer(500e-9, Si_opt), Layer(240e-9, ITO)]
 
+    front_surface = planar_surface(interface_layers=front_layers, prof_layers=cell_layer_ind)
+    Si_surface = regular_pyramids(upright=True)  # Fresnel instead of TMM
 
-    front_surface = planar_surface(
-        interface_layers=front_layers, prof_layers=cell_layer_ind
-    )
-    Si_surface = regular_pyramids(upright=True) # Fresnel instead of TMM
-
-    back_surface = regular_pyramids(upright=False, interface_layers=Si_back_layers,
-                                    prof_layers=[1])
+    back_surface = regular_pyramids(upright=False, interface_layers=Si_back_layers, prof_layers=[1])
 
     rt_str = rt_structure(
         textures=[front_surface, Si_surface, back_surface],
@@ -409,69 +346,51 @@ def test_rt_tmm_profile():
     positions, absorb_func = make_absorption_function(result, rt_str, options)
 
     n_material_GaAs = GaAs(
-        Nd=si(3e18, "cm-3"),
-        hole_diffusion_length=si("400nm"),
-        electron_mobility=50e-4,
-        relative_permittivity=12.4,
+        Nd=si(3e18, "cm-3"), hole_diffusion_length=si("400nm"), electron_mobility=50e-4, relative_permittivity=12.4
     )
     p_material_GaAs = GaAs(
-        Na=si(1e17, "cm-3"),
-        electron_diffusion_length=si("1um"),
-        electron_mobility=100e-4,
-        relative_permittivity=12.4,
+        Na=si(1e17, "cm-3"), electron_diffusion_length=si("1um"), electron_mobility=100e-4, relative_permittivity=12.4
     )
 
     GaAs_junc_1 = Junction(
-                [Layer(
-                        width=d1 / 4,
-                        material=n_material_GaAs,
-                        role="emitter"),
-                Layer(
-                        width=3*d1 / 4,
-                        material=p_material_GaAs,
-                        role="base")], sn=2, sp=2, kind="DA")
+        [
+            Layer(width=d1 / 4, material=n_material_GaAs, role="emitter"),
+            Layer(width=3 * d1 / 4, material=p_material_GaAs, role="base"),
+        ],
+        sn=2,
+        sp=2,
+        kind="DA",
+    )
 
     GaAs_junc_2 = Junction(
-                [Layer(
-                        width=d2 / 4,
-                        material=n_material_GaAs,
-                        role="emitter"),
-                Layer(
-                        width=3*d2 / 4,
-                        material=p_material_GaAs,
-                        role="base")], sn=2, sp=2, kind="DA")
+        [
+            Layer(width=d2 / 4, material=n_material_GaAs, role="emitter"),
+            Layer(width=3 * d2 / 4, material=p_material_GaAs, role="base"),
+        ],
+        sn=2,
+        sp=2,
+        kind="DA",
+    )
 
     n_material_Si_width = si("500nm")
     p_material_Si_width = d_Si - n_material_Si_width
 
     n_material_Si = Si(
-        Nd=si(1e21, "cm-3"),
-        hole_diffusion_length=si("10um"),
-        electron_mobility=50e-4,
-        relative_permittivity=11.68,
+        Nd=si(1e21, "cm-3"), hole_diffusion_length=si("10um"), electron_mobility=50e-4, relative_permittivity=11.68
     )
     p_material_Si = Si(
-        Na=si(1e16, "cm-3"),
-        electron_diffusion_length=si("290um"),
-        hole_mobility=400e-4,
-        relative_permittivity=11.68,
+        Na=si(1e16, "cm-3"), electron_diffusion_length=si("290um"), hole_mobility=400e-4, relative_permittivity=11.68
     )
 
     Si_junc = Junction(
-                [
-                    Layer(
-                        width=n_material_Si_width,
-                        material=n_material_Si,
-                        role="emitter",
-                    ),
-                    Layer(
-                        width=p_material_Si_width, material=p_material_Si, role="base"
-                    ),
-                ],
-                sn=1,
-                sp=1,
-                kind="DA",
-            )
+        [
+            Layer(width=n_material_Si_width, material=n_material_Si, role="emitter"),
+            Layer(width=p_material_Si_width, material=p_material_Si, role="base"),
+        ],
+        sn=1,
+        sp=1,
+        kind="DA",
+    )
 
     solar_cell = SolarCell(
         [
@@ -483,7 +402,7 @@ def test_rt_tmm_profile():
             Layer(d_epoxy, epoxy),
             Si_junc,
             Layer(500e-9, Si),
-            Layer(240e-9, ITO)
+            Layer(240e-9, ITO),
         ],
         external_reflected=result["R"],
         external_absorbed=absorb_func,
@@ -496,9 +415,9 @@ def test_rt_tmm_profile():
 
     solar_cell_solver(solar_cell, "qe", options_sc)
 
-    GaAs_1 = result["A_per_interface"][0][:,1]
-    GaAs_2 = result["A_per_interface"][0][:,3]
-    Si_abs = result["A_per_layer"][:,1]
+    GaAs_1 = result["A_per_interface"][0][:, 1]
+    GaAs_2 = result["A_per_interface"][0][:, 3]
+    Si_abs = result["A_per_layer"][:, 1]
 
     assert np.all(solar_cell[1].qe["EQE"] < 1)
     assert np.all(solar_cell[3].qe["EQE"] < 1)

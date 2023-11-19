@@ -12,7 +12,6 @@ from copy import deepcopy
 import math
 import numpy as np
 
-
 def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
     """Defines RTSurface textures for ray-tracing of regular upright or inverted regular square-base pyramids.
 
@@ -28,7 +27,14 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
     char_angle = math.radians(elevation_angle)
     Lx = size * 1
     Ly = size * 1
-    h = Lx * math.tan(char_angle) / 2
+
+    if "height_distribution" in kwargs:
+        h = np.random.choice(kwargs["height_distribution"]["h"],
+                                      p=kwargs["height_distribution"]["p"])
+
+    else:
+        h = Lx * math.tan(char_angle) / 2
+
     x = np.array([0, Lx / 2, Lx, 0, Lx])
     y = np.array([0, Ly / 2, 0, Ly, Ly])
 
@@ -482,7 +488,8 @@ def rough_planar_surface(
 
 
 def hemisphere_surface(
-    size=1, n_per_side=20, radius=0.5, offset=0, noise_angle=0, stretch=1, **kwargs
+    size=1, n_per_side=20, radius=0.5, offset=0, noise_angle=0, stretch=1,
+        upright=True, **kwargs
 ):
 
     """Creates a planar surface with a hemispherical cap embedded in it. The planar part of the surface can be
@@ -564,6 +571,9 @@ def hemisphere_surface(
 
     all_points[:, 0] = all_points[:, 0] + size / 2
     all_points[:, 1] = all_points[:, 1] + size / 2
+
+    if not upright:
+        all_points[:, 2] = -all_points[:, 2]
 
     surfs = xyz_texture(*all_points.T, coverage_height=0, **kwargs)
 

@@ -11,6 +11,7 @@ import os
 from sparse import load_npz
 import xarray as xr
 
+from rayflare import logger
 
 def make_absorption_function(result, structure, options):
     """
@@ -34,6 +35,7 @@ def make_absorption_function(result, structure, options):
     from rayflare.ray_tracing import rt_structure
     from rayflare.structure import Structure
 
+    get_wavelength(options)
     # determine the type of structure to figure out how to process the result:
 
     if isinstance(structure, Structure):
@@ -84,7 +86,7 @@ def make_absorption_function(result, structure, options):
         layer_start = np.insert(np.cumsum(np.insert(widths_front, 0, 0)), 0, 0)
         layer_end = np.cumsum(np.insert(widths_front, 0, 0))
 
-        prof_front = np.zeros((len(options.wavelengths), len(front_positions)))
+        prof_front = np.zeros((len(options.wavelength), len(front_positions)))
 
         if structure[0].prof_layers is not None:
 
@@ -106,7 +108,7 @@ def make_absorption_function(result, structure, options):
         layer_start = np.insert(np.cumsum(np.insert(widths_back, 0, 0)), 0, 0)
         layer_end = np.cumsum(np.insert(widths_back, 0, 0))
 
-        prof_back = np.zeros((len(options.wavelengths), len(back_positions)))
+        prof_back = np.zeros((len(options.wavelength), len(back_positions)))
 
         if structure[2].prof_layers is not None:
 
@@ -172,7 +174,6 @@ def make_absorption_function(result, structure, options):
                 index_offset_surf = 0  # data for each interface is saved separately in a list in result["interface_profiles"]
 
                 if structure.tmm_or_fresnel[i1] == 1:  # tmm interface
-                    print("interface", i1, "is tmm")
 
                     surf_positions = np.arange(
                         0,
@@ -180,13 +181,12 @@ def make_absorption_function(result, structure, options):
                         options.depth_spacing * 1e9,
                     )
                     surf_prof = np.zeros(
-                        (len(options.wavelengths), len(surf_positions))
+                        (len(options.wavelength), len(surf_positions))
                     )
 
                     if hasattr(surf, "prof_layers"):
 
                         data = result["interface_profiles"][i1]
-                        print("data", data)
 
                         layer_start = np.insert(
                             np.cumsum(
@@ -199,7 +199,6 @@ def make_absorption_function(result, structure, options):
                         layer_end = np.cumsum(
                             np.insert(structure.interface_layer_widths[i1], 0, 0)
                         )
-                        print(layer_start, layer_end)
 
                         for j1 in surf.prof_layers:
                             indices = np.logical_and(
@@ -207,7 +206,7 @@ def make_absorption_function(result, structure, options):
                                 surf_positions < layer_end[j1],
                             )
                             ind_diff = np.sum(indices)
-                            print(indices)
+
                             surf_prof[:, indices] = (
                                 1e9
                                 * data[
@@ -217,7 +216,6 @@ def make_absorption_function(result, structure, options):
                             )
                             index_offset_surf += ind_diff
 
-                    print(surf_prof)
                     all_data.append(surf_prof)
                     all_positions.append(
                         surf_positions / 1e9 + cumulative_width
@@ -226,13 +224,12 @@ def make_absorption_function(result, structure, options):
                     cumulative_width += (
                         np.sum(structure.interface_layer_widths[i1]) * 1e-9
                     )  # cumulative in m
-                    print(cumulative_width * 1e6)
 
                 # bulk underneath the interface:
                 if (
                     i1 < len(structure.surfaces) - 1
                 ):  # no bulk underneath final interface!
-                    print("bulk surface", i1)
+
                     data = result["profile"]
 
                     indices = np.logical_and(
@@ -256,11 +253,8 @@ def make_absorption_function(result, structure, options):
                     all_positions.append(pos_from_zero + cumulative_width)
 
                     cumulative_width += structure.widths[i1]
-                    print(cumulative_width * 1e6)
 
             positions = np.hstack(all_positions)
-            print("shape", positions.shape)
-            print(np.hstack(all_data).shape)
             diff_absorb_fn = interp1d(positions, np.hstack(all_data))
 
         else:
@@ -284,7 +278,7 @@ def get_matrices_or_paths(
         )
 
     if os.path.isfile(savepath_RT) and os.path.isfile(savepath_A) and not overwrite:
-        print("Existing angular redistribution matrices found")
+        logger.info("Existing angular redistribution matrices found")
         existing = True
         full_mat = load_npz(savepath_RT)
         A_mat = load_npz(savepath_A)
@@ -294,7 +288,7 @@ def get_matrices_or_paths(
                 prof_dataset = xr.load_dataset(prof_mat_path)
                 return [existing, [full_mat, A_mat, prof_dataset]]
             else:
-                print("Recalculating with absorption profile information")
+                logger.info("Recalculating with absorption profile information")
                 existing = False
                 return [existing, [savepath_RT, savepath_A, prof_mat_path]]
 
@@ -343,3 +337,15 @@ def get_savepath(save_location, project_name):
         os.mkdir(structpath)
 
     return structpath
+
+
+def get_wavelength(options):
+    # wavelengths (plural) will be deprecated and should be wavelength (singular) instead,
+    # but this is to ensure backwards compatibility for the next few versions
+
+    if "wavelengths" in options:
+        options["wavelength"] = options["wavelengths"]
+        logger.warning(
+            "The option 'wavelengths' (plural) will be deprecated in the next major version. Please use 'wavelength' (singular) instead. "
+            "Currently, wavelengths (plural) will override wavelength (singular) if both are specified."
+        )

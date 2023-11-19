@@ -32,7 +32,7 @@ wl = np.linspace(300, 1201, 50) * 1e-9
 
 # setting options
 options = default_options()
-options.wavelengths = wl
+options.wavelength = wl
 options.nx = nxy
 options.ny = nxy
 options.n_rays = 2 * nxy**2
@@ -66,9 +66,7 @@ profile_rt = result_rt["profile"]
 options.coherent = False
 options.coherency_list = ["c", "i"]
 
-tmmstr = tmm_structure(
-    [Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)], incidence=Air, transmission=Air
-)
+tmmstr = tmm_structure([Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)], incidence=Air, transmission=Air)
 result_tmm = tmmstr.calculate_profile(options)
 
 total_A_tmm = result_tmm["A_per_layer"]
@@ -78,11 +76,7 @@ profile_tmm = result_tmm["profile"]
 options.orders = 2
 
 rcwastr = rcwa_structure(
-    [Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)],
-    ((0, 100), (100, 0)),
-    options,
-    incidence=Air,
-    transmission=Air,
+    [Layer(GaAs_total_d, GaAs), Layer(Si_total_d, Si)], ((0, 100), (100, 0)), options, incidence=Air, transmission=Air
 )
 result_rcwa = rcwastr.calculate_profile(options)
 
@@ -99,34 +93,20 @@ n_material_GaAs_width = si("300nm")
 p_material_GaAs_width = rtstr.widths[0] - n_material_GaAs_width
 
 n_material_GaAs = GaAs_SC(
-    Nd=si(3e18, "cm-3"),
-    hole_diffusion_length=si("400nm"),
-    electron_mobility=50e-4,
-    relative_permittivity=12.4,
+    Nd=si(3e18, "cm-3"), hole_diffusion_length=si("400nm"), electron_mobility=50e-4, relative_permittivity=12.4
 )
 p_material_GaAs = GaAs_SC(
-    Na=si(1e17, "cm-3"),
-    electron_diffusion_length=si("1um"),
-    electron_mobility=100e-4,
-    relative_permittivity=12.4,
+    Na=si(1e17, "cm-3"), electron_diffusion_length=si("1um"), electron_mobility=100e-4, relative_permittivity=12.4
 )
 
 n_material_Si_width = si("500nm")
 p_material_Si_width = rtstr.widths[1] - n_material_Si_width
 
 n_material_Si = Si_SC(
-    T=T,
-    Nd=si(1e21, "cm-3"),
-    hole_diffusion_length=si("10um"),
-    electron_mobility=50e-4,
-    relative_permittivity=11.68,
+    T=T, Nd=si(1e21, "cm-3"), hole_diffusion_length=si("10um"), electron_mobility=50e-4, relative_permittivity=11.68
 )
 p_material_Si = Si_SC(
-    T=T,
-    Na=si(1e16, "cm-3"),
-    electron_diffusion_length=si("290um"),
-    hole_mobility=400e-4,
-    relative_permittivity=11.68,
+    T=T, Na=si(1e16, "cm-3"), electron_diffusion_length=si("290um"), hole_mobility=400e-4, relative_permittivity=11.68
 )
 
 from solcore.solar_cell_solver import default_options as defaults_solcore
@@ -140,24 +120,16 @@ options_sc.theta = options.theta_in * 180 / np.pi
 V = np.linspace(0, 2, 200)
 options_sc.voltages = V
 
-positions, diff_absorb_fn = make_absorption_function(
-    result_rt, rtstr, options,
-)
+positions, diff_absorb_fn = make_absorption_function(result_rt, rtstr, options)
 
-options.positions = positions
+options_sc.position = positions
 
 solar_cell = SolarCell(
     [
         Junction(
             [
-                Layer(
-                    width=n_material_GaAs_width,
-                    material=n_material_GaAs,
-                    role="emitter",
-                ),
-                Layer(
-                    width=p_material_GaAs_width, material=p_material_GaAs, role="base"
-                ),
+                Layer(width=n_material_GaAs_width, material=n_material_GaAs, role="emitter"),
+                Layer(width=p_material_GaAs_width, material=p_material_GaAs, role="base"),
             ],
             sn=2,
             sp=2,
@@ -165,9 +137,7 @@ solar_cell = SolarCell(
         ),
         Junction(
             [
-                Layer(
-                    width=n_material_Si_width, material=n_material_Si, role="emitter"
-                ),
+                Layer(width=n_material_Si_width, material=n_material_Si, role="emitter"),
                 Layer(width=p_material_Si_width, material=p_material_Si, role="base"),
             ],
             sn=1,
@@ -202,9 +172,7 @@ plt.ylim(-20, 250)
 plt.xlim(0, 1.8)
 plt.legend()
 plt.ylabel("Current (A/m$^2$)")
-plt.xlabel(
-    "Voltage (V)"
-)  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
+plt.xlabel("Voltage (V)")  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
 plt.show()
 
 positions, diff_absorb_fn = make_absorption_function(result_tmm, tmmstr, options)
@@ -215,14 +183,8 @@ solar_cell = SolarCell(
     [
         Junction(
             [
-                Layer(
-                    width=n_material_GaAs_width,
-                    material=n_material_GaAs,
-                    role="emitter",
-                ),
-                Layer(
-                    width=p_material_GaAs_width, material=p_material_GaAs, role="base"
-                ),
+                Layer(width=n_material_GaAs_width, material=n_material_GaAs, role="emitter"),
+                Layer(width=p_material_GaAs_width, material=p_material_GaAs, role="base"),
             ],
             sn=2,
             sp=2,
@@ -230,9 +192,7 @@ solar_cell = SolarCell(
         ),
         Junction(
             [
-                Layer(
-                    width=n_material_Si_width, material=n_material_Si, role="emitter"
-                ),
+                Layer(width=n_material_Si_width, material=n_material_Si, role="emitter"),
                 Layer(width=p_material_Si_width, material=p_material_Si, role="base"),
             ],
             sn=1,
@@ -268,9 +228,7 @@ plt.ylim(-20, 250)
 plt.xlim(0, 1.8)
 plt.legend()
 plt.ylabel("Current (A/m$^2$)")
-plt.xlabel(
-    "Voltage (V)"
-)  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
+plt.xlabel("Voltage (V)")  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
 plt.show()
 
 
@@ -282,14 +240,8 @@ solar_cell = SolarCell(
     [
         Junction(
             [
-                Layer(
-                    width=n_material_GaAs_width,
-                    material=n_material_GaAs,
-                    role="emitter",
-                ),
-                Layer(
-                    width=p_material_GaAs_width, material=p_material_GaAs, role="base"
-                ),
+                Layer(width=n_material_GaAs_width, material=n_material_GaAs, role="emitter"),
+                Layer(width=p_material_GaAs_width, material=p_material_GaAs, role="base"),
             ],
             sn=2,
             sp=2,
@@ -297,9 +249,7 @@ solar_cell = SolarCell(
         ),
         Junction(
             [
-                Layer(
-                    width=n_material_Si_width, material=n_material_Si, role="emitter"
-                ),
+                Layer(width=n_material_Si_width, material=n_material_Si, role="emitter"),
                 Layer(width=p_material_Si_width, material=p_material_Si, role="base"),
             ],
             sn=1,
@@ -335,7 +285,5 @@ plt.ylim(-20, 250)
 plt.xlim(0, 1.8)
 plt.legend()
 plt.ylabel("Current (A/m$^2$)")
-plt.xlabel(
-    "Voltage (V)"
-)  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
+plt.xlabel("Voltage (V)")  # The expected values of Isc and Voc are 372 A/m^2 and 0.63 V respectively
 plt.show()

@@ -3,10 +3,7 @@ from pytest import approx, mark
 import sys
 
 
-@mark.skipif(
-    sys.platform == "win32",
-    reason="S4 (RCWA) only installed for tests under Linux and macOS",
-)
+@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
 def test_get_order_directions():
     from rayflare.analytic.diffraction import get_order_directions
     from solcore import material
@@ -29,9 +26,7 @@ def test_get_order_directions():
         for no in out_oc:
             res = get_order_directions(wl, size, 3, ni, no, 0.2, 0)
 
-            assert np.all(
-                np.array(res["order_index"]) == np.array(res_ref["order_index"])
-            )
+            assert np.all(np.array(res["order_index"]) == np.array(res_ref["order_index"]))
             assert np.min(res["theta_r"]) == approx(0.2)
             assert np.max(res["theta_r"]) == approx(np.pi / 2)
             assert np.min(res["theta_t"]) == approx(np.pi / 2)

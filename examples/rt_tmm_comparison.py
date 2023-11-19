@@ -53,7 +53,7 @@ cur_path = os.path.dirname(os.path.abspath(__file__))
 wavelengths = np.linspace(300, 1200, 50) * 1e-9
 
 options = default_options()
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.project_name = "perovskite_Si_example"
 options.n_rays = 2000
 options.n_theta_bins = 30
@@ -115,9 +115,7 @@ front_surf = Interface(
 # front_surf = Interface('RT_TMM', texture = surf, layers=front_materials, name = 'Perovskite_aSi_widthcorr',
 #                        coherent=True)
 
-back_surf = Interface(
-    "RT_TMM", texture=surf_back, layers=back_materials, name="aSi_ITO_2", coherent=True
-)
+back_surf = Interface("RT_TMM", texture=surf_back, layers=back_materials, name="aSi_ITO_2", coherent=True)
 
 
 bulk_Si = BulkLayer(260e-6, Si, name="Si_bulk")  # bulk thickness in m
@@ -144,14 +142,7 @@ results_per_layer_back = np.sum(results_per_pass["a"][1], 0)
 
 allres = np.flip(
     np.hstack(
-        (
-            R_0[:, None],
-            R_escape[:, None],
-            results_per_layer_front,
-            RAT["A_bulk"].T,
-            results_per_layer_back,
-            RAT["T"].T,
-        )
+        (R_0[:, None], R_escape[:, None], results_per_layer_front, RAT["A_bulk"].T, results_per_layer_back, RAT["T"].T)
     ),
     1,
 )
@@ -159,17 +150,11 @@ allres = np.flip(
 # calculated photogenerated current (Jsc with 100% EQE)
 
 spectr_flux = LightSource(
-    source_type="standard",
-    version="AM1.5g",
-    x=wavelengths,
-    output_units="photon_flux_per_m",
-    concentration=1,
+    source_type="standard", version="AM1.5g", x=wavelengths, output_units="photon_flux_per_m", concentration=1
 ).spectrum(wavelengths)[1]
 
 Jph_Si = q * np.trapz(RAT["A_bulk"][0] * spectr_flux, wavelengths) / 10  # mA/cm2
-Jph_Perovskite = (
-    q * np.trapz(results_per_layer_front[:, 3] * spectr_flux, wavelengths) / 10
-)  # mA/cm2
+Jph_Perovskite = q * np.trapz(results_per_layer_front[:, 3] * spectr_flux, wavelengths) / 10  # mA/cm2
 
 pal = sns.cubehelix_palette(13, start=0.5, rot=-0.9)
 pal.reverse()
@@ -182,7 +167,7 @@ bulk_A_text = ysmoothed[:, 4]
 fig = plt.figure(figsize=(5, 4))
 ax = plt.subplot(111)
 ax.stackplot(
-    options["wavelengths"] * 1e9,
+    options["wavelength"] * 1e9,
     allres.T,
     labels=[
         "Ag",
@@ -206,12 +191,7 @@ ax.set_xlabel("Wavelength (nm)")
 ax.set_ylabel("R/A/T")
 ax.set_xlim(300, 1200)
 ax.set_ylim(0, 1)
-ax.text(
-    530,
-    0.5,
-    "Perovskite: \n" + str(round(Jph_Perovskite, 1)) + " mA/cm$^2$",
-    ha="center",
-)
+ax.text(530, 0.5, "Perovskite: \n" + str(round(Jph_Perovskite, 1)) + " mA/cm$^2$", ha="center")
 ax.text(900, 0.5, "Si: \n" + str(round(Jph_Si, 1)) + " mA/cm$^2$", ha="center")
 plt.show()
 
@@ -224,7 +204,7 @@ calc = True
 
 # setting options
 options = default_options()
-options.wavelengths = np.linspace(300, 1201, 50) * 1e-9
+options.wavelength = np.linspace(300, 1201, 50) * 1e-9
 options.nx = nxy
 options.ny = nxy
 options.n_rays = 2 * nxy**2
@@ -244,30 +224,8 @@ triangle_surf = regular_pyramids(55, upright=False, size=2)
 # set up ray-tracing options
 rtstr = rt_structure(
     textures=[triangle_surf] * 7 + [triangle_surf_back] * 4,
-    materials=[
-        MgF2,
-        IZO,
-        C60,
-        Perovskite,
-        aSi_n,
-        aSi_i,
-        Si,
-        aSi_i,
-        aSi_p,
-        ITO_back,
-    ],
-    widths=[
-        100e-9,
-        110e-9,
-        15e-9,
-        440e-9,
-        6.5e-9,
-        6.5e-9,
-        260e-6,
-        6.5e-6,
-        6.5e-6,
-        240e-9,
-    ],
+    materials=[MgF2, IZO, C60, Perovskite, aSi_n, aSi_i, Si, aSi_i, aSi_p, ITO_back],
+    widths=[100e-9, 110e-9, 15e-9, 440e-9, 6.5e-9, 6.5e-9, 260e-6, 6.5e-6, 6.5e-6, 240e-9],
     incidence=Air,
     transmission=Ag,
 )
@@ -275,41 +233,11 @@ result = rtstr.calculate(options)
 
 fig = plt.figure(figsize=(9, 3.7))
 plt.subplot(1, 1, 1)
-plt.plot(
-    wavelengths * 1e9,
-    result["R"],
-    "-o",
-    color=pal[0],
-    label=r"R$_{total}$",
-    fillstyle="none",
-)
-plt.plot(
-    wavelengths * 1e9,
-    result["R0"],
-    "-o",
-    color=pal[1],
-    label=r"R$_0$",
-    fillstyle="none",
-)
-plt.plot(
-    wavelengths * 1e9, result["T"], "-o", color=pal[2], label=r"T", fillstyle="none"
-)
-plt.plot(
-    wavelengths * 1e9,
-    result["A_per_layer"][:, 3],
-    "-o",
-    color=pal[3],
-    label=r"A",
-    fillstyle="none",
-)
-plt.plot(
-    wavelengths * 1e9,
-    result["A_per_layer"][:, 6],
-    "-o",
-    color=pal[3],
-    label=r"A",
-    fillstyle="none",
-)
+plt.plot(wavelengths * 1e9, result["R"], "-o", color=pal[0], label=r"R$_{total}$", fillstyle="none")
+plt.plot(wavelengths * 1e9, result["R0"], "-o", color=pal[1], label=r"R$_0$", fillstyle="none")
+plt.plot(wavelengths * 1e9, result["T"], "-o", color=pal[2], label=r"T", fillstyle="none")
+plt.plot(wavelengths * 1e9, result["A_per_layer"][:, 3], "-o", color=pal[3], label=r"A", fillstyle="none")
+plt.plot(wavelengths * 1e9, result["A_per_layer"][:, 6], "-o", color=pal[3], label=r"A", fillstyle="none")
 
 plt.title("a)", loc="left")
 plt.plot(-1, -1, "-ok", label="RayFlare")

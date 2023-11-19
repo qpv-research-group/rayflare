@@ -23,7 +23,7 @@ wavelengths = np.linspace(250, 1900, 500) * 1e-9
 
 options = default_options()
 
-options.wavelengths = wavelengths
+options.wavelength = wavelengths
 options.orders = 2
 
 size = ((100, 0), (0, 100))
@@ -42,12 +42,8 @@ solar_cell = SolarCell(
 )
 
 
-rcwa_setup = rcwa_structure(
-    solar_cell, size=size, options=options, incidence=Air, transmission=Ag
-)
-tmm_setup = tmm_structure(
-    solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False
-)
+rcwa_setup = rcwa_structure(solar_cell, size=size, options=options, incidence=Air, transmission=Ag)
+tmm_setup = tmm_structure(solar_cell, incidence=Air, transmission=Ag, no_back_reflection=False)
 
 spect = np.loadtxt("data/AM0.csv", delimiter=",")
 
@@ -55,7 +51,6 @@ AM0 = interp1d(spect[:, 0], spect[:, 1])(wavelengths * 1e9)
 
 for pol in ["s", "p", "u"]:
     for angle in [0, np.pi / 3]:
-
         options["pol"] = pol
         options["theta_in"] = angle
 
@@ -65,11 +60,7 @@ for pol in ["s", "p", "u"]:
         Jsc_TMM = (
             0.1
             * (q / (h * c))
-            * np.trapz(
-                wavelengths[:, None] * 1e9 * tmm_result["A_per_layer"] * AM0[:, None],
-                wavelengths * 1e9,
-                axis=0,
-            )
+            * np.trapz(wavelengths[:, None] * 1e9 * tmm_result["A_per_layer"] * AM0[:, None], wavelengths * 1e9, axis=0)
             / 1e9
         )
 
@@ -77,9 +68,7 @@ for pol in ["s", "p", "u"]:
             0.1
             * (q / (h * c))
             * np.trapz(
-                wavelengths[:, None] * 1e9 * rcwa_result["A_per_layer"] * AM0[:, None],
-                wavelengths * 1e9,
-                axis=0,
+                wavelengths[:, None] * 1e9 * rcwa_result["A_per_layer"] * AM0[:, None], wavelengths * 1e9, axis=0
             )
             / 1e9
         )
@@ -102,9 +91,7 @@ for pol in ["s", "p", "u"]:
 
         plt.plot(wavelengths * 1e9, tmm_result["A_per_layer"][:, 1:])
         plt.plot(wavelengths * 1e9, rcwa_result["A_per_layer"][:, 1:], "--")
-        plt.title(
-            "Pol: " + options["pol"] + ", Angle: " + str(options["theta_in"]) + " deg"
-        )
+        plt.title("Pol: " + options["pol"] + ", Angle: " + str(options["theta_in"]) + " deg")
         plt.plot(wavelengths * 1e9, tmm_result["R"])
         plt.plot(wavelengths * 1e9, rcwa_result["R"], "--")
         plt.plot(wavelengths * 1e9, tmm_result["T"])

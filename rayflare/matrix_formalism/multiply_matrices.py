@@ -10,9 +10,12 @@ from sparse import load_npz, dot, COO, stack
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
-from rayflare.structure import Interface, BulkLayer
-from rayflare.utilities import get_savepath
+from solcore.state import State
 
+from rayflare.structure import Interface, BulkLayer
+from rayflare.utilities import get_savepath, get_wavelength
+
+from rayflare import logger
 
 def calculate_RAT(SC, options, save_location="default"):
     """
@@ -20,7 +23,7 @@ def calculate_RAT(SC, options, save_location="default"):
     this function calculates the R, A and T by calling matrix_multiplication.
 
     :param SC: list of Interface and BulkLayer objects. Order is [Interface, BulkLayer, Interface]
-    :param options: options for the matrix calculations
+    :param options: options for the matrix calculations (State object or dictionary)
     :param save_location: location from which to load the redistribution matrices. Current options:
 
               - 'default', which stores the results in folder in your home directory called 'RayFlare_results'
@@ -46,6 +49,9 @@ def calculate_RAT(SC, options, save_location="default"):
               (wavelength, position)
 
     """
+
+    if isinstance(options, dict):
+        options = State(options)
 
     bulk_mats = []
     bulk_widths = []
@@ -134,7 +140,7 @@ def out_to_in_matrix(phi_sym, angle_vector, theta_intv, phi_intv):
     up_to_down = out_to_in[int(len(angle_vector) / 2) :, : int(len(angle_vector) / 2)]
     down_to_up = out_to_in[: int(len(angle_vector) / 2), int(len(angle_vector) / 2) :]
 
-    return COO(up_to_down), COO(down_to_up)
+    return COO.from_numpy(up_to_down), COO.from_numpy(down_to_up)
 
 
 def make_D(alphas, thick, thetas):
@@ -148,7 +154,7 @@ def make_D(alphas, thick, thetas):
     :return:
     """
     diag = np.exp(-alphas[:, None] * thick / abs(np.cos(thetas[None, :])))
-    D_1 = stack([COO(np.diag(x)) for x in diag])
+    D_1 = stack([COO.from_numpy(np.diag(x)) for x in diag])
     return D_1
 
 
@@ -292,7 +298,7 @@ def matrix_multiplication(
 
     :param bulk_mats: list of bulk materials
     :param bulk_thick: list of bulk thicknesses (in m)
-    :param options: user options (dictionary or State object)
+    :param options: user options (State object)
     :param layer_names: list of names of the Interface layers, to load the redistribution matrices
     :param calc_prof_list: list of lists - for each interface, which layers should be included in profile calculations
            (can be empty)
@@ -301,32 +307,33 @@ def matrix_multiplication(
     :rtype:
     """
 
-    results_path = get_savepath(save_location, options["project_name"])
+    results_path = get_savepath(save_location, options.project_name)
 
     n_bulks = len(bulk_mats)
     n_interfaces = n_bulks + 1
 
     theta_spacing = (
-        options["theta_spacing"] if hasattr(options, "theta_spacing") else "sin"
+        options.theta_spacing if "theta_spacing" in options else "sin"
     )
 
     theta_intv, phi_intv, angle_vector = make_angle_vector(
-        options["n_theta_bins"],
-        options["phi_symmetry"],
-        options["c_azimuth"],
+        options.n_theta_bins,
+        options.phi_symmetry,
+        options.c_azimuth,
         theta_spacing,
     )
     n_a_in = int(len(angle_vector) / 2)
 
-    num_wl = len(options["wavelengths"])
+    get_wavelength(options)
+
+    num_wl = len(options["wavelength"])
 
     # bulk thickness in m
 
     thetas = angle_vector[:n_a_in, 1]
 
-    if options["phi_in"] != "all" and options["phi_in"] > options["phi_symmetry"]:
+    if options.phi_in != "all" and options.phi_in > options.phi_symmetry:
         # fold phi_in back into phi_symmetry
-        print("fold")
         phi_in = fold_phi(options["phi_in"], options["phi_symmetry"])
 
     else:
@@ -350,7 +357,7 @@ def matrix_multiplication(
     depths_bulk = []
     for i1 in range(n_bulks):
         D.append(
-            make_D(bulk_mats[i1].alpha(options["wavelengths"]), bulk_thick[i1], thetas)
+            make_D(bulk_mats[i1].alpha(options["wavelength"]), bulk_thick[i1], thetas)
         )
 
         if options["bulk_profile"]:
@@ -385,7 +392,7 @@ def matrix_multiplication(
 
         a_prof = [[] for _ in range(n_interfaces)]
         A_prof = [[] for _ in range(n_bulks)]
-        # print("Initial intensity", np.sum(v0, axis=1))
+        logger.debug(f"Initial intensity: {np.sum(v0, axis=1)}")
 
         for i1 in range(n_bulks):
 
@@ -445,7 +452,7 @@ def matrix_multiplication(
                         bulk_profile_calc(
                             vf_1[i1],
                             vb_1[i1],
-                            bulk_mats[i1].alpha(options["wavelengths"]),
+                            bulk_mats[i1].alpha(options["wavelength"]),
                             thetas,
                             bulk_thick[i1],
                             depths_bulk[i1],
@@ -474,7 +481,7 @@ def matrix_multiplication(
                             bulk_profile_calc(
                                 vb_2[i1],
                                 vf_2[i1],
-                                bulk_mats[i1].alpha(options["wavelengths"]),
+                                bulk_mats[i1].alpha(options["wavelength"]),
                                 thetas,
                                 bulk_thick[i1],
                                 depths_bulk[i1],
@@ -511,12 +518,9 @@ def matrix_multiplication(
 
                 # print("Absorbed from back", np.sum(a[i1][-1], axis=1))
 
-                print(
-                    "After iteration",
-                    i2,
-                    ": maximum power fraction remaining =",
-                    np.max(power),
-                )
+                # rewrite as f string:
+
+                logger.info(f"After iteration {i2}: maximum power fraction remaining = {np.max(power)}")
 
                 i2 += 1
 
@@ -547,12 +551,7 @@ def matrix_multiplication(
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1])  # reflect from front surface
                 A[i1].append(np.sum(vb_2[i1], 1) - np.sum(vf_2[i1], 1))
                 power = np.sum(vf_1[i1], axis=1)
-                print(
-                    "After iteration",
-                    i2,
-                    ": maximum power fraction remaining =",
-                    np.max(power),
-                )
+                logger.info(f"After iteration {i2}: maximum power fraction remaining = {np.max(power)}")
 
                 vr, vt, a = append_per_pass_info(
                     i1, vr, vt, a, vf_2, vb_1, Tb, Tf, Af, Ab
@@ -566,7 +565,7 @@ def matrix_multiplication(
     A = [np.array(item) for item in A]
 
     sum_dims = ["bulk_index", "wl"]
-    sum_coords = {"bulk_index": np.arange(0, n_bulks), "wl": options["wavelengths"]}
+    sum_coords = {"bulk_index": np.arange(0, n_bulks), "wl": options["wavelength"]}
 
     R = xr.DataArray(
         np.array([np.sum(item, (0, 2)) for item in vr]),
@@ -611,7 +610,7 @@ def matrix_multiplication(
                 dims=["surf_index", "wl"],
                 coords={
                     "surf_index": np.arange(0, n_interfaces),
-                    "wl": options["wavelengths"],
+                    "wl": options["wavelength"],
                 },
                 name="A_interface",
             )
@@ -623,7 +622,7 @@ def matrix_multiplication(
                         xr.DataArray(
                             np.sum(item, 0),
                             dims=["wl", "z"],
-                            coords={"wl": options["wavelengths"]},
+                            coords={"wl": options["wavelength"]},
                             name="A_profile" + str(j1),
                         )
                     )  # not necessarily same number of z coords per layer stack
