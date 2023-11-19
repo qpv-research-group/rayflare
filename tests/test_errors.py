@@ -1,5 +1,5 @@
 import numpy as np
-from pytest import raises, mark
+from pytest import raises
 
 def pol_error():
     from rayflare.rigorous_coupled_wave_analysis.rcwa import process_pol

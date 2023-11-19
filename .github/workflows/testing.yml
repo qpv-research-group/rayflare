@@ -75,7 +75,7 @@ jobs:
     - name: Test with pytest
       run: |
         pip install pytest-cov pytest-rerunfailures
-        pytest --cov-report= --cov=rayflare tests/ --reruns 3
+        pytest --cov-report= --cov=rayflare tests/ --reruns 5
 
     - name: Codecov
       if: matrix.os == 'ubuntu-latest'

@@ -9,7 +9,7 @@ rule, values with units of distance (wavelength, depth spacing) are in m while a
 General options/options for matrix framework
 ---------------------------------------------
 
-- **wavelengths**: wavelengths at which to carry out calculations (in m)
+- **wavelength**: wavelengths at which to carry out calculations (in m)
 - **theta_in**: polar angle of incident light (in radians)
 - **phi_in**: azimuthal angle of incident light (in radians). If you are using the angular redistribution matrix framework,
   you can also set this to 'all' to spread the incident light evenly over all the azimuthal bins
@@ -34,9 +34,12 @@ Options used only by RCWA (S4)
 ---------------------------------------------
 
 - **A_per_order**: whether or not to calculate absorption per diffraction order (Boolean)
-- **S4_options**: options which are passed to S4. See S4 documentation for details
+- **S4_options**: options which are passed to S4. See S4 documentation for details. Note that these are
+  not used by Inkstone.
 - **orders**: the number of Fourier orders to retain. The actual number of orders used may be different, depending on
   the lattice truncation rule used.
+- **RCWA_method**: 'Inkstone' or 'S4'. If 'Inkstone', the Inkstone RCWA implementation is used. If 'S4', the S4 RCWA implementation is used.
+  The default is S4. Note that this is not case-sensitive.
 
 
 Options used only by the ray-tracer

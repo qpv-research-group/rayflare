@@ -1321,50 +1321,6 @@ class rcwa_structure:
 
         return xs, ys, a_r, a_i
 
-    def get_fourier_epsilon_inkstone(
-        self, layer_index, wavelength, options, extent=None, n_points=200, plot=True
-    ):
-        """
-        Get the Fourier-decomposed epsilon scanning across x-y points for some layer in the structure for the number
-        of order specified in the options for the structure. Can also plot this automatically.
-
-        :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
-        :param wavelength: wavelength (in nm) at which to get epsilon
-        :param options: dictionary or State object containing user options
-        :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
-        on the unit cell size by default
-        :param n_points: number of points to scan across in the x and y directions
-        :param plot: plot the results (True or False, default True)
-
-        :return: xs, ys, a_r, a_i. The x points, y points, and the real and imaginary parts of the dielectric function.
-        """
-
-        wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
-
-        S = self.make_S(options, wl_ind)
-
-        xs, ys, epsilon, mu = S.ReconstructLayer(f"layer_{layer_index + 1}", n_points, n_points)
-
-        # assume material is isotropic! top left entry of dielectric tensor
-        a_r = np.real(epsilon)[:, :, 0, 0]
-        a_i = np.imag(epsilon)[:, :, 0, 0]
-
-        if plot:
-            fig, axs = plt.subplots(1, 2, figsize=(7, 2.6))
-            im1 = axs[0].pcolormesh(xs, ys, a_r.T, cmap="magma")
-            fig.colorbar(im1, ax=axs[0])
-            axs[0].set_xlabel("x (nm)")
-            axs[0].set_ylabel("y (nm)")
-            axs[0].set_aspect(aspect=1)
-
-            im2 = axs[1].pcolormesh(xs, ys, a_i.T, cmap="magma")
-            fig.colorbar(im2, ax=axs[1])
-            axs[1].set_xlabel("x (nm)")
-            axs[1].set_ylabel("y (nm)")
-            axs[1].set_aspect(aspect=1)
-            plt.show()
-
-        return xs, ys, a_r, a_i
 
     def get_fields(
         self, layer_index, wavelength, options, extent=None, depth=1e-10, n_points=200, plot=True

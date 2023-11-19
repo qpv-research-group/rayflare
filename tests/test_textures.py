@@ -342,8 +342,6 @@ def test_hemisphere_cap_surface():
 
     front, _ = hemisphere_surface(Lx, 101, Lx / 3, offset, 0, 1)
 
-    o_t_array = np.empty((4, 40))
-
     normals = front.N
     # radius of sphere with an offset:
     # radius is Lx/3

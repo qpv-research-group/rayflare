@@ -63,7 +63,7 @@ install_requires = [
 
 setup(
     name="rayflare",
-    version="1.2.0",
+    version="1.2.1",
     description="Python-based integrated optical modelling",
     long_description=long_description,
     long_description_content_typgie="text/markdown",
