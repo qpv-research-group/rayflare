@@ -365,7 +365,7 @@ def TMM(
 class tmm_structure:
     """Set up structure for TMM calculations.
 
-    :param stack: an OptiStack or SolarCell object.
+    :param stack: an OptiStack or SolarCell object, or a list of Solcore layers.
     :param incidence: incidence medium (Solcore material)
     :param transmission: transmission medium/substrate (Solcore material)
     :param no_back_reflection: whether to suppress reflections at the interface between the final material
