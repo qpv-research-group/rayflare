@@ -1296,7 +1296,6 @@ def parallel_inner(
                 n_interactions[ind] = n_interact
 
 
-
     else:
         for j1 in range(n_reps):
             offset = j1 * nx * ny

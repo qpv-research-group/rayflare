@@ -323,7 +323,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     n_passes = np.concatenate(
         [n_passes_R_reps, n_passes_A_surf_reps, n_passes_T_reps])
 
-    profile = np.sum(DA, axis=0)
+    profile = np.sum(final_T_weights[:, None] * DA, axis=0)
 
     # A_interfaces[A_interface_index].append(A_interface_array)
     # profiles += profile / (n_reps * nx * ny)
