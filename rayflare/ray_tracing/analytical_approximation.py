@@ -66,9 +66,12 @@ def calc_RAT_Fresnel(theta, pol, *args):
         return (Rs + Rp) / 2, np.array([0])
 
 def calc_RAT_Fresnel_vec(theta, pol, *args):
+
     n1 = args[0]
     n2 = args[1]
-    theta_t = np.arcsin((n1[None, :] / n2[None, :]) * np.sin(theta[:, None]))
+    ratio = np.clip((n1[None, :] / n2[None, :]) * np.sin(theta[:, None]), -1, 1)
+    theta_t = np.arcsin(ratio)
+
     if pol == "s":
         Rs = (
                 np.abs(
@@ -78,7 +81,7 @@ def calc_RAT_Fresnel_vec(theta, pol, *args):
                 ** 2
         )
 
-        Rs[np.isnan(Rs)] = 1
+        # Rs[np.isnan(Rs)] = 1
 
         return Rs, [0]
 
@@ -91,7 +94,7 @@ def calc_RAT_Fresnel_vec(theta, pol, *args):
                 ** 2
         )
 
-        Rp[np.isnan(Rp)] = 1
+        # Rp[np.isnan(Rp)] = 1
 
         return Rp, [0]
 
@@ -110,8 +113,8 @@ def calc_RAT_Fresnel_vec(theta, pol, *args):
                 )
                 ** 2
         )
-        Rs[np.isnan(Rs)] = 1
-        Rp[np.isnan(Rp)] = 1
+        # Rs[np.isnan(Rs)] = 1
+        # Rp[np.isnan(Rp)] = 1
 
         return (Rs + Rp) / 2, np.array([0])
 
@@ -134,7 +137,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
                              positions,
                              bulk_width,
                              alpha_bulk,
-                                I_thresh,
+                             I_thresh,
                              wl=None,
                              Fr_or_TMM=0,
                              lookuptable=None,
@@ -143,6 +146,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     # n0 should be real
     # n1 can be complex
 
+    # same for all wavelengths
 
     how_many_faces = len(front.N)
     normals = front.N
@@ -159,7 +163,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         calc_RAT = calc_RAT_TMM
         R_args = [lookuptable, wl, 1]
 
-    r_in = r_in / np.linalg.norm(r_in)
+    # r_in = r_in / np.linalg.norm(r_in)
 
     r_inc = np.tile(r_in, (how_many_faces, 1))  # (4, 3) array
 
