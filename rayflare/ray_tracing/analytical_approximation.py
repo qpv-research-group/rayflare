@@ -1,8 +1,10 @@
 import numpy as np
-
+import xarray as xr
+import os
+from rayflare.utilities import get_savepath
 
 def traverse_vectorised(width, theta, alpha, I_i, positions, I_thresh, direction):
-    stop = False
+
     ratio = alpha / np.real(np.abs(np.cos(theta)))
     DA_u = I_i[:, None] * ratio[:, None] * np.exp((-ratio[:, None] * positions[None, :]))
     I_back = I_i * np.exp(-ratio * width)
@@ -63,6 +65,56 @@ def calc_RAT_Fresnel(theta, pol, *args):
         )
         return (Rs + Rp) / 2, np.array([0])
 
+def calc_RAT_Fresnel_vec(theta, pol, *args):
+    n1 = args[0]
+    n2 = args[1]
+    theta_t = np.arcsin((n1[None, :] / n2[None, :]) * np.sin(theta[:, None]))
+    if pol == "s":
+        Rs = (
+                np.abs(
+                    (n1[None, :] * np.cos(theta[:,None]) - n2[None, :] * np.cos(theta_t))
+                    / (n1[None, :] * np.cos(theta[:, None]) + n2[None, :] * np.cos(theta_t))
+                )
+                ** 2
+        )
+
+        Rs[np.isnan(Rs)] = 1
+
+        return Rs, [0]
+
+    if pol == "p":
+        Rp = (
+                np.abs(
+                    (n1[None, :] * np.cos(theta_t) - n2[None, :] * np.cos(theta[:,None]))
+                    / (n1[None, :] * np.cos(theta_t) + n2[None, :] * np.cos(theta[:,None]))
+                )
+                ** 2
+        )
+
+        Rp[np.isnan(Rp)] = 1
+
+        return Rp, [0]
+
+    else:
+        Rs = (
+                np.abs(
+                    (n1[None, :] * np.cos(theta[:,None]) - n2[None, :] * np.cos(theta_t))
+                    / (n1[None, :] * np.cos(theta[:,None]) + n2[None, :] * np.cos(theta_t))
+                )
+                ** 2
+        )
+        Rp = (
+                np.abs(
+                    (n1[None, :] * np.cos(theta_t) - n2[None, :] * np.cos(theta[:,None]))
+                    / (n1[None, :] * np.cos(theta_t) + n2[None, :] * np.cos(theta[:,None]))
+                )
+                ** 2
+        )
+        Rs[np.isnan(Rs)] = 1
+        Rp[np.isnan(Rp)] = 1
+
+        return (Rs + Rp) / 2, np.array([0])
+
 def calc_RAT_TMM(theta, pol, *args):
     lookuptable = args[0]
     wl = args[1]
@@ -95,6 +147,9 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     how_many_faces = len(front.N)
     normals = front.N
     opposite_faces = np.where(np.dot(normals, normals.T) < 0)[1]
+
+    if len(opposite_faces) == 0:
+        max_interactions =  1
 
     if Fr_or_TMM == 0:
         calc_RAT = calc_RAT_Fresnel
@@ -141,7 +196,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         cos_inc = -np.sum(normals[relevant_face] * r_inc, 1)  # dot product
 
         reflected_direction = r_inc - 2 * np.sum(r_inc*normals[relevant_face], axis=1)[:,None] * normals[relevant_face]
-        reflected_direction = reflected_direction / np.linalg.norm(reflected_direction[:,1])
+        reflected_direction = reflected_direction / np.linalg.norm(reflected_direction, axis=1)[:, None]
 
         reflected_ray_directions[:, :, N_interaction] = reflected_direction
 
@@ -185,7 +240,8 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         # once ray travels upwards once, want to end calculation for that plane; don't want to
         # double count
 
-        relevant_face = opposite_faces[relevant_face]
+        if len(opposite_faces) > 0:
+            relevant_face = opposite_faces[relevant_face]
 
         r_inc = reflected_direction
 
@@ -325,14 +381,261 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
 
     profile = np.sum(final_T_weights[:, None] * DA, axis=0)
 
-    # A_interfaces[A_interface_index].append(A_interface_array)
-    # profiles += profile / (n_reps * nx * ny)
-    # thetas[c + offset] = th_o
-    # phis[c + offset] = phi_o
-    # Is[c + offset] = np.real(I)
-    # A_layer += A_per_layer / (n_reps * nx * ny)
-    # n_passes[c + offset] = n_pass
-    # n_interactions[c + offset] = n_interact
-
-
     return theta_out, phi_out, I_out, n_interactions, n_passes, A_bulk_actual, profile, np.sum(A_total, axis=0)
+
+
+def lambertian_scattering(strt, save_location, options):
+
+    structpath = get_savepath(save_location, options.project_name)
+
+    # sin_theta = np.linspace(0, 0.9999999, 20000)
+    # theta = np.arcsin(sin_theta)
+    theta = np.linspace(0, 0.999*np.pi / 2, 100)
+    I_theta = np.cos(theta)
+    I_theta = I_theta/np.sum(I_theta)
+    # make rays with these thetas, and a range of azimuthal angles:
+
+    phi = np.linspace(0, options.phi_symmetry, 40)
+
+    # make a grid of rays with these thetas and phis
+
+    theta_grid, phi_grid = np.meshgrid(theta, phi)
+    theta_grid = theta_grid.flatten()
+    phi_grid = phi_grid.flatten()
+
+    r_a_0 = np.real(
+        np.array(
+            [np.sin(theta_grid) * np.cos(phi_grid), np.sin(theta_grid) * np.sin(phi_grid),
+             np.cos(theta_grid)]
+        )
+    )
+
+    r_a_0_rear = np.copy(r_a_0)
+    r_a_0_rear[2, :] = -r_a_0_rear[2, :]
+
+    result_list = []
+
+    for mat_index in range(1, len(strt.widths) + 1):
+
+        front_inside = strt.textures[mat_index - 1][1]
+        rear_inside = strt.textures[mat_index][0]
+
+        n_triangles_front = len(front_inside.P_0s)
+        n_triangles_rear = len(rear_inside.P_0s)
+
+        hit_prob_front = np.matmul(front_inside.N, r_a_0)
+
+        theta_local_front = np.arccos(hit_prob_front)
+
+        theta_local_front[theta_local_front > np.pi / 2] = 0
+
+        hit_prob_rear = -np.matmul(rear_inside.N, r_a_0_rear)
+        theta_local_rear = np.arccos(hit_prob_rear)
+
+        theta_local_rear[theta_local_rear > np.pi / 2] = 0
+
+        n_front_layers = len(strt.textures[mat_index - 1][0].interface_layers) if hasattr(strt.textures[mat_index - 1][0], 'interface_layers') else 0
+        n_rear_layers = len(strt.textures[mat_index][0].interface_layers) if hasattr(strt.textures[mat_index][0], 'interface_layers') else 0
+
+        unique_angles_front, inverse_indices_front = np.unique(theta_local_front, return_inverse=True)
+        unique_angles_rear, inverse_indices_rear = np.unique(theta_local_rear, return_inverse=True)
+
+        if n_front_layers > 0:
+            lookuptable_front = xr.open_dataset(os.path.join(structpath, front_inside.name + f"int_{mat_index - 1}.nc"))
+
+            data_front = lookuptable_front.loc[dict(side=-1, pol=options.pol)].sel(
+                angle=abs(unique_angles_front), wl=options.wavelength * 1e9, method="nearest"
+            )
+            R_front = np.real(data_front["R"].data).T
+            A_per_layer_front = np.real(data_front["Alayer"].data).T
+            A_all_front = A_per_layer_front[:, inverse_indices_front].reshape(
+                (n_front_layers,) + theta_local_front.shape + (len(options.wavelength),))
+
+            A_reshape_front = A_all_front.reshape(
+                (n_front_layers, n_triangles_front, len(phi), len(theta), len(options.wavelength)))
+
+
+        else:
+            R_front = \
+                calc_RAT_Fresnel_vec(unique_angles_front, options.pol,
+                                     strt.mats[mat_index].n(options.wavelength),
+                                     strt.mats[mat_index - 1].n(options.wavelength))[0]
+            A_reshape_front = 0
+
+        R_all_front = R_front[inverse_indices_front].reshape(
+            theta_local_front.shape + (len(options.wavelength),))
+
+        if n_rear_layers > 0:
+            lookuptable_rear = xr.open_dataset(os.path.join(structpath, rear_inside.name + f"int_{mat_index}.nc"))
+            data_rear = lookuptable_rear.loc[dict(side=1, pol=options.pol)].sel(
+                angle=abs(unique_angles_rear), wl=options.wavelength * 1e9, method="nearest"
+            )
+            R_rear = np.real(data_rear["R"].data).T
+            A_per_layer_rear = np.real(data_rear["Alayer"].data).T
+            A_all_rear = A_per_layer_rear[:, inverse_indices_rear].reshape(
+                (n_rear_layers,) + theta_local_rear.shape + (len(options.wavelength),))
+
+            A_reshape_rear = A_all_rear.reshape(
+                (n_rear_layers, n_triangles_rear, len(phi), len(theta), len(options.wavelength)))
+
+
+        else:
+            R_rear = \
+            calc_RAT_Fresnel_vec(unique_angles_rear, options.pol, strt.mats[mat_index].n(options.wavelength),
+                                 strt.mats[mat_index + 1].n(options.wavelength))[0]
+            A_reshape_rear = 0
+
+        R_all_rear = R_rear[inverse_indices_rear].reshape(
+            theta_local_rear.shape + (len(options.wavelength),))
+
+        # now populate matrix of local angles based on these probabilities
+
+        # identify allowed angles:
+
+        # surface normals:
+
+        hit_prob_front[hit_prob_front < 0] = 0
+        hit_prob_rear[hit_prob_rear < 0] = 0
+
+        # calculate area of each triangle
+        area_front = np.sqrt(
+            np.sum(np.cross(front_inside.P_0s - front_inside.P_1s, front_inside.P_2s - front_inside.P_1s, axis=1) ** 2, 1)
+            ) / 2
+
+        area_front = area_front / max(area_front)
+
+        hit_prob_front = area_front[:, None] * hit_prob_front / np.sum(hit_prob_front, axis=0)
+
+        hit_prob_reshape_front = hit_prob_front.reshape((n_triangles_front, len(phi), len(theta)))
+        # now take the average over all the faces and azimuthal angles
+        R_reshape_front = R_all_front.reshape((n_triangles_front, len(phi), len(theta), len(options.wavelength)))
+
+        R_weighted_front = R_reshape_front * hit_prob_reshape_front[:, :, :, None]
+        R_polar_front = np.sum(np.mean(R_weighted_front, 1), 0)
+
+        A_surf_weighted_front = A_reshape_front * hit_prob_reshape_front[None, :, :, :, None]
+        A_polar_front = np.sum(np.mean(A_surf_weighted_front, 2), 1)
+
+        area_rear = np.sqrt(
+            np.sum(np.cross(rear_inside.P_0s - rear_inside.P_1s, rear_inside.P_2s - rear_inside.P_1s, axis=1) ** 2, 1)
+            ) / 2
+
+        area_rear = area_rear / max(area_rear)
+
+        hit_prob_rear = area_rear[:, None] * hit_prob_rear / np.sum(hit_prob_rear, axis=0)
+
+        hit_prob_reshape_rear = hit_prob_rear.reshape((n_triangles_rear, len(phi), len(theta)))
+        # now take the average over all the faces and azimuthal angles
+        R_reshape_rear = R_all_rear.reshape((n_triangles_rear, len(phi), len(theta), len(options.wavelength)))
+
+        R_weighted_rear = R_reshape_rear * hit_prob_reshape_rear[:, :, :, None]
+        R_polar_rear = np.sum(np.mean(R_weighted_rear, 1), 0)
+
+        A_surf_weighted_rear = A_reshape_rear * hit_prob_reshape_rear[None, :, :, :, None]
+        A_polar_rear = np.sum(np.mean(A_surf_weighted_rear, 2), 1)
+
+        # calculate travel distance for each ray
+        I_rear = I_theta[:, None] * np.exp(-strt.widths[0] * strt.mats[1].alpha(options.wavelength[None, :]) / np.cos(theta)[:, None])
+
+        R_1 = np.sum(I_theta[:, None]*R_polar_front, axis=0)
+        R_2 = np.sum(I_theta[:, None]*R_polar_rear, axis=0)
+
+        A_1 = np.sum(I_theta[:, None]*A_polar_front, axis=1)
+        A_2 = np.sum(I_theta[:, None]*A_polar_rear, axis=1)
+        # total probability of absorption in bulk:
+
+        # infinite series:
+
+        A_bulk = 1 - np.sum(I_rear, axis=0)
+
+        T_1 = 1 - R_1 - np.sum(A_1, axis=0)
+        T_2 = 1 - R_2 - np.sum(A_2, axis=0)
+
+        r = (1 - R_1 * R_2 * (1 - A_bulk) ** 2)
+        # if starting after reflection from front:
+        # P_escape_front_down = (1 - A_bulk) ** 2 * T_1 * R_2 / r
+        # P_escape_back_down = (1 - A_bulk) * T_2 / r
+        # P_absorb_down = (A_bulk + (1 - A_bulk) * R_2 * A_bulk) / r
+        # P_front_surf_down = (1 - A_bulk) ** 2 * R_2 * A_1 / r
+        # P_rear_surf_down = (1 - A_bulk) * A_2 / r
+        P_escape_front_down = (1 - A_bulk) * T_1 * R_2 / r
+        P_escape_back_down = T_2 / r
+        P_absorb_down = R_2 * A_bulk * (1 - A_bulk * R_1 + R_1)/ r
+        P_front_surf_down = (1 - A_bulk) * R_2 * A_1 / r
+        P_rear_surf_down = A_2 / r
+
+        # if starting after reflection from rear:
+        P_escape_front_up = T_1 / r
+        P_escape_back_up = (1 - A_bulk) * T_2 * R_1 / r
+        P_absorb_up = R_1 * A_bulk * (1 - A_bulk * R_2 + R_2)/ r
+        P_front_surf_up = A_1 / r
+        P_rear_surf_up = (1 - A_bulk) * R_1 * A_2 / r
+
+        initial_down = xr.DataArray(np.stack((P_escape_front_down, P_absorb_down, P_escape_back_down)),
+                     dims=['event', 'wavelength'],
+                     coords={'event': ['R', 'A_bulk', 'T'], 'wavelength': options.wavelength})
+
+        initial_up = xr.DataArray(np.stack((P_escape_front_up, P_absorb_up, P_escape_back_up)),
+                     dims=['event', 'wavelength'],
+                     coords={'event': ['R', 'A_bulk', 'T'], 'wavelength': options.wavelength})
+
+        # does layer order need tp be flipped?
+        front_surf_P = xr.DataArray(np.stack((P_front_surf_down, P_front_surf_up)),
+                        dims=['direction', 'layer', 'wavelength'],
+                        coords={'direction': [1, -1], 'wavelength': options.wavelength})
+
+        rear_surf_P = xr.DataArray(np.stack((P_rear_surf_down, P_rear_surf_up)),
+                        dims=['direction', 'layer', 'wavelength'],
+                        coords={'direction': [1, -1], 'wavelength': options.wavelength})
+
+
+        # Add a new dimension for the initial direction
+        initial_down = initial_down.expand_dims({"direction": [1]})
+        initial_up = initial_up.expand_dims({"direction": [-1]})
+
+        # Concatenate the two xarrays along the new dimension
+        merged = xr.concat([initial_down, initial_up], dim="direction")
+
+    return merged, front_surf_P, rear_surf_P, [R_1, R_2]
+
+
+def calculate_lambertian_profile(strt, I_wl, options, initial_direction, lambertian_results, position):
+    theta = np.linspace(0, 0.999 * np.pi / 2, 100)
+    I_theta = np.cos(theta)
+    I_theta = I_theta / np.sum(I_theta)
+
+    I = I_wl
+
+    [R_top, R_bot, abs_prof] = lambertian_results
+
+    if initial_direction == 1:
+        R1 = R_top
+        R2 = R_bot
+
+    else:
+        R1 = R_bot
+        R2 = R_top
+
+    direction = initial_direction
+
+    while np.any(I < options.I_thresh):
+
+        # 1st surf interaction
+        I = I * R1
+
+        # absorption
+
+        # DA, _, I, theta = traverse_vectorised(
+        #     strt.widths[1],
+        #     theta,
+        #     strt.mats[1].alpha(options.wavelength)
+        #
+        #     position,
+        #     options.I_thresh,
+        #     direction,
+        # )
+
+
+
+
+

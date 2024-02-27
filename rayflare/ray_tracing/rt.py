@@ -22,7 +22,7 @@ from solcore.state import State
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath, get_wavelength
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
-from .analytical_approximation import analytical_front_surface
+from .analytical_approximation import analytical_front_surface, lambertian_scattering, calculate_lambertian_profile
 
 from rayflare import logger
 
@@ -795,6 +795,12 @@ class rt_structure:
         else:
             self.tmm_or_fresnel = [0] * len(textures)  # no lookuptables
 
+        if options.lambertian_approximation:
+            self.lambertian_results = lambertian_scattering(self, save_location, options)
+
+        else:
+            self.lambertian_results = None
+
     def calculate(self, options):
         """Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
         defined.
@@ -955,6 +961,7 @@ class rt_structure:
                 lambertian_approximation,
                 analytical_rt,
                 tmm_args + [wavelengths[i1]],
+                self.lambertian_results,
             )
             for i1 in range(len(wavelengths))
         )
@@ -971,7 +978,6 @@ class rt_structure:
         # directions = [item[9] for item in allres]
         profile_interfaces = [item[8] for item in allres]
 
-        # process A_interfaces
 
         if sum(self.tmm_or_fresnel) > 0:
 
@@ -998,7 +1004,7 @@ class rt_structure:
             A_per_interface = 0
             interface_profiles = 0
 
-        non_abs = ~np.isnan(thetas)
+        non_abs = np.logical_and(~np.isnan(thetas), np.abs(thetas) != 10)
 
         refl = np.logical_and(
             non_abs,
@@ -1023,6 +1029,41 @@ class rt_structure:
 
         absorption_profiles[absorption_profiles < 0] = 0
 
+        A_layer[:, 1] = A_layer[:, 1]
+
+        # process A_interfaces
+
+        if np.any(np.abs(thetas) == 10):  # Lambertian scattering
+
+            # +ve if travelling down, about to hit rear surface.
+            # stop normal RT right before next interaction with surface, but AFTER taking into account bulk
+            # absorption on this pass
+
+            direction = np.sign(thetas[np.abs(thetas)==10])[0]
+            lambertian_RAT = self.lambertian_results[0].sel(direction=direction)
+            lambertian_A1 = self.lambertian_results[1].sel(direction=direction)
+            lambertian_A2 = self.lambertian_results[2].sel(direction=direction)
+
+            # where np.abs(thetas) == 10, want to divide remaining intensity in Is at the same location correctly between
+            # reflection, interface absorption, and transmission
+            n_lambertian = np.sum(np.abs(thetas) == 10, axis=1)
+            I_lambertian = np.array([np.sum(Is[i1][np.abs(thetas[i1]) == 10]) for i1 in
+                            range(len(wavelengths))])  / (nx * ny * n_reps)
+            I_RAT = lambertian_RAT * I_lambertian
+
+            R += I_RAT.sel(event='R')
+            T += I_RAT.sel(event='T')
+            A_layer[:, 1] += I_RAT.sel(event='A_bulk')
+            add_frontsurf = (I_lambertian * lambertian_A1).data.T
+            add_backsurf = (I_lambertian * lambertian_A2).data.T
+
+            A_per_interface[0] = A_per_interface[0] + add_frontsurf
+            A_per_interface[1] = A_per_interface[-1] + add_backsurf
+
+            # add_profile = calculate_lambertian_profile(self, I_RAT, wavelengths, direction,
+            #                                            self.lambertian_results[3])
+
+
         return {
             "R": R,
             "T": T,
@@ -1034,7 +1075,7 @@ class rt_structure:
             "n_passes": n_passes,
             "n_interactions": n_interactions,
             "A_per_interface": A_per_interface,
-            "A_interfaces": A_interfaces,
+            # "A_interfaces": A_interfaces,
             "interface_profiles": interface_profiles,
             "Is": Is,
         }
@@ -1093,6 +1134,7 @@ def parallel_inner(
     lambertian_approximation,
     analytical_rt,
     tmm_args=None,
+    lambertian_results=None,
 ):
 
     if tmm_args is None:
@@ -1822,10 +1864,6 @@ def single_ray_stack(
 
     while not stop:
 
-        if lambertian_approximation and n_passes > lambertian_approximation:
-            # choose a direction randomly, with probability determined by Lambertian scattering
-            pass
-
         surf = surfaces[surf_index]
 
         # if periodic:
@@ -1938,6 +1976,13 @@ def single_ray_stack(
             )
 
             n_passes = n_passes + 1
+
+            if lambertian_approximation and n_passes >= lambertian_approximation:
+                # choose a direction randomly, with probability determined by Lambertian scattering
+                stop = True
+                theta = 10*direction # +ve if travelling down, about to hit rear surface.
+                # stop right before next interaction with surface, but AFTER taking into account bulk
+                # absorption on this pass
 
     return (
         I,
