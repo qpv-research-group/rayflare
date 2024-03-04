@@ -76,9 +76,14 @@ class Interface:
         texture=None,
         prof_layers=None,
         coherent=True,
-        **kwargs
+        **kwargs,
     ):
         """Layer class constructor."""
+        valid_methods = ["RT_Fresnel", "RT_TMM", "RCWA", "TMM", "Mirror", "Lambertian"]
+        if method not in valid_methods:
+            raise ValueError(
+                f"Unknown method {method}. Please use one of the following: {valid_methods}."
+            )
         self.method = method
         self.__dict__.update(kwargs)
         self.layers = layers
