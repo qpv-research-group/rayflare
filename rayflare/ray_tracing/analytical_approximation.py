@@ -3,6 +3,7 @@ import xarray as xr
 import os
 from rayflare.utilities import get_savepath
 
+theta_lamb = np.linspace(0, 0.999 * np.pi / 2, 100)
 def traverse_vectorised(width, theta, alpha, I_i, positions, I_thresh, direction):
 
     ratio = alpha / np.real(np.abs(np.cos(theta)))
@@ -22,7 +23,7 @@ def traverse_vectorised(width, theta, alpha, I_i, positions, I_thresh, direction
 
     DA[intgr == 0] = 0
 
-    return DA, stop, I_back, theta
+    return DA, stop, I_back
 
 def calc_RAT_Fresnel(theta, pol, *args):
     n1 = args[0]
@@ -120,11 +121,10 @@ def calc_RAT_Fresnel_vec(theta, pol, *args):
 
 def calc_RAT_TMM(theta, pol, *args):
     lookuptable = args[0]
-    wl = args[1]
-    side = args[2]
+    side = args[1]
 
     data = lookuptable.loc[dict(side=side, pol=pol)].sel(
-        angle=abs(theta), wl=wl * 1e9, method="nearest"
+        angle=abs(theta), method="nearest"
     )
 
     R = np.real(data["R"].data)
@@ -138,7 +138,6 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
                              bulk_width,
                              alpha_bulk,
                              I_thresh,
-                             wl=None,
                              Fr_or_TMM=0,
                              lookuptable=None,
                              ):
@@ -161,7 +160,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
 
     else:
         calc_RAT = calc_RAT_TMM
-        R_args = [lookuptable, wl, 1]
+        R_args = [lookuptable, 1]
 
     # r_in = r_in / np.linalg.norm(r_in)
 
@@ -208,7 +207,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         # if negative, then the ray is shaded from that pyramid face and will never hit it
 
         tr_par = (n0 / n1) * (r_inc - np.sum(r_inc*normals[relevant_face], axis=1)[:,None] * normals[relevant_face])
-        tr_perp = -np.sqrt(1 - np.linalg.norm(tr_par) ** 2) * normals[relevant_face]
+        tr_perp = -np.sqrt(1 - np.linalg.norm(tr_par,axis=1) ** 2)[:, None] * normals[relevant_face]
 
         refracted_rays = np.real(tr_par + tr_perp)
         refracted_rays  = refracted_rays / np.linalg.norm(refracted_rays, axis=1)[:,None]
@@ -330,7 +329,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     n_reps_T_int[np.argmax(n_reps_T_remainder)] += extra_rays_T
     n_reps_A_surf_int += extra_rays_A
 
-    DA, stop, I, theta = traverse_vectorised(
+    DA, stop, I = traverse_vectorised(
         bulk_width,
         theta_out_T,
         alpha_bulk,
@@ -394,8 +393,7 @@ def lambertian_scattering(strt, save_location, options):
 
     # sin_theta = np.linspace(0, 0.9999999, 20000)
     # theta = np.arcsin(sin_theta)
-    theta = np.linspace(0, 0.999*np.pi / 2, 100)
-    I_theta = np.cos(theta)
+    I_theta = np.cos(theta_lamb)
     I_theta = I_theta/np.sum(I_theta)
     # make rays with these thetas, and a range of azimuthal angles:
 
@@ -403,7 +401,7 @@ def lambertian_scattering(strt, save_location, options):
 
     # make a grid of rays with these thetas and phis
 
-    theta_grid, phi_grid = np.meshgrid(theta, phi)
+    theta_grid, phi_grid = np.meshgrid(theta_lamb, phi)
     theta_grid = theta_grid.flatten()
     phi_grid = phi_grid.flatten()
 
@@ -449,14 +447,14 @@ def lambertian_scattering(strt, save_location, options):
 
             data_front = lookuptable_front.loc[dict(side=-1, pol=options.pol)].sel(
                 angle=abs(unique_angles_front), wl=options.wavelength * 1e9, method="nearest"
-            )
+            ).load()
             R_front = np.real(data_front["R"].data).T
             A_per_layer_front = np.real(data_front["Alayer"].data).T
             A_all_front = A_per_layer_front[:, inverse_indices_front].reshape(
                 (n_front_layers,) + theta_local_front.shape + (len(options.wavelength),))
 
             A_reshape_front = A_all_front.reshape(
-                (n_front_layers, n_triangles_front, len(phi), len(theta), len(options.wavelength)))
+                (n_front_layers, n_triangles_front, len(phi), len(theta_lamb), len(options.wavelength)))
 
 
         else:
@@ -480,7 +478,7 @@ def lambertian_scattering(strt, save_location, options):
                 (n_rear_layers,) + theta_local_rear.shape + (len(options.wavelength),))
 
             A_reshape_rear = A_all_rear.reshape(
-                (n_rear_layers, n_triangles_rear, len(phi), len(theta), len(options.wavelength)))
+                (n_rear_layers, n_triangles_rear, len(phi), len(theta_lamb), len(options.wavelength)))
 
 
         else:
@@ -510,9 +508,9 @@ def lambertian_scattering(strt, save_location, options):
 
         hit_prob_front = area_front[:, None] * hit_prob_front / np.sum(hit_prob_front, axis=0)
 
-        hit_prob_reshape_front = hit_prob_front.reshape((n_triangles_front, len(phi), len(theta)))
+        hit_prob_reshape_front = hit_prob_front.reshape((n_triangles_front, len(phi), len(theta_lamb)))
         # now take the average over all the faces and azimuthal angles
-        R_reshape_front = R_all_front.reshape((n_triangles_front, len(phi), len(theta), len(options.wavelength)))
+        R_reshape_front = R_all_front.reshape((n_triangles_front, len(phi), len(theta_lamb), len(options.wavelength)))
 
         R_weighted_front = R_reshape_front * hit_prob_reshape_front[:, :, :, None]
         R_polar_front = np.sum(np.mean(R_weighted_front, 1), 0)
@@ -528,9 +526,9 @@ def lambertian_scattering(strt, save_location, options):
 
         hit_prob_rear = area_rear[:, None] * hit_prob_rear / np.sum(hit_prob_rear, axis=0)
 
-        hit_prob_reshape_rear = hit_prob_rear.reshape((n_triangles_rear, len(phi), len(theta)))
+        hit_prob_reshape_rear = hit_prob_rear.reshape((n_triangles_rear, len(phi), len(theta_lamb)))
         # now take the average over all the faces and azimuthal angles
-        R_reshape_rear = R_all_rear.reshape((n_triangles_rear, len(phi), len(theta), len(options.wavelength)))
+        R_reshape_rear = R_all_rear.reshape((n_triangles_rear, len(phi), len(theta_lamb), len(options.wavelength)))
 
         R_weighted_rear = R_reshape_rear * hit_prob_reshape_rear[:, :, :, None]
         R_polar_rear = np.sum(np.mean(R_weighted_rear, 1), 0)
@@ -539,7 +537,7 @@ def lambertian_scattering(strt, save_location, options):
         A_polar_rear = np.sum(np.mean(A_surf_weighted_rear, 2), 1)
 
         # calculate travel distance for each ray
-        I_rear = I_theta[:, None] * np.exp(-strt.widths[0] * strt.mats[1].alpha(options.wavelength[None, :]) / np.cos(theta)[:, None])
+        I_rear = I_theta[:, None] * np.exp(-strt.widths[0] * strt.mats[1].alpha(options.wavelength[None, :]) / np.cos(theta_lamb)[:, None])
 
         R_1 = np.sum(I_theta[:, None]*R_polar_front, axis=0)
         R_2 = np.sum(I_theta[:, None]*R_polar_rear, axis=0)
@@ -603,43 +601,77 @@ def lambertian_scattering(strt, save_location, options):
     return merged, front_surf_P, rear_surf_P, [R_1, R_2]
 
 
-def calculate_lambertian_profile(strt, I_wl, options, initial_direction, lambertian_results, position):
-    theta = np.linspace(0, 0.999 * np.pi / 2, 100)
-    I_theta = np.cos(theta)
+def calculate_lambertian_profile(strt, I_wl, options, initial_direction,
+                                 lambertian_results, alphas, position):
+
+    I_theta = np.cos(theta_lamb)
     I_theta = I_theta / np.sum(I_theta)
 
-    I = I_wl
+    profile_wl = np.zeros((len(I_wl), len(position)))
 
-    [R_top, R_bot, abs_prof] = lambertian_results
+    [R_top, R_bot] = lambertian_results
 
     if initial_direction == 1:
+        R1 = R_bot # CHECK
+        R2 = R_top
+
+    else:
         R1 = R_top
         R2 = R_bot
 
-    else:
-        R1 = R_bot
-        R2 = R_top
+    for i1, I0 in enumerate(I_wl):
 
-    direction = initial_direction
+        I = I0
+        I_angular = I * I_theta
+        direction = -initial_direction # first thing that happens is reflection!
+        DA = np.zeros((len(theta_lamb), len(position)))
 
-    while np.any(I < options.I_thresh):
+        while I > options.I_thresh:
 
-        # 1st surf interaction
-        I = I * R1
+            # 1st surf interaction
+            I_angular = I_angular * R1[i1]
 
-        # absorption
+            # absorption
 
-        # DA, _, I, theta = traverse_vectorised(
-        #     strt.widths[1],
-        #     theta,
-        #     strt.mats[1].alpha(options.wavelength)
+            DA_pass, _, I_angular = traverse_vectorised(
+                strt.widths[0]*1e6,
+                theta_lamb,
+                alphas[i1],
+                I_angular,
+                position,
+                options.I_thresh,
+                direction,
+            )
+
+            DA += DA_pass
+
+            I_angular = I_angular * R2[i1]
+
+            direction = -direction
+
+            DA_pass, _, I_angular = traverse_vectorised(
+                strt.widths[0],
+                theta_lamb,
+                alphas[i1],
+                I_angular,
+                position,
+                options.I_thresh,
+                direction,
+            )
+            DA += DA_pass
+
+            direction = -direction
+
+            I = np.sum(I_angular)
+
+        profile_wl[i1] = np.sum(DA, axis=0)
+
+    return profile_wl
+
         #
-        #     position,
-        #     options.I_thresh,
-        #     direction,
-        # )
-
-
-
+        # plt.figure()
+        # plt.plot(position, profile_wl.T)
+        # plt.legend([str(x) for x in I_wl])
+        # plt.show()
 
 

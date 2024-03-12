@@ -542,6 +542,7 @@ def test_absorption_profile():
     )
     result_rt = rtstr.calculate(options)
 
+
     stack = [Layer(si("100um"), GaAs), Layer(si("70um"), Si), Layer(si("50um"), Ge)]
 
     strt = tmm_structure(stack, incidence=Air, transmission=Air, no_back_reflection=False)

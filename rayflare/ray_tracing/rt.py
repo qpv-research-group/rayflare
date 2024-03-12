@@ -297,6 +297,7 @@ def RT_wl(
     depth_spacing,
     side,
 ):
+    lookuptable_wl = lookuptable.sel(wl=wl * 1e9).load()
     logger.info(f"RT calculation for wavelength = {wl * 1e9} nm")
 
     theta_out = np.zeros((n_angles, nx * ny))
@@ -326,7 +327,7 @@ def RT_wl(
                 pol,
                 wl,
                 Fr_or_TMM,
-                lookuptable,
+                lookuptable_wl,
             )
 
             if th_o < 0:  # can do outside loup with np.where
@@ -462,7 +463,7 @@ def RT_wl(
                 widths,
                 local_angle_mat,
                 wl,
-                lookuptable,
+                lookuptable_wl,
                 pol,
                 depth_spacing,
                 calc_profile,
@@ -714,22 +715,26 @@ def calculate_interface_profiles(
 
     profile = profile_front + profile_back
 
-    integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
+    if profile > 0:
+        integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
 
-    A_corr = np.sum(A_in_prof_layers)
+        A_corr = np.sum(A_in_prof_layers)
 
-    scale_profile = np.real(
-        np.divide(
-            A_corr,
-            integrated_profile.data,
-            where=integrated_profile.data > 0,
-            out=np.zeros_like(A_corr),
+        scale_profile = np.real(
+            np.divide(
+                A_corr,
+                integrated_profile.data,
+                where=integrated_profile.data > 0,
+                out=np.zeros_like(A_corr),
+            )
         )
-    )
 
-    interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
+        interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
 
-    return interface_profile.data
+        return interface_profile.data
+
+    else:
+        return []
 
 
 class rt_structure:
@@ -760,6 +765,9 @@ class rt_structure:
         save_location="default",
         overwrite=False,
     ):
+
+        if isinstance(options, dict):
+            options = State(options)
 
         self.textures = textures
         self.widths = widths
@@ -807,11 +815,10 @@ class rt_structure:
         else:
             self.tmm_or_fresnel = [0] * len(textures)  # no lookuptables
 
-        if options.lambertian_approximation:
-            self.lambertian_results = lambertian_scattering(self, save_location, options)
-
-        else:
-            self.lambertian_results = None
+        self.lambertian_results = None
+        if hasattr(options, "lambertian_approximation"):
+            if options.lambertian_approximation:
+                self.lambertian_results = lambertian_scattering(self, save_location, options)
 
     def calculate(self, options):
         """Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
@@ -853,6 +860,15 @@ class rt_structure:
         )
         lambertian_approximation = options.lambertian_approximation
         analytical_rt = options.analytical_ray_tracing
+
+        if options.lambertian_approximation:
+            if self.lambertian_results is None:
+                raise ValueError("Lambertian approximation results not found - must provide"
+                                 "options argument when initialising rt_structure.")
+
+            if len(self.mats) > 3:
+                raise ValueError("Lambertian approximation currently only implemented for structures"
+                                 "with a single bulk material and two interface textures.")
 
         if not options["parallel"]:
             n_jobs = 1
@@ -1091,9 +1107,10 @@ class rt_structure:
                 A_per_interface[0] = A_per_interface[0] + add_frontsurf
                 A_per_interface[1] = A_per_interface[-1] + add_backsurf
 
-            # add_profile = calculate_lambertian_profile(self, I_RAT, wavelengths, direction,
-            #                                            self.lambertian_results[3])
+            add_profile = calculate_lambertian_profile(self, I_lambertian, options, direction,
+                                                       self.lambertian_results[3], alphas[1], depths[1])
 
+            absorption_profiles += add_profile
 
         return {
             "R": R,
@@ -1388,7 +1405,7 @@ def parallel_inner(
                 )
 
                 A_interfaces[A_interface_index].append(A_interface_array)
-                profiles += profile / (n_reps * nx * ny)
+                # profiles += profile / (n_reps * nx * ny)
                 thetas[ind] = th_o
                 phis[ind] = phi_o
                 Is[ind] = np.real(I)
@@ -1566,7 +1583,7 @@ def make_profiles_wl(
     # lookuptable layers are 1-indexed
 
     data = lookuptable.loc[dict(side=1, pol=pol)].interp(
-        angle=pr.coords["local_theta"], wl=wl * 1e9
+        angle=pr.coords["local_theta"], #wl=wl * 1e9
     )
 
     params = (
