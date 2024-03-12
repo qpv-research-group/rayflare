@@ -1,9 +1,8 @@
 from pytest import approx, mark
 import numpy as np
-import sys
+from .conftest import skip_s4_test
 
-
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 def test_tmm_rcwa_profile():
     from rayflare.utilities import make_absorption_function
     from rayflare.transfer_matrix_method import tmm_structure
