@@ -34,10 +34,11 @@ jobs:
         sudo apt-get update
         sudo apt install -y python3-tk libboost-all-dev libopenblas-dev libfftw3-dev libsuitesparse-dev
 
-    - name: Install system dependencies in MacOS
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install fftw suite-sparse openblas lapack boost
+# Do not need to do this if not installing S4
+#    - name: Install system dependencies in MacOS
+#      if: matrix.os == 'macos-latest'
+#      run: |
+#        brew install fftw suite-sparse openblas lapack boost
 
     - name: Install python dependencies
       run: |
@@ -53,14 +54,15 @@ jobs:
         cd ..
         rm -rf S4
 
-    - name: Install S4 in MacOS
-      if: matrix.os == 'macos-latest'
-      run: |
-        git clone https://github.com/phoebe-p/S4
-        cd S4
-        make S4_pyext --file="Makefile.mac_intel"
-        cd ..
-        rm -rf S4
+# Not working as of March 2024. Cannot find cholmod.h header file. Reason unclear.
+#    - name: Install S4 in MacOS
+#      if: matrix.os == 'macos-latest'
+#      run: |
+#        git clone https://github.com/phoebe-p/S4
+#        cd S4
+#        make S4_pyext --file="Makefile.mac_intel"
+#        cd ..
+#        rm -rf S4
 
     - name: Install on Linux and MacOS
       if: matrix.os != 'windows-latest'
