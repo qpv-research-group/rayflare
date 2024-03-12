@@ -58,7 +58,7 @@ jobs:
       run: |
         git clone https://github.com/phoebe-p/S4
         cd S4
-        make S4_pyext
+        make S4_pyext --file="Makefile.mac_intel"
         cd ..
         rm -rf S4
 
