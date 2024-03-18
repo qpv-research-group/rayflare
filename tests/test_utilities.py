@@ -24,7 +24,7 @@ def test_tmm_rcwa_profile():
 
     # setting options
     options = default_options()
-    options.wavelengths = wl
+    options.wavelength = wl
     options.depth_spacing = si("1nm")
     options.theta_in = 0
     options.orders = 2
@@ -172,7 +172,7 @@ def test_matrix_method_profile():
     wavelengths = np.linspace(250, 1200, 6) * 1e-9
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "GaAs_GaAs_Si_test"
     options.n_theta_bins = 20
     options.nx = 5
@@ -292,7 +292,7 @@ def test_rt_tmm_profile():
     options.n_rays = 500
     options.randomize_surface = True
     options.project_name = "GaInP_GaAs_Si_spacer_tmm_rt_test"
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
 
     GaAs = material("GaAs")
     GaAs_opt = GaAs()

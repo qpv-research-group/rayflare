@@ -145,7 +145,11 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     # n0 should be real
     # n1 can be complex
 
-    # same for all wavelengths
+    # TODO:
+    # reflectance (not intensity but directions) will always be the same, regardles of wavelength,
+    # so this could be calculated once and then used for all wavelengths. Currently, because the
+    # analytical calculation divides the rays into categories at the end, the accuracy of the R/A/T value
+    # will be limited to 1/n_rays. This will be addressed in a future release.
 
     how_many_faces = len(front.N)
     normals = front.N
@@ -162,12 +166,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         calc_RAT = calc_RAT_TMM
         R_args = [lookuptable, 1]
 
-    # r_in = r_in / np.linalg.norm(r_in)
-
     r_inc = np.tile(r_in, (how_many_faces, 1))  # (4, 3) array
-
-    # reflected_rays = np.zeros((how_many_faces, 3))
-    # refracted_rays = np.zeros((how_many_faces, 3))
 
     area = np.sqrt(
         np.sum(np.cross(front.P_0s - front.P_1s, front.P_2s - front.P_1s, axis=1) ** 2, 1)
@@ -195,7 +194,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     N_interaction = 0
 
     while N_interaction < max_interactions:
-        # print(N_interaction, relevant_face)
+
         cos_inc = -np.sum(normals[relevant_face] * r_inc, 1)  # dot product
 
         reflected_direction = r_inc - 2 * np.sum(r_inc*normals[relevant_face], axis=1)[:,None] * normals[relevant_face]
@@ -212,7 +211,6 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         refracted_rays = np.real(tr_par + tr_perp)
         refracted_rays  = refracted_rays / np.linalg.norm(refracted_rays, axis=1)[:,None]
         transmitted_ray_directions[:, :,  N_interaction] = refracted_rays
-
 
         R_prob, A_prob = calc_RAT(np.arccos(cos_inc), pol, *R_args)
 
@@ -234,8 +232,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         stop_it[
             np.all((reflected_direction[:, 2] > 0, stop_it > N_interaction),
                    axis=0)] = N_interaction
-        # terminate_tracing[reflected_direction[:,2] > 0] = 1
-        # want to end for this surface, since rays are travelling upwards -> no intersection
+         # want to end for this surface, since rays are travelling upwards -> no intersection
 
         R_per_it[:,
         N_interaction] = R_prob  # intensity reflected from each face, relative to incident total intensity 1
@@ -254,9 +251,6 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
 
         N_interaction += 1
 
-        # would expect this to underestimate actual result, because sometimes ray reflected the first time
-        # misses the adjacent pyramid
-
     remaining_intensity = np.insert(np.cumprod(R_per_it, axis=1), 0, np.ones(how_many_faces),
                                     axis=1)[:, :-1]
 
@@ -265,10 +259,6 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     final_R_directions = np.array([reflected_ray_directions[j1, :, stop_it[j1]] for j1 in
                           range(how_many_faces)])
     # the weight of each of these directions is R_total
-
-    T_total = np.array([hit_prob[j1] * np.sum(
-        remaining_intensity[j1, :stop_it[j1] + 1] * T_per_it[j1, :stop_it[j1] + 1]) for j1 in
-               range(how_many_faces)])
 
     # loop through faces and interactions:
     final_T_directions = []
@@ -286,12 +276,6 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
     final_T_directions = np.array(final_T_directions)
 
     A_total = hit_prob[:, None] * np.sum(remaining_intensity[:, None, :] * A_per_it, axis=2)
-
-    # R_all_faces = np.sum(R_total)
-    # T_all_faces = np.sum(T_total)
-    # A_all_faces = np.sum(A_total, axis=0)
-
-    # this will all be R0, n_interactions should be set correctly
 
     theta_out_R = np.arccos(final_R_directions[:, 2] / np.linalg.norm(final_R_directions, axis=1))
     phi_out_R = np.arctan2(final_R_directions[:, 1], final_R_directions[:, 0])
@@ -322,13 +306,15 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
         int)
     extra_rays_T = np.round(n_reps_T_remainder / (n_reps_T_remainder + n_reps_A_surf_remainder) * (
                 rays_to_divide - extra_rays_R)).astype(int)
-    # see which of the transmitted rays reach the back of the Si before falling below
-    # I_thresh
+
     extra_rays_A = rays_to_divide - extra_rays_R - extra_rays_T
 
     n_reps_R_int[np.argmax(n_reps_R_remainder)] += extra_rays_R
     n_reps_T_int[np.argmax(n_reps_T_remainder)] += extra_rays_T
     n_reps_A_surf_int += extra_rays_A
+
+    # see which of the transmitted rays reach the back of the Si before falling below
+    # I_thresh
 
     DA, stop, I = traverse_vectorised(
         bulk_width,
@@ -392,11 +378,8 @@ def lambertian_scattering(strt, save_location, options):
 
     structpath = get_savepath(save_location, options.project_name)
 
-    # sin_theta = np.linspace(0, 0.9999999, 20000)
-    # theta = np.arcsin(sin_theta)
     I_theta = np.cos(theta_lamb)
     I_theta = I_theta/np.sum(I_theta)
-    # make rays with these thetas, and a range of azimuthal angles:
 
     phi = np.linspace(0, options.phi_symmetry, 40)
 
@@ -668,11 +651,3 @@ def calculate_lambertian_profile(strt, I_wl, options, initial_direction,
         profile_wl[i1] = np.sum(DA, axis=0)
 
     return profile_wl
-
-        #
-        # plt.figure()
-        # plt.plot(position, profile_wl.T)
-        # plt.legend([str(x) for x in I_wl])
-        # plt.show()
-
-

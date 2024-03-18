@@ -27,7 +27,7 @@ def test_tmm_rcwa_structure_comparison(RCWA_method):
 
     options = default_options()
 
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.orders = 2
     options.RCWA_method = RCWA_method
 
@@ -86,7 +86,7 @@ def test_planar_structure(RCWA_method):
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "method_comparison_test"
     options.n_rays = 250
     options.n_theta_bins = 3
@@ -237,7 +237,7 @@ def test_planar_structure_45deg(RCWA_method):
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "method_comparison_test_45deg"
     options.n_rays = 500
     options.n_theta_bins = 20
@@ -388,7 +388,7 @@ def test_tmm_rcwa_pol_angle(RCWA_method):
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "method_comparison_test_angle_pol"
     options.n_theta_bins = 50
     options.lookuptable_angles = 100
@@ -525,7 +525,7 @@ def test_absorption_profile():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1400, 4) * 1e-9
+    options.wavelength = np.linspace(700, 1400, 4) * 1e-9
     options.theta_in = 45 * np.pi / 180
     options.nx = 5
     options.ny = 5
@@ -574,7 +574,7 @@ def test_absorption_profile_incoh_angles():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1400, 4) * 1e-9
+    options.wavelength = np.linspace(700, 1400, 4) * 1e-9
     options.nx = 5
     options.ny = 5
     options.n_rays = 2000
@@ -648,7 +648,7 @@ def test_absorption_profile_coh_angles():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1400, 4) * 1e-9
+    options.wavelength = np.linspace(700, 1400, 4) * 1e-9
     options.nx = 5
     options.ny = 5
     options.n_rays = 2000
@@ -718,7 +718,7 @@ def test_rcwa_tmm_profiles_coh(RCWA_method):
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1400, 4) * 1e-9
+    options.wavelength = np.linspace(700, 1400, 4) * 1e-9
 
     options.depth_spacing = 10e-9
     options.theta_in = np.pi / 3
@@ -797,7 +797,7 @@ def test_rcwa_tmm_matrix_check_sums(RCWA_method):
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.n_rays = 4000
     options.n_theta_bins = 20
     options.lookuptable_angles = 100
@@ -987,7 +987,7 @@ def test_rcwa_tmm_matrix_profiles(RCWA_method):
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.n_rays = 4000
     options.n_theta_bins = 20
     options.lookuptable_angles = 100
@@ -1219,7 +1219,7 @@ def test_compare_RT_TMM_Fresnel():
     options = default_options()
     options.project_name = "RT_Fresnel_TMM"
     options.n_theta_bins = 20
-    options.wavelengths = np.linspace(950, 1130, 4) * 1e-9
+    options.wavelength = np.linspace(950, 1130, 4) * 1e-9
     options.bulk_profile = False
 
     flat_surf = planar_surface(size=2)  # pyramid size in microns
@@ -1411,7 +1411,7 @@ def test_tmm_arm():
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "rt_tmm_comparisons_2"
     options.n_rays = 10000
     options.n_theta_bins = 20
@@ -1538,7 +1538,7 @@ def test_tmm_rt_methods():
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "rt_tmm_comparisons_3"
     options.nx = 10
     options.ny = 10

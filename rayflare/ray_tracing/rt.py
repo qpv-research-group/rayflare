@@ -297,7 +297,13 @@ def RT_wl(
     depth_spacing,
     side,
 ):
-    lookuptable_wl = lookuptable.sel(wl=wl * 1e9).load()
+
+    if lookuptable is not None:
+        lookuptable_wl = lookuptable.sel(wl=wl * 1e9).load()
+
+    else:
+        lookuptable_wl = None
+
     logger.info(f"RT calculation for wavelength = {wl * 1e9} nm")
 
     theta_out = np.zeros((n_angles, nx * ny))
@@ -715,7 +721,7 @@ def calculate_interface_profiles(
 
     profile = profile_front + profile_back
 
-    if profile > 0:
+    if np.sum(profile.data) > 0:
         integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
 
         A_corr = np.sum(A_in_prof_layers)

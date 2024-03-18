@@ -55,7 +55,7 @@ def test_lambertian_process():
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.n_theta_bins = 6
     options.c_azimuth = 0.25
     options.project_name = "Lambertian"

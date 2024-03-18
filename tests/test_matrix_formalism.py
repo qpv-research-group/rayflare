@@ -17,7 +17,7 @@ def test_bulk_profile():
     options = default_options()
     options.project_name = "bulk_profile_test"
     options.n_theta_bins = 20
-    options.wavelengths = np.linspace(950, 1130, 3) * 1e-9
+    options.wavelength = np.linspace(950, 1130, 3) * 1e-9
     options.bulk_profile = True
     options.depth_spacing_bulk = 1e-6
     options.c_azimuth = 0.25
@@ -69,7 +69,7 @@ def test_phi_all():
     options = default_options()
     options.project_name = "test_arm_phi"
     options.n_theta_bins = 20
-    options.wavelengths = np.linspace(950, 1130, 4) * 1e-9
+    options.wavelength = np.linspace(950, 1130, 4) * 1e-9
     options.bulk_profile = True
     options.depth_spacing_bulk = 1e-6
     options.c_azimuth = 0.25
@@ -118,7 +118,7 @@ def test_random_position():
     options = default_options()
     options.project_name = "bulk_profile_test_random"
     options.n_theta_bins = 20
-    options.wavelengths = np.linspace(950, 1130, 3) * 1e-9
+    options.wavelength = np.linspace(950, 1130, 3) * 1e-9
     options.bulk_profile = True
     options.depth_spacing_bulk = 1e-6
     options.c_azimuth = 0.25
