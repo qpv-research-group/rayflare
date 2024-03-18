@@ -282,6 +282,7 @@ def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layer
             final_T_n_interactions.append(j2 + 1)
 
     final_T_weights = np.array(final_T_weights)
+    final_T_weights[final_T_weights < 0] = 0
     final_T_directions = np.array(final_T_directions)
 
     A_total = hit_prob[:, None] * np.sum(remaining_intensity[:, None, :] * A_per_it, axis=2)

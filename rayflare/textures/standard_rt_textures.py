@@ -49,6 +49,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 
@@ -68,6 +69,7 @@ def planar_surface(size=1, **kwargs):
     Points = np.vstack([x, y, z]).T
     surf_fi = RTSurface(Points, **kwargs)
     surf_ri = RTSurface(Points)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 
@@ -98,6 +100,7 @@ def V_grooves(elevation_angle=55, width=1, direction="y", **kwargs):
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 
@@ -331,6 +334,8 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
 
     front.N = front.crossP / np.linalg.norm(front.crossP, axis=1)[:, None]
     back.N = back.crossP / np.linalg.norm(back.crossP, axis=1)[:, None]
+
+    back.name = front.name
     hyperhemi = [front, back]
 
     return hyperhemi
