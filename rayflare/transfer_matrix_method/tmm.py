@@ -1,3 +1,10 @@
+# Copyright (C) 2021-2024 Phoebe Pearce
+#
+# This file is part of RayFlare and is released under the GNU Lesser General Public License (LGPL), version 3.
+# Please see the LICENSE.txt file included as part of this package.
+#
+# Contact: p.pearce@unsw.edu.au
+
 import numpy as np
 import xarray as xr
 from sparse import COO, save_npz, stack

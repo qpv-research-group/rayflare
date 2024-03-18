@@ -4,7 +4,6 @@ import os
 import sys
 from configparser import ConfigParser
 
-
 def gen_data_files(*dirs):
     """Creates the list of files (not necessarily python files) that need to be
     installed together with the rest of stuff"""
@@ -73,8 +72,8 @@ setup(
     },
     author="Phoebe Pearce",
     author_email="phoebe.pearce15@imperial.ac.uk",
-    license="GNU GPLv3",
-    python_requires=">=3.6, <3.12",
+    license="GNU LGPLv3",
+    python_requires=">=3.6",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",

@@ -1,7 +1,6 @@
 from pytest import approx
 import numpy as np
 
-
 def test_bulk_profile():
     from solcore import material
 

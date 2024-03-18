@@ -1,6 +1,6 @@
-# Copyright (C) 2021 Phoebe Pearce
+# Copyright (C) 2021-2024 Phoebe Pearce
 #
-# This file is part of RayFlare and is released under the GNU General Public License (GPL), version 3.
+# This file is part of RayFlare and is released under the GNU Lesser General Public License (LGPL), version 3.
 # Please see the LICENSE.txt file included as part of this package.
 #
 # Contact: p.pearce@unsw.edu.au
@@ -76,9 +76,14 @@ class Interface:
         texture=None,
         prof_layers=None,
         coherent=True,
-        **kwargs
+        **kwargs,
     ):
         """Layer class constructor."""
+        valid_methods = ["RT_Fresnel", "RT_TMM", "RCWA", "TMM", "Mirror", "Lambertian"]
+        if method not in valid_methods:
+            raise ValueError(
+                f"Unknown method {method}. Please use one of the following: {valid_methods}."
+            )
         self.method = method
         self.__dict__.update(kwargs)
         self.layers = layers

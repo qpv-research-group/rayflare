@@ -1,9 +1,8 @@
 import numpy as np
 from pytest import approx, mark
-import sys
+from .conftest import skip_s4_test
 
-
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 def test_get_order_directions():
     from rayflare.analytic.diffraction import get_order_directions
     from solcore import material

@@ -1,9 +1,8 @@
 from pytest import approx, mark
 import numpy as np
-import sys
+from .conftest import skip_s4_test
 
-
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 @mark.parametrize("RCWA_method", ["S4", "Inkstone"])
 def test_RAT(RCWA_method):
     from solcore import si, material
@@ -122,7 +121,7 @@ def test_RAT(RCWA_method):
         )
 
 
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 @mark.parametrize("RCWA_method", ["S4", "Inkstone"])
 def test_RAT_angle_pol(RCWA_method):
     from solcore import si, material
@@ -199,7 +198,7 @@ def test_RAT_angle_pol(RCWA_method):
             assert RAT["R"] + RAT["T"] + np.sum(RAT["A_per_layer"], 1) == approx(1)
 
 
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 @mark.parametrize("RCWA_method", ["S4", "Inkstone"])
 def test_RAT_angle_pol_ninc(RCWA_method):
     from solcore import si, material
@@ -276,7 +275,7 @@ def test_RAT_angle_pol_ninc(RCWA_method):
             assert RAT["R"] + RAT["T"] + np.sum(RAT["A_per_layer"], 1) == approx(1)
 
 
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 @mark.parametrize("RCWA_method", ["S4", "Inkstone"])
 def test_shapes(RCWA_method):
     from solcore import material
@@ -362,7 +361,7 @@ def test_shapes(RCWA_method):
         assert np.all(A_back[i1] > A_back[-1])
 
 
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 def test_reciprocal_lattice():
     from rayflare.rigorous_coupled_wave_analysis.rcwa import get_reciprocal_lattice
 
@@ -374,7 +373,7 @@ def test_reciprocal_lattice():
     assert a[1] == approx((0, 1 / 200))
 
 
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 def test_plotting_funcs():
     from solcore import si, material
     from solcore.structure import Layer
@@ -506,7 +505,7 @@ def test_plotting_funcs():
     assert H.shape == (len(xs), len(ys), 3)
 
 
-@mark.skipif(sys.platform == "win32", reason="S4 (RCWA) only installed for tests under Linux and macOS")
+@mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 @mark.parametrize("RCWA_method", ["S4", "Inkstone"])
 def test_matrix_generation(RCWA_method):
     from rayflare.rigorous_coupled_wave_analysis import RCWA
