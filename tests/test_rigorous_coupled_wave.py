@@ -146,7 +146,7 @@ def test_RAT_angle_pol(RCWA_method):
     size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.orders = 2
     options.RCWA_method = RCWA_method
 
@@ -222,7 +222,7 @@ def test_RAT_angle_pol_ninc(RCWA_method):
     size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.orders = 2
     options.RCWA_method = RCWA_method
 
@@ -290,7 +290,7 @@ def test_shapes(RCWA_method):
     wavelengths = np.linspace(800, 1150, 4) * 1e-9
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "rcwa_mat_test"
     options.RCWA_method = RCWA_method
     options.parallel = False
@@ -402,7 +402,7 @@ def test_plotting_funcs():
     size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.orders = 50
     options.pol = "s"
 
@@ -521,7 +521,7 @@ def test_matrix_generation(RCWA_method):
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "method_comparison_test"
     options.n_rays = 250
     options.n_theta_bins = 3

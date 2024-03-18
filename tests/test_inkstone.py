@@ -28,7 +28,7 @@ def test_plotting_funcs():
     size = ((x, 0), (x / 2, np.sin(np.pi / 3) * x))
 
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.orders = 50
     options.pol = "s"
     options.RCWA_method = "Inkstone"

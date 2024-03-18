@@ -23,6 +23,7 @@ def xyz_texture(x, y, z, **kwargs):
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri, **kwargs)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 

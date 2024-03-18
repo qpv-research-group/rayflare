@@ -164,7 +164,7 @@ def test_hyperhemisphere():
 
     options.periodic = 0
 
-    options.wavelengths = np.array([6e-6])
+    options.wavelength = np.array([6e-6])
     options.parallel = False
 
     options.theta_in = 0.1

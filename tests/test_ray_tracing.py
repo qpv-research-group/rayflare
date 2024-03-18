@@ -19,7 +19,7 @@ def test_parallel():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1700, 5) * 1e-9
+    options.wavelength = np.linspace(700, 1700, 5) * 1e-9
     options.theta_in = 45 * np.pi / 180
     options.nx = 5
     options.ny = 5
@@ -82,7 +82,7 @@ def test_flip():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1700, 8) * 1e-9
+    options.wavelength = np.linspace(700, 1700, 8) * 1e-9
     options.nx = 5
     options.ny = 5
     options.pol = "s"
@@ -138,7 +138,7 @@ def test_periodic():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1700, 8) * 1e-9
+    options.wavelength = np.linspace(700, 1700, 8) * 1e-9
     options.nx = 5
     options.ny = 5
     options.pol = "s"
@@ -264,7 +264,7 @@ def test_random_position():
     options.nx = 50
     options.ny = 50
 
-    options.wavelengths = np.array([500e-9])
+    options.wavelength = np.array([500e-9])
 
     Si = material("Si")()
     Air = material("Air")()
@@ -299,7 +299,7 @@ def test_inverted():
     options.nx = 50
     options.ny = 50
 
-    options.wavelengths = np.array([500e-9])
+    options.wavelength = np.array([500e-9])
 
     Si = material("Si")()
     Air = material("Air")()
