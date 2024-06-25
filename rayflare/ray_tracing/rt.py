@@ -1956,6 +1956,10 @@ def single_ray_stack(
     I = I_in
 
     while not stop:
+        #
+        # # raise an error if number of passes exceeds 50:
+        # if n_passes > 50:
+        #     raise ValueError("Number of passes exceeded maximum")
 
         surf = surfaces[surf_index]
 
