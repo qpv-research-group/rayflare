@@ -291,6 +291,13 @@ def RT_wl(
     depth_spacing,
     side,
 ):
+
+    if lookuptable is not None:
+        lookuptable_wl = lookuptable.sel(wl=wl * 1e9).load()
+
+    else:
+        lookuptable_wl = None
+
     logger.info(f"RT calculation for wavelength = {wl * 1e9} nm")
 
     theta_out = np.zeros((n_angles, nx * ny))
@@ -320,7 +327,7 @@ def RT_wl(
                 pol,
                 wl,
                 Fr_or_TMM,
-                lookuptable,
+                lookuptable_wl,
             )
 
             if th_o < 0:  # can do outside loup with np.where
@@ -456,7 +463,7 @@ def RT_wl(
                 widths,
                 local_angle_mat,
                 wl,
-                lookuptable,
+                lookuptable_wl,
                 pol,
                 depth_spacing,
                 calc_profile,
@@ -576,7 +583,7 @@ def calculate_interface_profiles(
     z_list,
     offsets,
     lookuptable,
-    wl,
+    # wl,
     pol,
     depth_spacing,
 ):
@@ -613,7 +620,8 @@ def calculate_interface_profiles(
 
         A_lookup_front = lookuptable.Alayer.loc[
             dict(side=1, pol=pol, layer=prof_layer_list_i)
-        ].interp(angle=th_array[front_incidence], wl=wl * 1e9)
+        ].interp(angle=th_array[front_incidence] #, wl=wl * 1e9
+                 )# )
         data_front = data_prof_layers[front_incidence]
 
         ## CHECK! ##
@@ -634,7 +642,9 @@ def calculate_interface_profiles(
 
         params_front = lookuptable.Aprof.loc[
             dict(side=1, pol=pol, layer=prof_layer_list_i)
-        ].interp(angle=th_array[front_incidence], wl=wl * 1e9)
+        ].interp(angle=th_array[front_incidence],
+                 # wl=wl * 1e9
+                 )
 
         s_params = params_front.loc[
             dict(coeff=["A1", "A2", "A3_r", "A3_i"])
@@ -662,7 +672,9 @@ def calculate_interface_profiles(
 
         A_lookup_back = lookuptable.Alayer.loc[
             dict(side=-1, pol=pol, layer=prof_layer_list_i)
-        ].interp(angle=th_array[rear_incidence], wl=wl * 1e9)
+        ].interp(angle=th_array[rear_incidence],
+                 # wl=wl * 1e9,
+                 )
 
         data_back = data_prof_layers[rear_incidence]
 
@@ -674,7 +686,9 @@ def calculate_interface_profiles(
 
         params_back = lookuptable.Aprof.loc[
             dict(side=-1, pol=pol, layer=prof_layer_list_i)
-        ].interp(angle=th_array[rear_incidence], wl=wl * 1e9)
+        ].interp(angle=th_array[rear_incidence],
+                 # wl=wl * 1e9,
+                 )
 
         s_params = params_back.loc[
             dict(coeff=["A1", "A2", "A3_r", "A3_i"])
@@ -701,22 +715,26 @@ def calculate_interface_profiles(
 
     profile = profile_front + profile_back
 
-    integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
+    if np.sum(profile.data) > 0:
+        integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
 
-    A_corr = np.sum(A_in_prof_layers)
+        A_corr = np.sum(A_in_prof_layers)
 
-    scale_profile = np.real(
-        np.divide(
-            A_corr,
-            integrated_profile.data,
-            where=integrated_profile.data > 0,
-            out=np.zeros_like(A_corr),
+        scale_profile = np.real(
+            np.divide(
+                A_corr,
+                integrated_profile.data,
+                where=integrated_profile.data > 0,
+                out=np.zeros_like(A_corr),
+            )
         )
-    )
 
-    interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
+        interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
 
-    return interface_profile.data
+        return interface_profile.data
+
+    else:
+        return []
 
 
 class rt_structure:
@@ -747,6 +765,9 @@ class rt_structure:
         save_location="default",
         overwrite=False,
     ):
+
+        if isinstance(options, dict):
+            options = State(options)
 
         self.textures = textures
         self.widths = widths
@@ -928,6 +949,19 @@ class rt_structure:
             options["initial_direction"] if "initial_direction" in options else 1
         )
 
+        cum_width = np.cumsum([0] + widths)
+
+        depths = []
+        depth_indices = []
+
+        # this should not be happening in here! Waste of time, same for all wavelengths & rays!
+        for i1 in range(len(widths)):
+            depth_indices.append(
+                (z_pos < np.cumsum(widths)[i1]) & (z_pos >= np.cumsum(widths)[i1 - 1])
+            )
+            depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
+
+        # pr.enable()
         allres = Parallel(n_jobs=n_jobs)(
             delayed(parallel_inner)(
                 nks[:, i1],
@@ -935,7 +969,10 @@ class rt_structure:
                 r_a_0,
                 surfaces,
                 widths,
+                cum_width,
                 z_pos,
+                depths,
+                depth_indices,
                 I_thresh,
                 pol,
                 nx,
@@ -1049,9 +1086,9 @@ def make_tmm_args(arg_list):
 
             structpath = arg_list[2]
             surf_name = arg_list[3][i1] + "int_{}".format(i1)
-            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc"))
+            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).loc[dict(wl=arg_list[-1]*1e9)].load()
             additional_tmm_args.append(
-                {"wl": arg_list[-1], "Fr_or_TMM": 1, "lookuptable": lookuptable}
+                {"Fr_or_TMM": 1, "lookuptable": lookuptable}
             )
             prof_layers.append(arg_list[5][i1])
             interface_layer_widths.append(arg_list[6][i1])
@@ -1070,7 +1107,10 @@ def parallel_inner(
     r_a_0,
     surfaces,
     widths,
+    cum_width,
     z_pos,
+    depths,
+    depth_indices,
     I_thresh,
     pol,
     nx,
@@ -1170,7 +1210,10 @@ def parallel_inner(
                 surfaces,
                 additional_tmm_args,
                 widths,
+                cum_width,
                 z_pos,
+                depths,
+                depth_indices,
                 I_thresh,
                 pol,
                 randomize,
@@ -1211,7 +1254,7 @@ def parallel_inner(
                 if prof_layer_list[i1] is not None:
 
                     lookuptable = additional_tmm_args[i1]["lookuptable"]
-                    wl = additional_tmm_args[i1]["wl"]
+                    # wl = additional_tmm_args[i1]["wl"]
 
                     A_in_profile_layers = A_in_interfaces[i1][
                         np.array(prof_layer_list[i1]) - 1
@@ -1232,7 +1275,7 @@ def parallel_inner(
                         z_list,
                         offset,
                         lookuptable,
-                        wl,
+                        # wl,
                         pol,
                         depth_spacing_int,
                     )
@@ -1494,27 +1537,41 @@ class RTSurface:
 
 def calc_R(n1, n2, theta, pol):
     theta_t = np.arcsin((n1 / n2) * np.sin(theta))
-    Rs = (
-        np.abs(
-            (n1 * np.cos(theta) - n2 * np.cos(theta_t))
-            / (n1 * np.cos(theta) + n2 * np.cos(theta_t))
-        )
-        ** 2
-    )
-    Rp = (
-        np.abs(
-            (n1 * np.cos(theta_t) - n2 * np.cos(theta))
-            / (n1 * np.cos(theta_t) + n2 * np.cos(theta))
-        )
-        ** 2
-    )
     if pol == "s":
+        Rs = (
+                np.abs(
+                    (n1 * np.cos(theta) - n2 * np.cos(theta_t))
+                    / (n1 * np.cos(theta) + n2 * np.cos(theta_t))
+                )
+                ** 2
+        )
         return Rs
 
     if pol == "p":
+        Rp = (
+                np.abs(
+                    (n1 * np.cos(theta_t) - n2 * np.cos(theta))
+                    / (n1 * np.cos(theta_t) + n2 * np.cos(theta))
+                )
+                ** 2
+        )
         return Rp
 
     else:
+        Rs = (
+                np.abs(
+                    (n1 * np.cos(theta) - n2 * np.cos(theta_t))
+                    / (n1 * np.cos(theta) + n2 * np.cos(theta_t))
+                )
+                ** 2
+        )
+        Rp = (
+                np.abs(
+                    (n1 * np.cos(theta_t) - n2 * np.cos(theta))
+                    / (n1 * np.cos(theta_t) + n2 * np.cos(theta))
+                )
+                ** 2
+        )
         return (Rs + Rp) / 2
 
 
@@ -1551,7 +1608,10 @@ def single_ray_stack(
     surfaces,
     tmm_kwargs_list,
     widths,
+    cum_width,
     z_pos,
+    depths,
+    depth_indices,
     I_thresh,
     pol="u",
     randomize=False,
@@ -1597,10 +1657,6 @@ def single_ray_stack(
     # min_above = np.min(surfaces[surf_above].Points[:, 2])
 
     # print(max_below, min_above)
-    cum_width = np.cumsum([0] + widths)
-
-    A_interface_array = 0
-    A_interface_index = 0
 
     if direction_i == 1 and mat_i > 0:
         surf_index = mat_i
@@ -1640,14 +1696,6 @@ def single_ray_stack(
         d[2] = -d[2]
 
     n_passes = 0
-
-    depths = []
-    depth_indices = []
-    for i1 in range(len(widths)):
-        depth_indices.append(
-            (z_pos < np.cumsum(widths)[i1]) & (z_pos >= np.cumsum(widths)[i1 - 1])
-        )
-        depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
 
     n_interactions = 0
 
@@ -1855,7 +1903,7 @@ def single_ray_interface(
 
 def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
     stop = False
-    ratio = alpha / np.real(abs(cos(theta)))
+    ratio = alpha / np.real(np.abs(cos(theta)))
     DA_u = I_i * ratio * np.exp((-ratio * positions))
     I_back = I_i * np.exp(-ratio * width)
 
@@ -1901,7 +1949,7 @@ def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl=None, lookuptable=
 
 def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
     data = lookuptable.loc[dict(side=side, pol=pol)].sel(
-        angle=abs(theta), wl=wl * 1e9, method="nearest"
+        angle=abs(theta), method="nearest",
     )
 
     R = np.real(data["R"].data.item(0))
