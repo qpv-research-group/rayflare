@@ -1125,6 +1125,38 @@ def parallel_inner(
     tmm_args=None,
 ):
 
+    # # generally same across wavelengths, but can be changed by analytical
+    # # ray tracing happening first
+    if initial_dir == 1 and initial_mat > 0:
+        surf_index = initial_mat
+        z_offset = -cum_width[initial_mat - 1] - 1e-8
+        # print('z_offset', z_offset, r_a_0)
+
+    elif initial_dir == 1 and initial_mat == 0:
+        surf_index = 0
+        z_offset = r_a_0[2]
+
+    else:
+        surf_index = initial_mat - 1
+        z_offset = -cum_width[initial_mat] + 1e-8
+
+
+    # # different for each ray, but same across wavelengths - should pregenerate as an array
+    # r_b = np.array([xs, ys, np.zeros_like(xs)])
+    # r_a = r_a_0[:, None] + np.array([xs, ys, np.zeros_like(xs)])
+    # r_b = np.array([x, y, 0])
+    #
+    # d = (r_b - r_a) / np.linalg.norm(
+    #     r_b - r_a
+    # )  # initial_dir (unit vector) of ray. Always downwards!
+    d = -r_a_0 / np.linalg.norm(r_a_0)
+
+    # r_a_x = r_a_0[0] + xs
+    # r_a_y = r_a_0[1] + ys
+
+    if initial_dir != 1:
+        d[2] = -d[2]
+
     if tmm_args is None:
         tmm_args = [0]
 
@@ -1206,11 +1238,11 @@ def parallel_inner(
                 vals[1],
                 nks,
                 alphas,
-                r_a_0,
+                [r_a_0[0] + vals[0], r_a_0[1] + vals[1], z_offset],
+                d,
                 surfaces,
                 additional_tmm_args,
                 widths,
-                cum_width,
                 z_pos,
                 depths,
                 depth_indices,
@@ -1219,6 +1251,7 @@ def parallel_inner(
                 randomize,
                 initial_mat,
                 initial_dir,
+                surf_index,
                 periodic,
             )
 
@@ -1604,11 +1637,11 @@ def single_ray_stack(
     y,
     nks,
     alphas,
-    r_a_0,
+    r_a,
+    d,
     surfaces,
     tmm_kwargs_list,
     widths,
-    cum_width,
     z_pos,
     depths,
     depth_indices,
@@ -1616,8 +1649,12 @@ def single_ray_stack(
     pol="u",
     randomize=False,
     mat_i=0,
-    direction_i=1,
+    direction=1,
+    surf_index=0,
     periodic=1,
+    n_passes=0,
+    n_interactions=0,
+    I_in=1,
 ):
 
     single_surface = {0: single_cell_check, 1: single_interface_check}
@@ -1646,61 +1683,16 @@ def single_ray_stack(
     # do everything in microns
     A_per_layer = np.zeros(len(widths))
 
-    direction = direction_i  # start travelling downwards; 1 = down, -1 = up
-
-    mat_index = mat_i  # start in first medium
-
-    surf_below = mat_i
-    surf_above = mat_i - 1
-
     # max_below = np.max(surfaces[surf_below].Points[:, 2])
     # min_above = np.min(surfaces[surf_above].Points[:, 2])
 
     # print(max_below, min_above)
 
-    if direction_i == 1 and mat_i > 0:
-        surf_index = mat_i
-        z_offset = -cum_width[surf_above] - 1e-8
-        # print('z_offset', z_offset, r_a_0)
-
-    elif direction == 1 and mat_i == 0:
-        surf_index = 0
-        z_offset = r_a_0[2]
-
-    else:
-        surf_index = mat_i - 1
-        z_offset = -cum_width[surf_below] + 1e-8
-
     A_interface_array = 0
     A_interface_index = 0
 
     stop = False
-    I = 1
-
-    r_a = r_a_0 + np.array([x, y, 0])
-    r_b = np.array([x, y, 0])
-
-    d = (r_b - r_a) / np.linalg.norm(
-        r_b - r_a
-    )  # direction (unit vector) of ray. Always downwards!
-
-    # want to translate along d so r_a is in between the correct surfaces
-    # first translate to z = 0:
-
-    nd = -r_a[2] / d[2]
-
-    # print(r_a[2], d[2], nd)
-
-    r_a = r_a + nd * d
-
-    r_a[2] = z_offset
-
-    if direction_i != 1:
-        d[2] = -d[2]
-
-    n_passes = 0
-
-    n_interactions = 0
+    I = I_in
 
     while not stop:
 
@@ -1734,12 +1726,12 @@ def single_ray_stack(
             )
 
         if direction == 1:
-            ni = nks[mat_index]
-            nj = nks[mat_index + 1]
+            ni = nks[mat_i]
+            nj = nks[mat_i + 1]
 
         else:
-            ni = nks[mat_index - 1]
-            nj = nks[mat_index]
+            ni = nks[mat_i - 1]
+            nj = nks[mat_i]
 
         # theta is overall angle of inc, will be some normal float value for R or T BUT will be an
         # array describing absorption per layer if absorption happens
@@ -1768,7 +1760,7 @@ def single_ray_stack(
 
         elif res == 1:  # transmission
             surf_index = surf_index + direction
-            mat_index = mat_index + direction
+            mat_i = mat_i + direction
 
         elif res == 2:  # absorption
             stop = True  # absorption in an interface (NOT a bulk layer!)
@@ -1779,10 +1771,10 @@ def single_ray_stack(
             theta = None
             I = 0
 
-        if direction == 1 and mat_index == (len(widths) - 1):
+        if direction == 1 and mat_i == (len(widths) - 1):
             stop = True  # have ended with transmission
 
-        elif direction == -1 and mat_index == 0:
+        elif direction == -1 and mat_i == 0:
             stop = True  # have ended with reflection
 
         # print("phi", np.real(atan2(d[1], d[0])))
@@ -1791,13 +1783,13 @@ def single_ray_stack(
             I_b = I
 
             DA, stop, I, theta = traverse(
-                widths[mat_index],
+                widths[mat_i],
                 theta,
-                alphas[mat_index],
+                alphas[mat_i],
                 x,
                 y,
                 I,
-                depths[mat_index],
+                depths[mat_i],
                 I_thresh,
                 direction,
             )
@@ -1805,9 +1797,9 @@ def single_ray_stack(
             # traverse bulk layer. Possibility of absorption; in this case will return stop = True
             # and theta = None
 
-            A_per_layer[mat_index] = np.real(A_per_layer[mat_index] + I_b - I)
-            profile[depth_indices[mat_index]] = np.real(
-                profile[depth_indices[mat_index]] + DA
+            A_per_layer[mat_i] = np.real(A_per_layer[mat_i] + I_b - I)
+            profile[depth_indices[mat_i]] = np.real(
+                profile[depth_indices[mat_i]] + DA
             )
 
             n_passes = n_passes + 1
