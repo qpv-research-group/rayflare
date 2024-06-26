@@ -1350,7 +1350,7 @@ def make_profiles_wl(
     # lookuptable layers are 1-indexed
 
     data = lookuptable.loc[dict(side=1, pol=pol)].interp(
-        angle=pr.coords["local_theta"], wl=wl * 1e9
+        angle=pr.coords["local_theta"]
     )
 
     params = (
@@ -1670,6 +1670,9 @@ def single_ray_stack(
     else:
         surf_index = mat_i - 1
         z_offset = -cum_width[surf_below] + 1e-8
+
+    A_interface_array = 0
+    A_interface_index = 0
 
     stop = False
     I = 1

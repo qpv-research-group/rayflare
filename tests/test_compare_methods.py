@@ -1537,7 +1537,7 @@ def test_tmm_rt_methods():
 
     # set options
     options = default_options()
-    options.wavelengths = wavelengths
+    options.wavelength = wavelengths
     options.project_name = "rt_tmm_comparisons_3"
     options.nx = 10
     options.ny = 10
