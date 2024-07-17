@@ -220,7 +220,7 @@ def analytical_start(nks,
             # if the surface is planar, can just use TMM or Fresnel equations directly
             # should already have a lookuptable, if necessary
 
-            theta_t = np.real(np.arcsin(np.real(n0) / n1 * np.sin(angles.data)))
+            theta_t = np.arcsin(n0) / n1 * np.sin(angles.data)
 
             x = np.sin(theta_t) * np.cos(phi)
             y = np.sin(theta_t) * np.sin(phi)
@@ -231,7 +231,7 @@ def analytical_start(nks,
             y = np.abs(y) * np.sign(d[1])
             z = np.abs(z) * np.sign(d[2])
 
-            final_T_directions = xr.DataArray(np.stack((x, y, z))[None, :, :],
+            final_T_directions = xr.DataArray(np.real(np.stack((x, y, z)))[None, :, :],
                                               dims=["face", "xyz", "wl"])
 
             theta_t = xr.DataArray(theta_t[None, :], dims=["face", "wl"])
@@ -391,6 +391,10 @@ def analytical_start(nks,
 
             prop_rays = []
 
+            # TODO: could have rays continuing to propagate in multiple materials (e.g. if you
+            # had multiple planar layers at the top of the structure). Currently cannot account
+            # for that
+
             if include_R:
 
                 # TODO: add n_interactions
@@ -398,7 +402,8 @@ def analytical_start(nks,
                 prop_rays.append(xr.Dataset(
                     {
                         "I": R_data.R_total.rename({"face": "unique_direction"}),
-                        "direction": R_data.final_R_directions.rename({"face": "unique_direction"})
+                        "direction": R_data.final_R_directions.rename({"face": "unique_direction"}),
+                        "mat_i": mat_i - initial_dir,
                     }
                 )
                 )
@@ -408,7 +413,8 @@ def analytical_start(nks,
                 prop_rays.append(xr.Dataset(
                     {
                         "I": remaining_after_bulk.rename({"outgoing": "unique_direction"}),
-                        "direction": T_data.final_T_directions.rename({"outgoing": "unique_direction"})
+                        "direction": T_data.final_T_directions.rename({"outgoing": "unique_direction"}),
+                        "mat_i": mat_i,
                     }
                 )
                 )
@@ -417,7 +423,7 @@ def analytical_start(nks,
 
             prop_rays = xr.concat(prop_rays, dim="unique_direction")
 
-            return profile, A_per_layer, A_per_interface, overall_R, overall_T, prop_rays
+            return profile.T, A_per_layer.T, A_per_interface, overall_R, overall_T, prop_rays
 
 
         else:
@@ -430,7 +436,7 @@ def analytical_start(nks,
             # - interface absorption
             # - bulk absorption
             # - reflection
-            I_new = I_rem_data - np.sum(R_data.R_total, 0) - np.sum(A_per_layer, 0) - I_out_actual
+            I_new = I_rem_data - np.sum(R_data.R_total, 0) - np.sum(A_per_layer, 0)
             I_remaining[0] = I_new
             # TODO: I think this only works for downwards
 
@@ -486,7 +492,7 @@ def analytical_per_face(current_surf,
 
 
     # TODO: only correct for downwards
-    n0 = np.real(nks[surf_index])
+    n0 = nks[surf_index]
     n1 = nks[surf_index + direction]
 
     opposite_faces = np.where(np.dot(normals, normals.T) < 0)[1]
@@ -505,6 +511,8 @@ def analytical_per_face(current_surf,
         R_args = [lookuptable, 1]
 
     if len(r_in.flatten()) == 3:
+
+        # TODO: not sure if this is right for single d case
 
         r_inc = np.tile(r_in, (how_many_faces, 1))  # (4, 3) array
         # r_inc = r_inc[:, :, None]
