@@ -1,4 +1,4 @@
-from rayflare.ray_tracing.analytical_approximation import lambertian_scattering
+from rayflare.ray_tracing.analytical_rt import lambertian_scattering
 
 from solcore.light_source import LightSource
 from solcore.constants import q

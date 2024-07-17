@@ -27,7 +27,7 @@ from solcore.state import State
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath, get_wavelength
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
-from .analytical_approximation import analytical_front_surface, lambertian_scattering, calculate_lambertian_profile
+from .analytical_rt import analytical_front_surface, lambertian_scattering, calculate_lambertian_profile, analytical_start
 
 from rayflare import logger
 
@@ -978,12 +978,59 @@ class rt_structure:
         depths = []
         depth_indices = []
 
-        # this should not be happening in here! Waste of time, same for all wavelengths & rays!
         for i1 in range(len(widths)):
             depth_indices.append(
                 (z_pos < np.cumsum(widths)[i1]) & (z_pos >= np.cumsum(widths)[i1 - 1])
             )
             depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
+
+        if options.analytical_ray_tracing > 0:
+            profile, A_per_layer, A_per_interface, overall_R, overall_T, prop_rays = analytical_start(
+                nks,
+                alphas,
+                theta,
+                r_a_0,
+                phi,
+                surfaces,
+                widths,
+                cum_width,
+                z_pos,
+                depths,
+                depth_indices,
+                I_thresh,
+                pol,
+                initial_mat,
+                initial_dir,
+                tmm_args,
+                options.analytical_ray_tracing,
+                wavelengths*1e9
+            )
+
+        print('a')
+        # checks:
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.semilogy(z_pos, profile)
+        plt.ylim(1e-5, 1e3)
+        plt.show()
+
+        total_A = np.trapz(profile.T, z_pos)
+
+        total_int = np.sum(overall_R.R_total, axis=0) + np.sum(prop_rays.I, axis=0) + \
+                    np.sum(A_per_layer, axis=0) + np.sum(np.sum(A_per_interface[1], axis=0), axis=0)
+
+        plt.figure()
+        plt.plot(wavelengths*1e9, total_A, '-k', label='total bulk A (int)')
+        plt.plot(wavelengths*1e9, np.sum(A_per_layer, axis=0), 'o', label='total A')
+
+        for i1, bulk in enumerate(A_per_layer):
+            plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
+        plt.plot(wavelengths*1e9, np.sum(overall_R.R_total, axis=0), label='total R')
+        plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
+        plt.plot(wavelengths*1e9, total_int, label='total int')
+        plt.plot(wavelengths*1e9, np.sum(A_per_interface[1], axis=0).T, 'x', label='interface A')
+        plt.legend()
+        plt.show()
 
         # pr.enable()
         allres = Parallel(n_jobs=n_jobs)(
@@ -1304,6 +1351,7 @@ def parallel_inner(
             n1 = nks[initial_mat + 1]
 
         else:
+            # TODO: is this right? doesn't seem right
             surf_index = initial_mat - 1
             n0 = nks[initial_mat - 1]
             n1 = nks[initial_mat]
@@ -1395,8 +1443,8 @@ def parallel_inner(
                     widths,
                     cum_width,
                     z_pos,
-                    depths,
-                    depth_indices,
+                    depths, # this is a stupid way to do this (can be a massive array)
+                    depth_indices, # this is also a stupid way to do this
                     I_thresh,
                     pol,
                     True,
