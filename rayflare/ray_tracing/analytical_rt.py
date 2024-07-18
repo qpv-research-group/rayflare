@@ -216,6 +216,8 @@ def analytical_start(nks,
         n0 = nks[mat_i]
         n1 = nks[next_mat]
 
+        I_rem_data = I_remaining.data[0]
+
         if np.all(np.abs(normals[:,2]) > 0.99):
             # if the surface is planar, can just use TMM or Fresnel equations directly
             # should already have a lookuptable, if necessary
@@ -249,13 +251,13 @@ def analytical_start(nks,
                     dict(pol=pol, side=initial_dir)].interp(angle=angles, wl=wls).load()
 
                 R = lookuptable.R.data
-                A_per_layer = lookuptable.Alayer.data
+                A_per_int_layer = lookuptable.Alayer.data
                 T = lookuptable.T.data
 
                 R_total = xr.DataArray(I_remaining*R[None, :], dims=["face", "wl"])
 
                 # INTERFACE (not bulk!) absorption
-                A_per_interface[surf_index] = xr.DataArray(I_remaining*A_per_layer[None, :, :], dims=["face", "wl", "layer"])
+                A_per_interface[surf_index] = xr.DataArray((I_rem_data[:,None]*A_per_int_layer)[None, :, :], dims=["face", "wl", "layer"])
 
 
             else:
@@ -302,7 +304,6 @@ def analytical_start(nks,
                                           )
 
             # TODO: I think these are not being scaled at all?
-            I_rem_data = I_remaining.data[0]
 
             A_per_interface[surf_index] = A_data*I_rem_data[None, None, :]
 
@@ -398,10 +399,10 @@ def analytical_start(nks,
             if include_R:
 
                 # TODO: add n_interactions
-
+                R_remaining = R_data.R_total * I_rem_data
                 prop_rays.append(xr.Dataset(
                     {
-                        "I": R_data.R_total.rename({"face": "unique_direction"}),
+                        "I": R_remaining.rename({"face": "unique_direction"}),
                         "direction": R_data.final_R_directions.rename({"face": "unique_direction"}),
                         "mat_i": mat_i - initial_dir,
                     }

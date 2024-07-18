@@ -124,7 +124,6 @@ options.periodic = 0
 
 pal = sns.color_palette("rocket", 4)
 
-
 options.wavelength = np.array([6e-6])
 options.parallel = False
 options.n_rays = nxs**2

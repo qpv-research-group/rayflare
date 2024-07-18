@@ -746,18 +746,16 @@ def make_rt_args(existing_rays, xs, ys, n_reps):
     """Make arguments for single_ray_stack with existing rays from analytical calculation."""
     max_rays = len(xs) * len(ys) * n_reps  # shouldn't really need to calculate this here
     Is = existing_rays.I.data
-    dirs = existing_rays.direction.data[Is > (1/max_rays)]
-    current_mat = existing_rays.mat_i.data[Is > (1/max_rays)]
-    Is = Is[Is > (1/max_rays)]
-    #return xs, ys, r_as, ds, i_mats, i_dirs, surf_inds
+    dirs = existing_rays.direction.data[Is > 1e-9]
+    current_mat = existing_rays.mat_i.data[Is > 1e-9]
+    Is = Is[Is > 1e-9]
 
-    total_I = np.sum(Is)
-    # TODO: have an issue here if there is very low intensity spread across a number of directions,
-    # so that no direction individually justifies having even one ray
-
-    rays_per_direction =  np.ceil(Is*max_rays).astype(int)
+    rays_per_direction = np.floor(Is*max_rays).astype(int)
+    rays_per_direction[rays_per_direction == 0] = 1
     # TODO: keep track of which face the rays came from, then generate random position within that face?
     # print(dirs)
+    scale_factor = Is/(rays_per_direction/max_rays)
+
     ds = np.vstack([np.tile(dirs[i], (rays_per_direction[i], 1)) for i in range(len(dirs))])
 
     i_mats = np.concatenate([[current_mat[i]]*rays_per_direction[i] for i in range(len(current_mat))])
@@ -770,7 +768,9 @@ def make_rt_args(existing_rays, xs, ys, n_reps):
 
     n_remaining = np.sum(rays_per_direction)
 
-    return ds, i_mats, i_dirs, surf_inds, n_remaining
+    scale_I = np.concatenate([[scale_factor[i]]*rays_per_direction[i] for i in range(len(current_mat))])
+
+    return ds, i_mats, i_dirs, surf_inds, n_remaining, scale_I
 
 class dummy_prop_rays:
 
@@ -1053,27 +1053,27 @@ class rt_structure:
             # plt.show()
             #
             # total_A = np.trapz(profile_to_add, z_pos)
-            #
-            # total_int = np.sum(overall_R.R_total, axis=0) + np.sum(prop_rays.I, axis=0) + \
-            #             np.sum(A_bulk_to_add, axis=0) + np.sum(np.sum(A_interface[1], axis=0), axis=0) + \
-            # np.sum(np.sum(A_interface[2], axis=0), axis=0)
-            #
-            # plt.figure()
+
+            total_int = np.sum(overall_R.R_total, axis=0) + np.sum(prop_rays.I, axis=0) + \
+                        np.sum(A_bulk_to_add, axis=1) + np.sum(np.sum(A_interface[1], axis=0), axis=0) + \
+            np.sum(np.sum(A_interface[2], axis=0), axis=0)
+
+            plt.figure()
             # plt.plot(wavelengths*1e9, total_A, '-k', label='total bulk A (int)')
-            # plt.plot(wavelengths*1e9, np.sum(A_bulk_to_add, axis=0), 'o', label='total A')
-            #
-            # for i1, bulk in enumerate(A_bulk_to_add):
-            #     plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
-            # plt.plot(wavelengths*1e9, np.sum(overall_R.R_total, axis=0), label='total R')
-            # plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
-            # plt.plot(wavelengths*1e9, total_int, label='total int')
-            # plt.plot(wavelengths*1e9, np.sum(A_interface[1], axis=0).T, 'x', label='interface A')
-            # plt.legend()
-            # plt.show()
+            plt.plot(wavelengths*1e9, np.sum(A_bulk_to_add, axis=1), 'o', label='total A')
+
+            for i1, bulk in enumerate(A_bulk_to_add.T):
+                plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
+            plt.plot(wavelengths*1e9, np.sum(overall_R.R_total, axis=0), label='total R')
+            plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
+            plt.plot(wavelengths*1e9, total_int, label='total int')
+            plt.plot(wavelengths*1e9, np.sum(A_interface[1], axis=0).T, 'x', label='interface A')
+            plt.legend()
+            plt.show()
 
             remaining_I_per_wl = np.sum(prop_rays.I, axis=0)
             # pr.enable()
-            wl_continuing = np.where(remaining_I_per_wl > options.I_thresh)[0]
+            wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
 
 
             R_to_add = np.sum(overall_R.R_total, axis=0)
@@ -1439,7 +1439,7 @@ def parallel_inner(
     end_ind = nx*ny*np.ones(n_reps, dtype=int)
 
     if existing_rays is not None:
-        ds, i_mats, i_dirs, surf_inds, n_remaining = make_rt_args(existing_rays, xs, ys, n_reps)
+        ds, i_mats, i_dirs, surf_inds, n_remaining, I_in = make_rt_args(existing_rays, xs, ys, n_reps)
         stop_before = int(np.ceil(n_remaining/(nx*ny)))
 
         x_y_combs = np.zeros((nx*ny, 2))
@@ -1463,6 +1463,8 @@ def parallel_inner(
         r_as = np.array([[r_a_0[0] + vals[0], r_a_0[1] + vals[1], z_offset] for vals in x_y_combs]) # ?
         # stack this n_reps times:
         r_as = np.tile(r_as, (n_reps, 1))
+
+        I_in = np.ones(n_reps * nx * ny)
 
     overall_i = 0
     for j1 in range(n_reps):
@@ -1504,6 +1506,7 @@ def parallel_inner(
                 surf_inds[overall_i],
                 periodic,
                 lambertian_approximation,
+                I_in=I_in[overall_i],
             )
 
             overall_i += 1
