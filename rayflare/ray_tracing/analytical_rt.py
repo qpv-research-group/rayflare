@@ -125,7 +125,7 @@ def calc_RAT_TMM(theta, pol, *args):
     lookuptable = args[0]
     side = args[1]
 
-    angles = xr.DataArray(theta, dims=['face', 'wl_angle'])
+    angles = xr.DataArray(theta, dims=['unique_direction', 'wl_angle'])
     wls = xr.DataArray(lookuptable.wl.data, dims='wl_angle')
 
     data = lookuptable.sel(
@@ -135,8 +135,8 @@ def calc_RAT_TMM(theta, pol, *args):
     # rearrange coordinates:
 
 
-    R = data["R"].transpose("face", "wl_angle")
-    A_per_layer = data["Alayer"].transpose("face", "layer", "wl_angle")
+    R = data["R"].transpose("unique_direction", "wl_angle")
+    A_per_layer = data["Alayer"].transpose("unique_direction", "layer", "wl_angle")
 
     return np.real(R.data), np.real(A_per_layer.data)
 
@@ -203,9 +203,9 @@ def analytical_start(nks,
     if initial_dir != 1:
         d[2] = -d[2]
 
-    I_remaining = xr.DataArray(np.ones((1, n_wl)), dims=["face", "wl"])
+    I_remaining = xr.DataArray(np.ones((1, n_wl)), dims=["unique_direction", "wl"])
 
-    n_interactions = xr.DataArray(np.zeros((1, n_wl)), dims=["face", "wl"])
+    n_interactions = xr.DataArray(np.zeros((1, n_wl)), dims=["unique_direction", "wl"])
 
     data_lists = []
 
@@ -234,11 +234,11 @@ def analytical_start(nks,
             z = np.abs(z) * np.sign(d[2])
 
             final_T_directions = xr.DataArray(np.real(np.stack((x, y, z)))[None, :, :],
-                                              dims=["face", "xyz", "wl"])
+                                              dims=["unique_direction", "xyz", "wl"])
 
-            theta_t = xr.DataArray(theta_t[None, :], dims=["face", "wl"])
+            theta_t = xr.DataArray(theta_t[None, :], dims=["unique_direction", "wl"])
 
-            final_R_directions = xr.DataArray(deepcopy(d)[None, :], dims=["face", "xyz"])
+            final_R_directions = xr.DataArray(deepcopy(d)[None, :], dims=["unique_direction", "xyz"])
 
             # reflection: z -> -z, no other changes to ray direction
             final_R_directions[:, 2] = -final_R_directions[:, 2]
@@ -254,38 +254,41 @@ def analytical_start(nks,
                 A_per_int_layer = lookuptable.Alayer.data
                 T = lookuptable.T.data
 
-                R_total = xr.DataArray(I_remaining*R[None, :], dims=["face", "wl"])
+                R_total = xr.DataArray(I_remaining*R[None, :], dims=["unique_direction", "wl"])
 
                 # INTERFACE (not bulk!) absorption
-                A_per_interface[surf_index] = xr.DataArray((I_rem_data[:,None]*A_per_int_layer)[None, :, :], dims=["face", "wl", "layer"])
+                A_per_interface[surf_index] = xr.DataArray((I_rem_data[:,None]*A_per_int_layer)[None, :, :], dims=["unique_direction", "wl", "layer"])
 
 
             else:
                 # Fresnel equations
                 R = calc_RAT_Fresnel(theta, pol, n0, n1)[0]
 
-                R_total = xr.DataArray(I_remaining*R[None, :], dims=["face", "wl"])
+                R_total = xr.DataArray(I_remaining*R[None, :], dims=["unique_direction", "wl"])
 
                 T = 1 - R
 
                 # no interface absorption:
-                A_per_interface[surf_index] = xr.DataArray(np.zeros((1, n_wl, 1)), dims=["face", "wl", "layer"])
+                A_per_interface[surf_index] = xr.DataArray(np.zeros((1, n_wl, 1)), dims=["unique_direction", "wl", "layer"])
+
+            n_interactions += 1  # can only have one interaction with planar surface regardless of
+            # angle of incidence
 
             R_data = xr.Dataset(
                 {
-                    "R_total": R_total,
-                    "final_R_directions": final_R_directions,
+                    "I": R_total,
+                    "direction": final_R_directions,
+                    "n_interactions": n_interactions,
                 }
             )
 
-            n_interactions += 1  # can only have one interaction with planar surface
 
             T_data = xr.Dataset(
                 {
-                    "final_T_weights": I_remaining * T,
-                    "final_T_directions": final_T_directions,
-                    "final_T_n_interactions": n_interactions,
-                    "theta_out_T": theta_t,
+                    "I": I_remaining * T,
+                    "direction": final_T_directions,
+                    "n_interactions": n_interactions,
+                    "theta_t": theta_t,
                 }
             )
 
@@ -311,9 +314,9 @@ def analytical_start(nks,
         # surf_index only right for incidence from above
         DA, I = traverse_vectorised(
             widths[surf_index + 1], # units?
-            T_data.theta_out_T.data,
+            T_data.theta_t.data,
             alphas[surf_index + 1], # units?
-            np.ones_like(T_data.theta_out_T),
+            np.ones_like(T_data.theta_t),
             depths[surf_index + 1],
             I_thresh,
             initial_dir,
@@ -356,9 +359,9 @@ def analytical_start(nks,
         # }
         # )
 
-        I_out_actual = np.sum(T_data.final_T_weights.data * I_abs, axis=0)
-        # A_bulk_actual = np.sum(T_data.final_T_weights.data - I_out_actual)
-        DA_actual = np.sum(T_data.final_T_weights.data.T*DA, axis=2)
+        I_out_actual = np.sum(T_data.I.data * I_abs, axis=0)
+        # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
+        DA_actual = np.sum(T_data.I.data.T*DA, axis=2)
         # theta_out_T[stop] = np.nan
         # phi_out_T[stop] = np.nan
 
@@ -375,7 +378,10 @@ def analytical_start(nks,
         # if all rays are still travelling in the same direction, continue with analytical RT. Otherwise continue on to
         # 'normal' ray tracing.
 
-        if np.unique(T_data.final_T_directions, axis=0).shape[0] > 1:
+        if np.unique(T_data.direction, axis=0).shape[0] > 1:
+
+            # TODO: if directions are equivalent, can continue with analytical RT!
+
             single_direction = False
             # end, need to save/return final results here
             # absorption (profile and total) in bulk have been tracked as we went along
@@ -399,22 +405,22 @@ def analytical_start(nks,
             if include_R:
 
                 # TODO: add n_interactions
-                R_remaining = R_data.R_total * I_rem_data
+                R_remaining = R_data.I * I_rem_data
                 prop_rays.append(xr.Dataset(
                     {
-                        "I": R_remaining.rename({"face": "unique_direction"}),
-                        "direction": R_data.final_R_directions.rename({"face": "unique_direction"}),
+                        "I": R_remaining,
+                        "direction": R_data.direction,
                         "mat_i": mat_i - initial_dir,
                     }
                 )
                 )
 
             if include_T:
-                remaining_after_bulk = T_data.final_T_weights*I
+                remaining_after_bulk = T_data.I*I
                 prop_rays.append(xr.Dataset(
                     {
-                        "I": remaining_after_bulk.rename({"outgoing": "unique_direction"}),
-                        "direction": T_data.final_T_directions.rename({"outgoing": "unique_direction"}),
+                        "I": remaining_after_bulk,
+                        "direction": T_data.direction,
                         "mat_i": mat_i,
                     }
                 )
@@ -430,18 +436,18 @@ def analytical_start(nks,
         else:
             # continue, but need to update inputs: transmitted rays at each wavelength become new
             # incident rays.
-            angles.data = T_data.theta_out_T.data[0]
-            theta = T_data.theta_out_T.data[0]
+            angles.data = T_data.theta_t.data[0]
+            theta = T_data.theta_t.data[0]
             #I_remaining.data = 0
             # losses from:
             # - interface absorption
             # - bulk absorption
             # - reflection
-            I_new = I_rem_data - np.sum(R_data.R_total, 0) - np.sum(A_per_layer, 0)
+            I_new = I_rem_data - np.sum(R_data.I, 0) - np.sum(A_per_layer, 0)
             I_remaining[0] = I_new
             # TODO: I think this only works for downwards
 
-            d = T_data.final_T_directions.data[0]
+            d = T_data.direction.data[0]
 
             # need to construct d for each wavelength:
 
@@ -515,7 +521,7 @@ def analytical_per_face(current_surf,
 
         # TODO: not sure if this is right for single d case
 
-        r_inc = np.tile(r_in, (how_many_faces, 1))  # (4, 3) array
+        r_inc = np.tile(r_in[:,None], (how_many_faces, 1, n_wavelengths))  # (4, 3) array
         # r_inc = r_inc[:, :, None]
 
     else:
@@ -656,283 +662,40 @@ def analytical_per_face(current_surf,
 
     # make xarrays for each of these:
 
-    R_total = xr.DataArray(R_total, dims=["face", "wl"])
-    final_R_directions = xr.DataArray(final_R_directions, dims=["face", "xyz", "wl"])
-    # theta_out_R = xr.DataArray(theta_out_R, dims=["face"])
-    # phi_out_R = xr.DataArray(phi_out_R, dims=["face"])
+    R_total = xr.DataArray(R_total, dims=["unique_direction", "wl"])
+    final_R_directions = xr.DataArray(final_R_directions, dims=["unique_direction", "xyz", "wl"])
+    # theta_out_R = xr.DataArray(theta_out_R, dims=["unique_direction"])
+    # phi_out_R = xr.DataArray(phi_out_R, dims=["unique_direction"])
 
     R_data = xr.Dataset(
         {
-            "R_total": R_total,
-            "final_R_directions": final_R_directions,
+            "I": R_total,
+            "direction": final_R_directions,
             # "theta_out_R": theta_out_R,
             # "phi_out_R": phi_out_R,
         }
     )
 
-    A_data = xr.DataArray(A_total, dims=["face", "layer", "wl"])
+    A_data = xr.DataArray(A_total, dims=["unique_direction", "layer", "wl"])
 
-    final_T_weights = xr.DataArray(final_T_weights, dims=["outgoing", "wl"])
-    final_T_directions = xr.DataArray(final_T_directions, dims=["outgoing", "xyz", "wl"])
-    final_T_n_interactions = xr.DataArray(final_T_n_interactions, dims=["outgoing"])
-    theta_out_T = xr.DataArray(theta_out_T, dims=["outgoing", "wl"])
+    final_T_weights = xr.DataArray(final_T_weights, dims=["unique_direction", "wl"])
+    final_T_directions = xr.DataArray(final_T_directions, dims=["unique_direction", "xyz", "wl"])
+    final_T_n_interactions = xr.DataArray(final_T_n_interactions, dims=["unique_direction"])
+    theta_out_T = xr.DataArray(theta_out_T, dims=["unique_direction", "wl"])
     # phi_out_T = xr.DataArray(phi_out_T, dims=["outgoing", "wl"])
 
     T_data = xr.Dataset(
         {
-            "final_T_weights": final_T_weights,
-            "final_T_directions": final_T_directions,
-            "final_T_n_interactions": final_T_n_interactions,
-            "theta_out_T": theta_out_T,
+            "I": final_T_weights,
+            "direction": final_T_directions,
+            "n_interactions": final_T_n_interactions,
+            "theta_t": theta_out_T,
             # "phi_out_T": phi_out_T,
         }
     )
 
 
     return R_data, A_data, T_data
-
-
-
-def analytical_front_surface(front, r_in, n0, n1, pol, max_interactions, n_layers, direction,
-                             n_reps,
-                             positions,
-                             bulk_width,
-                             alpha_bulk,
-                             I_thresh,
-                             Fr_or_TMM=0,
-                             lookuptable=None,
-                             ):
-
-    # n0 should be real
-    # n1 can be complex
-
-    # TODO:
-    # reflectance (not intensity but directions) will always be the same, regardless of wavelength,
-    # so this could be calculated once and then used for all wavelengths. Currently, because the
-    # analytical calculation divides the rays into categories at the end, the accuracy of the R/A/T value
-    # will be limited to 1/n_rays. This will be addressed in a future release.
-
-    how_many_faces = len(front.N)
-    normals = front.N
-    opposite_faces = np.where(np.dot(normals, normals.T) < 0)[1]
-
-    if len(opposite_faces) == 0:
-        max_interactions =  1
-
-    if Fr_or_TMM == 0:
-        calc_RAT = calc_RAT_Fresnel
-        R_args = [n0, n1]
-
-    else:
-        calc_RAT = calc_RAT_TMM
-        R_args = [lookuptable, 1]
-
-    r_inc = np.tile(r_in, (how_many_faces, 1))  # (4, 3) array
-
-    area = np.sqrt(
-        np.sum(np.cross(front.P_0s - front.P_1s, front.P_2s - front.P_1s, axis=1) ** 2, 1)
-        ) / 2
-
-    relevant_face = np.arange(how_many_faces)
-
-    R_per_it = np.zeros((how_many_faces, max_interactions))
-    T_per_it = np.zeros((how_many_faces, max_interactions))
-    T_dir_per_it = np.zeros((how_many_faces, max_interactions))
-    A_per_it = np.zeros((how_many_faces, n_layers, max_interactions))
-
-    stop_it = np.ones(how_many_faces, dtype=int) * max_interactions
-
-    cos_inc = -np.sum(normals[relevant_face] * r_inc, 1)  # dot product
-
-    hit_prob = area[relevant_face] * cos_inc  # scale by area of each triangle
-    hit_prob[
-        cos_inc < 0] = 0  # if negative, then the ray is shaded from that pyramid face and will never hit it
-    hit_prob = hit_prob / np.sum(hit_prob)  # initial probability of hitting each face
-
-    reflected_ray_directions = np.zeros((how_many_faces, 3, max_interactions))
-    transmitted_ray_directions = np.zeros((how_many_faces, 3, max_interactions))
-
-    N_interaction = 0
-
-    while N_interaction < max_interactions:
-
-        cos_inc = -np.sum(normals[relevant_face] * r_inc, 1)  # dot product
-
-        reflected_direction = r_inc - 2 * np.sum(r_inc*normals[relevant_face], axis=1)[:,None] * normals[relevant_face]
-        reflected_direction = reflected_direction / np.linalg.norm(reflected_direction, axis=1)[:, None]
-
-        reflected_ray_directions[:, :, N_interaction] = reflected_direction
-
-        cos_inc[cos_inc < 0] = 0
-        # if negative, then the ray is shaded from that pyramid face and will never hit it
-
-        tr_par = (n0 / n1) * (r_inc - np.sum(r_inc*normals[relevant_face], axis=1)[:,None] * normals[relevant_face])
-        tr_perp = -np.sqrt(1 - np.linalg.norm(tr_par,axis=1) ** 2)[:, None] * normals[relevant_face]
-
-        refracted_rays = np.real(tr_par + tr_perp)
-        refracted_rays  = refracted_rays / np.linalg.norm(refracted_rays, axis=1)[:,None]
-        transmitted_ray_directions[:, :,  N_interaction] = refracted_rays
-
-        R_prob, A_prob = calc_RAT(np.arccos(cos_inc), pol, *R_args)
-
-        if np.sum(A_prob) > 0:
-            A_prob_sum = np.sum(A_prob, axis=1)
-
-        else:
-            A_prob_sum = 0
-
-        T_per_it[:, N_interaction] = 1 - R_prob - A_prob_sum
-
-        A_per_it[:, :, N_interaction] = A_prob
-
-        T_dir_per_it[:, N_interaction] = np.abs(
-            refracted_rays[:, 2] / np.linalg.norm(refracted_rays,
-                                                  axis=1))  # cos (global) of refracted ray
-
-        cos_inc[reflected_direction[:, 2] > 0] = 0
-        stop_it[
-            np.all((reflected_direction[:, 2] > 0, stop_it > N_interaction),
-                   axis=0)] = N_interaction
-         # want to end for this surface, since rays are travelling upwards -> no intersection
-
-        R_per_it[:,
-        N_interaction] = R_prob  # intensity reflected from each face, relative to incident total intensity 1
-
-        # once ray travels upwards once, want to end calculation for that plane; don't want to
-        # double count
-
-        if len(opposite_faces) > 0:
-            relevant_face = opposite_faces[relevant_face]
-
-        r_inc = reflected_direction
-
-        if np.sum(cos_inc) == 0:
-            # no more interactions with any of the faces
-            break
-
-        N_interaction += 1
-
-    remaining_intensity = np.insert(np.cumprod(R_per_it, axis=1), 0, np.ones(how_many_faces),
-                                    axis=1)[:, :-1]
-
-    R_total = np.array([hit_prob[j1] * np.prod(R_per_it[j1, :stop_it[j1] + 1]) for j1 in
-               range(how_many_faces)])
-    final_R_directions = np.array([reflected_ray_directions[j1, :, stop_it[j1]] for j1 in
-                          range(how_many_faces)])
-    # the weight of each of these directions is R_total
-
-    # loop through faces and interactions:
-    final_T_directions = []
-    final_T_weights = []
-    final_T_n_interactions = []
-
-    for j1 in range(how_many_faces):
-        for j2 in range(stop_it[j1] + 1):
-            final_T_directions.append(transmitted_ray_directions[j1, :, j2])
-            final_T_weights.append(hit_prob[j1]*remaining_intensity[j1, j2]*T_per_it[j1, j2])
-            final_T_n_interactions.append(j2 + 1)
-
-    final_T_weights = np.array(final_T_weights)
-    final_T_weights[final_T_weights < 0] = 0
-    final_T_directions = np.array(final_T_directions)
-
-    A_total = hit_prob[:, None] * np.sum(remaining_intensity[:, None, :] * A_per_it, axis=2)
-
-    theta_out_R = np.arccos(final_R_directions[:, 2] / np.linalg.norm(final_R_directions, axis=1))
-    phi_out_R = np.arctan2(final_R_directions[:, 1], final_R_directions[:, 0])
-    # number of reps of each theta value for the angular distribution:
-    n_reps_R = n_reps * R_total
-
-    theta_out_T = np.arccos(final_T_directions[:, 2] / np.linalg.norm(final_T_directions, axis=1))
-    phi_out_T = np.arctan2(final_T_directions[:, 1], final_T_directions[:, 0])
-
-    n_reps_T = n_reps * final_T_weights
-
-    n_reps_A_surf = np.sum(A_total) * n_reps
-
-    # now make sure n_reps_R, n_reps_T and n_reps_A_surf add to n_reps, remained is divided fairly:
-    n_reps_R_int = np.floor(n_reps_R).astype(int)
-    n_reps_T_int = np.floor(n_reps_T).astype(int)
-    n_reps_A_surf_int = np.floor(n_reps_A_surf).astype(int)
-
-    n_reps_R_remainder = np.sum(n_reps_R - n_reps_R_int)
-    n_reps_T_remainder = np.sum(n_reps_T - n_reps_T_int)
-    n_reps_A_surf_remainder = n_reps_A_surf - n_reps_A_surf_int
-
-    rays_to_divide = n_reps - np.sum(n_reps_R_int) - np.sum(n_reps_T_int) - n_reps_A_surf_int
-
-    # add these rays to the ones with the highest remainders:
-    extra_rays_R = np.round(n_reps_R_remainder / (
-                n_reps_R_remainder + n_reps_T_remainder + n_reps_A_surf_remainder) * rays_to_divide).astype(
-        int)
-    extra_rays_T = np.round(n_reps_T_remainder / (n_reps_T_remainder + n_reps_A_surf_remainder) * (
-                rays_to_divide - extra_rays_R)).astype(int)
-
-    extra_rays_A = rays_to_divide - extra_rays_R - extra_rays_T
-
-    n_reps_R_int[np.argmax(n_reps_R_remainder)] += extra_rays_R
-    n_reps_T_int[np.argmax(n_reps_T_remainder)] += extra_rays_T
-    n_reps_A_surf_int += extra_rays_A
-
-    # see which of the transmitted rays reach the back of the Si before falling below
-    # I_thresh
-
-    DA, stop, I = traverse_vectorised(
-        bulk_width,
-        theta_out_T,
-        alpha_bulk,
-        np.ones_like(theta_out_T),
-        positions,
-        I_thresh,
-        direction,
-    )
-
-    I_out_actual = final_T_weights*I
-    A_bulk_actual = np.sum(final_T_weights - I_out_actual)
-
-    theta_out_T[stop] = np.nan
-    phi_out_T[stop] = np.nan
-
-    # make the list of theta_out values
-
-    theta_R_reps = np.concatenate(
-        [np.tile(theta_out_R[j], n_reps_R_int[j]) for j in range(how_many_faces)])
-    phi_R_reps = np.concatenate(
-        [np.tile(phi_out_R[j], n_reps_R_int[j]) for j in range(how_many_faces)])
-    n_interactions_R_reps = np.concatenate(
-        [np.tile(stop_it[j] + 1, n_reps_R_int[j]) for j in range(how_many_faces)])
-    I_R_reps = np.ones_like(theta_R_reps)
-    n_passes_R_reps = np.zeros_like(theta_R_reps)
-
-    theta_A_surf_reps = np.ones(n_reps_A_surf_int) * np.nan
-    phi_A_surf_reps = np.ones(n_reps_A_surf_int) * np.nan
-    n_interactions_A_surf_reps = np.ones(n_reps_A_surf_int)
-    I_A_surf_reps = np.zeros_like(theta_A_surf_reps)
-    n_passes_A_surf_reps = np.zeros_like(theta_A_surf_reps)
-
-    theta_T_reps = np.concatenate(
-        [np.tile(theta_out_T[j], n_reps_T_int[j]) for j in range(len(theta_out_T))])
-    phi_T_reps = np.concatenate(
-        [np.tile(phi_out_T[j], n_reps_T_int[j]) for j in range(len(phi_out_T))])
-    n_interactions_T_reps = np.concatenate(
-        [np.tile(final_T_n_interactions[j], n_reps_T_int[j]) for j in
-         range(len(final_T_n_interactions))])
-    I_T_reps = np.concatenate([np.tile(I[j], n_reps_T_int[j]) for j in range(len(I))])
-
-    n_passes_T_reps = np.ones_like(theta_T_reps)
-
-    theta_out = np.concatenate([theta_R_reps, theta_A_surf_reps, theta_T_reps])
-    phi_out = np.concatenate([phi_R_reps, phi_A_surf_reps, phi_T_reps])
-    n_interactions = np.concatenate(
-        [n_interactions_R_reps, n_interactions_A_surf_reps, n_interactions_T_reps])
-    I_out = np.concatenate([I_R_reps, I_A_surf_reps, I_T_reps])
-
-    n_passes = np.concatenate(
-        [n_passes_R_reps, n_passes_A_surf_reps, n_passes_T_reps])
-
-    profile = np.sum(final_T_weights[:, None] * DA, axis=0)
-
-    return theta_out, phi_out, I_out, n_interactions, n_passes, A_bulk_actual, profile, np.sum(A_total, axis=0)
 
 
 def lambertian_scattering(strt, save_location, options):

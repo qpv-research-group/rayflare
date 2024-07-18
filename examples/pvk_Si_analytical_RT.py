@@ -29,11 +29,11 @@ GaAs = material("GaAs")()
 Pvk = material("Pvk_Ox_165")()
 epoxy = material("BK7")()
 
-n_rays = 2000
+n_rays = 400
 
 d = 100e-6
 
-wavelengths = np.linspace(300, 1200, 80) * 1e-9
+wavelengths = np.linspace(300, 900, 50) * 1e-9
 
 AM15G = LightSource(source_type='standard', version='AM1.5g', x=wavelengths,
                     output_units='photon_flux_per_m')
@@ -43,20 +43,24 @@ options = default_options()
 options.analytical_ray_tracing = 0
 options.wavelength = wavelengths
 options.project_name = 'integration_testing'
-options.nx = 20
-options.ny = 20
-options.theta_in = 0.2
+options.nx = 10
+options.ny = 10
+options.theta_in = 0
 options.parallel = True
 options.randomize_surface = True
-options.I_thresh = 1e-5
+options.I_thresh = 1e-3
 options.depth_spacing_bulk = 1e-8
 
 # n_bounces = np.arange(1, 11, dtype=int)
 # n_bounces = [1, 2, 3, 5, 10, 15]  # 10, 15, 20, 30, 70]
 
-front_text = planar_surface(interface_layers=[Layer(100e-9, coverglass_ARC)])
-                                                             #)
-front_text_2 = regular_pyramids(52, False, 1, 
+front_text = regular_pyramids(10, True,
+                              interface_layers=[Layer(100e-9, coverglass_ARC)],)
+
+front_text = planar_surface(
+                              interface_layers=[Layer(100e-9, coverglass_ARC)],)
+
+front_text_2 = regular_pyramids(52, True, 1,
                                 interface_layers=[Layer(100e-9, MgF2), Layer(1000e-9, Pvk)]
                                                              )
 rear_text = regular_pyramids(52, False, 1)
@@ -66,30 +70,30 @@ rt_str = rt_structure(textures=[front_text, front_text_2, rear_text], materials=
                       options=options, use_TMM=True, save_location='current',
                       overwrite=True)
 
-options.n_rays = 10
-options.analytical_ray_tracing = 0
-result = rt_str.calculate(options)
+# options.n_rays = 10
+# options.analytical_ray_tracing = 0
+# result = rt_str.calculate(options)
+#
+# options.n_rays = n_rays
+# #
+# start = time()
+# result_1 = rt_str.calculate(options)
+# print('Elapsed time: ', time() - start)
 
-options.n_rays = n_rays
-
-start = time()
-result_1 = rt_str.calculate(options)
-print('Elapsed time: ', time() - start)
-
-A_layer = result_1['A_per_layer']
-A_per_interface = result_1['A_per_interface']
-total = result_1['R'] + result_1['T'] + np.sum(A_layer, axis=1) + A_per_interface[1][:,1]
-# import matplotlib.pyplot as plt
-plt.figure()
-plt.plot(wavelengths*1e9, result_1['R'], label='R')
-plt.plot(wavelengths*1e9, result_1['T'], label='T')
-plt.plot(wavelengths*1e9, A_layer, label='A')
-plt.plot(wavelengths*1e9, A_per_interface[1][:,1], label='GaAs')
-# plt.plot(wavelengths*1e9, A_per_interface[2][:,0], label='Ge_back')
-plt.plot(wavelengths*1e9, total, 'k-', label='total')
-plt.axhline(1)
-plt.legend()
-plt.show()
+# A_layer = result_1['A_per_layer']
+# A_per_interface = result_1['A_per_interface']
+# total = result_1['R'] + result_1['T'] + np.sum(A_layer, axis=1) + A_per_interface[1][:,1]
+#
+# plt.figure()
+# plt.plot(wavelengths*1e9, result_1['R'], label='R')
+# plt.plot(wavelengths*1e9, result_1['T'], label='T')
+# plt.plot(wavelengths*1e9, A_layer, label='A')
+# plt.plot(wavelengths*1e9, A_per_interface[1][:,1], label='GaAs')
+# # plt.plot(wavelengths*1e9, A_per_interface[2][:,0], label='Ge_back')
+# plt.plot(wavelengths*1e9, total, 'k-', label='total')
+# plt.axhline(1)
+# plt.legend()
+# plt.show()
 
 # run again without analytical RT
 options.analytical_ray_tracing = 2
@@ -119,7 +123,7 @@ plt.plot(wavelengths*1e9, A_layer_2[:,0], 'b-', label='glass')
 plt.plot(wavelengths*1e9, A_per_interface_2[1][:,1], 'y-', label='Pvk')
 plt.plot(wavelengths*1e9, A_layer_2[:,1], 'g-', label='Si')
 
-# plt.plot(wavelengths*1e9, total, 'k-', label='total', alpha=0.5)
+plt.plot(wavelengths*1e9, total, 'k-', label='total', alpha=0.5)
 
 plt.plot(wavelengths*1e9, result_1['R'], 'k--')
 plt.plot(wavelengths*1e9, result_1['T'], 'r--')

@@ -27,7 +27,7 @@ from solcore.state import State
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath, get_wavelength
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
-from .analytical_rt import analytical_front_surface, lambertian_scattering, calculate_lambertian_profile, analytical_start
+from .analytical_rt import lambertian_scattering, calculate_lambertian_profile, analytical_start
 
 from rayflare import logger
 
@@ -1054,29 +1054,29 @@ class rt_structure:
             #
             # total_A = np.trapz(profile_to_add, z_pos)
 
-            total_int = np.sum(overall_R.R_total, axis=0) + np.sum(prop_rays.I, axis=0) + \
-                        np.sum(A_bulk_to_add, axis=1) + np.sum(np.sum(A_interface[1], axis=0), axis=0) + \
-            np.sum(np.sum(A_interface[2], axis=0), axis=0)
-
-            plt.figure()
-            # plt.plot(wavelengths*1e9, total_A, '-k', label='total bulk A (int)')
-            plt.plot(wavelengths*1e9, np.sum(A_bulk_to_add, axis=1), 'o', label='total A')
-
-            for i1, bulk in enumerate(A_bulk_to_add.T):
-                plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
-            plt.plot(wavelengths*1e9, np.sum(overall_R.R_total, axis=0), label='total R')
-            plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
-            plt.plot(wavelengths*1e9, total_int, label='total int')
-            plt.plot(wavelengths*1e9, np.sum(A_interface[1], axis=0).T, 'x', label='interface A')
-            plt.legend()
-            plt.show()
+            # total_int = np.sum(overall_R.R_total, axis=0) + np.sum(prop_rays.I, axis=0) + \
+            #             np.sum(A_bulk_to_add, axis=1) + np.sum(np.sum(A_interface[1], axis=0), axis=0) + \
+            # np.sum(np.sum(A_interface[2], axis=0), axis=0)
+            #
+            # plt.figure()
+            # # plt.plot(wavelengths*1e9, total_A, '-k', label='total bulk A (int)')
+            # plt.plot(wavelengths*1e9, np.sum(A_bulk_to_add, axis=1), 'o', label='total A')
+            #
+            # for i1, bulk in enumerate(A_bulk_to_add.T):
+            #     plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
+            # plt.plot(wavelengths*1e9, np.sum(overall_R.R_total, axis=0), label='total R')
+            # plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
+            # plt.plot(wavelengths*1e9, total_int, label='total int')
+            # plt.plot(wavelengths*1e9, np.sum(A_interface[1], axis=0).T, 'x', label='interface A')
+            # plt.legend()
+            # plt.show()
 
             remaining_I_per_wl = np.sum(prop_rays.I, axis=0)
             # pr.enable()
             wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
 
 
-            R_to_add = np.sum(overall_R.R_total, axis=0)
+            R_to_add = np.sum(overall_R.I, axis=0)
 
             # TODO!
             T_to_add = 0
@@ -1445,12 +1445,13 @@ def parallel_inner(
         x_y_combs = np.zeros((nx*ny, 2))
 
         # r_as need to be set so that z is somewhere within the current surface:
-        z_offs = cum_width[i_mats] + 1e-8
+        z_offs = -cum_width[i_mats - 1] - 1e-8
         r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
         # will probably need to end somewhere halfway through the x/y loop:
         end_ind[stop_before:] = 0
         end_ind[stop_before - 1] = n_remaining - (stop_before - 1)*nx*ny
         print('remaining', n_remaining)
+        n_passes_in = np.ones(n_remaining)
 
     else:
         ds = np.array([d for _ in range(n_reps * nx * ny)])
@@ -1465,6 +1466,7 @@ def parallel_inner(
         r_as = np.tile(r_as, (n_reps, 1))
 
         I_in = np.ones(n_reps * nx * ny)
+        n_passes_in = np.zeros(n_reps * nx * ny)
 
     overall_i = 0
     for j1 in range(n_reps):
@@ -1506,6 +1508,7 @@ def parallel_inner(
                 surf_inds[overall_i],
                 periodic,
                 lambertian_approximation,
+                n_passes=n_passes_in[overall_i],
                 I_in=I_in[overall_i],
             )
 
@@ -2282,6 +2285,7 @@ def decide_RT_TMM(n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable):
     T = np.real(data["T"].data.item(0))
     A_per_layer = np.real(data["Alayer"].data)
 
+    # print(rnd, R, T, A_per_layer)
     if rnd <= R:  # REFLECTION
 
         d = np.real(d - 2 * np.dot(d, N) * N)
@@ -2338,6 +2342,8 @@ def single_interface_check(
             divide="ignore", invalid="ignore"
         ):  # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
             result = check_intersect(r_a, d, tri)
+        # print('result (intersn, theta, N)', result)
+
         if result is False and not checked_translation:
             if i1 > 1:
                 which_side, _ = exit_side(r_a, d, Lx, Ly)
