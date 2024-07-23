@@ -2,6 +2,8 @@ import numpy as np
 import xarray as xr
 import os
 from rayflare.utilities import get_savepath
+from cmath import acos
+from math import atan2
 from copy import deepcopy
 
 theta_lamb = np.linspace(0, 0.999 * np.pi / 2, 100)
@@ -205,7 +207,7 @@ def analytical_start(nks,
 
     I_remaining = xr.DataArray(np.ones((1, n_wl)), dims=["unique_direction", "wl"])
 
-    n_interactions = xr.DataArray(np.zeros((1, n_wl)), dims=["unique_direction", "wl"])
+    n_interactions = 0
 
     data_lists = []
 
@@ -282,7 +284,6 @@ def analytical_start(nks,
                 }
             )
 
-
             T_data = xr.Dataset(
                 {
                     "I": I_remaining * T,
@@ -306,9 +307,20 @@ def analytical_start(nks,
                                           max_interactions,
                                           )
 
-            # TODO: I think these are not being scaled at all?
-
             A_per_interface[surf_index] = A_data*I_rem_data[None, None, :]
+
+            R_data['n_interactions'] = R_data["n_interactions"] + n_interactions
+            T_data['n_interactions'] = T_data["n_interactions"] + n_interactions
+
+        if mat_i == initial_mat:
+            n_passes_R = 0
+
+        else:
+            n_passes_R = n_passes + 1
+
+        n_passes += 1
+        R_data = xr.merge([R_data, xr.DataArray(n_passes_R).rename("n_passes")])
+        T_data = xr.merge([T_data, xr.DataArray(n_passes).rename("n_passes")])
 
 
         # surf_index only right for incidence from above
@@ -373,14 +385,14 @@ def analytical_start(nks,
             profile[depth_indices[mat_i]] + DA_actual
         )
 
-        n_passes = n_passes + 1
-
         # if all rays are still travelling in the same direction, continue with analytical RT. Otherwise continue on to
         # 'normal' ray tracing.
 
         if np.unique(T_data.direction, axis=0).shape[0] > 1:
 
-            # TODO: if directions are equivalent, can continue with analytical RT!
+            # # find theta and phi of rays:
+            # o_t = np.real(np.arccos(d[2])) # directions vectors MUST have length 1 here! np.linalg.norm(T_data.direction, axis=1)
+            # o_p = np.real(atan2(d[1], d[0]))
 
             single_direction = False
             # end, need to save/return final results here
@@ -411,6 +423,8 @@ def analytical_start(nks,
                         "I": R_remaining,
                         "direction": R_data.direction,
                         "mat_i": mat_i - initial_dir,
+                        "n_interactions": R_data.n_interactions,
+                        "n_passes": R_data.n_passes,
                     }
                 )
                 )
@@ -422,6 +436,8 @@ def analytical_start(nks,
                         "I": remaining_after_bulk,
                         "direction": T_data.direction,
                         "mat_i": mat_i,
+                        "n_interactions": T_data.n_interactions,
+                        "n_passes": T_data.n_passes,
                     }
                 )
                 )
@@ -497,7 +513,6 @@ def analytical_per_face(current_surf,
     else:
         n_layers = 0
 
-
     # TODO: only correct for downwards
     n0 = nks[surf_index]
     n1 = nks[surf_index + direction]
@@ -518,8 +533,6 @@ def analytical_per_face(current_surf,
         R_args = [lookuptable, 1]
 
     if len(r_in.flatten()) == 3:
-
-        # TODO: not sure if this is right for single d case
 
         r_inc = np.tile(r_in[:,None], (how_many_faces, 1, n_wavelengths))  # (4, 3) array
         # r_inc = r_inc[:, :, None]
@@ -664,6 +677,7 @@ def analytical_per_face(current_surf,
 
     R_total = xr.DataArray(R_total, dims=["unique_direction", "wl"])
     final_R_directions = xr.DataArray(final_R_directions, dims=["unique_direction", "xyz", "wl"])
+    n_interactions = xr.DataArray(stop_it + 1, dims=["unique_direction"])
     # theta_out_R = xr.DataArray(theta_out_R, dims=["unique_direction"])
     # phi_out_R = xr.DataArray(phi_out_R, dims=["unique_direction"])
 
@@ -671,6 +685,7 @@ def analytical_per_face(current_surf,
         {
             "I": R_total,
             "direction": final_R_directions,
+            "n_interactions": n_interactions,
             # "theta_out_R": theta_out_R,
             # "phi_out_R": phi_out_R,
         }
