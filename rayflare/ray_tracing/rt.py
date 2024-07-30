@@ -784,7 +784,7 @@ class dummy_prop_rays:
         pass
 
     def isel(self, wl):
-        return None
+        return State(I=0)
 
 class rt_structure:
     """Set up structure for RT calculations.
@@ -910,14 +910,14 @@ class rt_structure:
         lambertian_approximation = options.lambertian_approximation
         analytical_rt = options.analytical_ray_tracing
 
-        if options.lambertian_approximation:
-            if self.lambertian_results is None:
-                raise ValueError("Lambertian approximation results not found - must provide"
-                                 "options argument when initialising rt_structure.")
-
-            if len(self.mats) > 3:
-                raise ValueError("Lambertian approximation currently only implemented for structures"
-                                 "with a single bulk material and two interface textures.")
+        # if options.lambertian_approximation:
+        #     if self.lambertian_results is None:
+        #         raise ValueError("Lambertian approximation results not found - must provide"
+        #                          "options argument when initialising rt_structure.")
+        #
+        #     if len(self.mats) > 3:
+        #         raise ValueError("Lambertian approximation currently only implemented for structures"
+        #                          "with a single bulk material and two interface textures.")
 
         if not options["parallel"]:
             n_jobs = 1
@@ -1077,9 +1077,9 @@ class rt_structure:
             # plt.legend()
             # plt.show()
 
-            remaining_I_per_wl = np.sum(prop_rays.I, axis=0)
+            # remaining_I_per_wl = np.sum(prop_rays.I, axis=0)
             # pr.enable()
-            wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
+            # wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
 
 
             R_to_add = np.sum(overall_R.I, axis=0)
@@ -1096,7 +1096,7 @@ class rt_structure:
                     A_interface_to_add.append(0)
 
         else:
-            wl_continuing = np.arange(len(wavelengths))
+            # wl_continuing = np.arange(len(wavelengths))
             prop_rays = dummy_prop_rays()
             # R_to_add = 0
             # T_to_add = 0
@@ -1131,12 +1131,10 @@ class rt_structure:
                 initial_dir,
                 periodic,
                 lambertian_approximation,
-                analytical_rt,
                 tmm_args + [wavelengths[i1]],
-                # self.lambertian_results,
                 prop_rays.isel(wl=i1),
             )
-            for i1 in wl_continuing)
+            for i1 in range(len(wavelengths)))
 
         # pr.disable()
 
@@ -1183,7 +1181,7 @@ class rt_structure:
             A_per_interface = 0
             interface_profiles = 0
 
-        non_abs = np.logical_and(~np.isnan(thetas), np.abs(thetas) != 10)
+        non_abs = np.logical_and(~np.isnan(thetas), np.abs(thetas) < 10)
 
         refl = np.logical_and(
             non_abs,
@@ -1206,43 +1204,59 @@ class rt_structure:
 
         absorption_profiles[absorption_profiles < 0] = 0
 
-        A_layer[:, 1] = A_layer[:, 1]
-
         # process A_interfaces
 
-        if np.any(np.abs(thetas) == 10):  # Lambertian scattering
+        if np.any(np.abs(thetas) >= 10):  # Lambertian scattering
 
             # +ve if travelling down, about to hit rear surface.
             # stop normal RT right before next interaction with surface, but AFTER taking into account bulk
             # absorption on this pass
 
-            direction = np.sign(thetas[np.abs(thetas)==10])[0]
-            lambertian_RAT = self.lambertian_results[0].sel(direction=direction)
-            lambertian_A1 = self.lambertian_results[1].sel(direction=direction)
-            lambertian_A2 = self.lambertian_results[2].sel(direction=direction)
+            # per wavelength, find how many rays need to be accounted for with the Lambertian model:
+            # which direction it's travelling in, which material it is in,
+            # and the total intensity in those rays
 
-            # where np.abs(thetas) == 10, want to divide remaining intensity in Is at the same location correctly between
-            # reflection, interface absorption, and transmission
-            n_lambertian = np.sum(np.abs(thetas) == 10, axis=1)
-            I_lambertian = np.array([np.sum(Is[i1][np.abs(thetas[i1]) == 10]) for i1 in
-                            range(len(wavelengths))])  / (nx * ny * n_reps)
-            I_RAT = lambertian_RAT * I_lambertian
+            # indexing: wavelengths, material, direction
+            I_transmitted = np.zeros(len(wavelengths))
 
-            R += I_RAT.sel(event='R')
-            T += I_RAT.sel(event='T')
-            A_layer[:, 1] += I_RAT.sel(event='A_bulk')
+            for i1 in range(len(mats)-2):
 
-            if sum(self.tmm_or_fresnel) > 0:
-                add_frontsurf = (I_lambertian * lambertian_A1).data.T
-                add_backsurf = (I_lambertian * lambertian_A2).data.T
+                direction_in_mat = np.sign(thetas[np.abs(thetas/10) == (i1+1)])[0]
+                I_per_mat = [np.sum(Is[l][np.all((np.abs(thetas[l]/10) == (i1+1), np.sign(thetas[l]) == direction_in_mat), axis=0)]) for l in range(len(wavelengths))]
+                I_lambertian = np.array(I_per_mat)/(n_reps*nx*ny) + I_transmitted
 
-                A_per_interface[0] = A_per_interface[0] + add_frontsurf
-                A_per_interface[1] = A_per_interface[-1] + add_backsurf
+                lambertian_RAT = self.lambertian_results[i1][0].sel(direction=direction_in_mat)
+                lambertian_A1 = self.lambertian_results[i1][1].sel(direction=direction_in_mat)
+                lambertian_A2 = self.lambertian_results[i1][2].sel(direction=direction_in_mat)
 
-            add_profile = calculate_lambertian_profile(self, I_lambertian, options, direction,
-                                                       self.lambertian_results[3], alphas[1], depths[1])
+                # where np.abs(thetas) == 10, want to divide remaining intensity in Is at the same location correctly between
+                # reflection, interface absorption, and transmission
 
-            absorption_profiles += add_profile
+                I_RAT = lambertian_RAT * I_lambertian
+
+                R += I_RAT.sel(event='R').data
+
+                if i1 == len(mats) - 3: # final non-transmission bulk
+                    T += I_RAT.sel(event='T').data
+                else:
+                    I_transmitted = I_RAT.sel(event='T').data
+
+                A_layer[:, i1+1] += I_RAT.sel(event='A_bulk').data
+
+                add_profile = calculate_lambertian_profile(self, I_lambertian, options,
+                                                           direction_in_mat,
+                                                           self.lambertian_results[i1][3], alphas[i1+1],
+                                                           depths[i1+1],
+                                                           I_RAT.sel(event='A_bulk').data)
+
+                absorption_profiles[:, depth_indices[i1+1]] += add_profile
+
+                if sum(self.tmm_or_fresnel) > 0:
+                    add_frontsurf = (I_lambertian * lambertian_A1).data.T
+                    add_backsurf = (I_lambertian * lambertian_A2).data.T
+
+                    A_per_interface[i1] = A_per_interface[i1] + add_frontsurf
+                    A_per_interface[i1+1] = A_per_interface[i1+1] + add_backsurf
 
         # add results from analytical ray tracing:
         if analytical_rt > 0:
@@ -1266,7 +1280,7 @@ class rt_structure:
             for wl_ind in wl_ind_anlt:
                 # TODO: transmission not included here
 
-                A_interf = np.sum([np.sum(A_interf[wl_ind]) if not isinstance(A_interf, int) else 0 for A_interf in A_interface_to_add])
+                A_interf = np.sum([np.sum(A_intf[wl_ind]) if not isinstance(A_intf, int) else 0 for A_intf in A_interface_to_add])
                 total_A = np.sum(A_bulk_to_add[wl_ind]) + A_interf
                 n_absorbed = int(np.round(total_A*max_rays, 0))
 
@@ -1315,8 +1329,13 @@ class rt_structure:
 
                 scale_I_R = R_weights*max_rays/n_rays_per_R_direction
 
-                theta_R = np.arccos(overall_R.direction.isel(wl=wl_ind, xyz=2))
-                phi_R = np.arctan(overall_R.direction.isel(wl=wl_ind, xyz=1)/overall_R.direction.isel(wl=wl_ind, xyz=0))
+                if 'wl' in overall_R.direction.dims:
+                    theta_R = np.arccos(overall_R.direction.isel(wl=wl_ind, xyz=2))
+                    phi_R = np.arctan(overall_R.direction.isel(wl=wl_ind, xyz=1)/overall_R.direction.isel(wl=wl_ind, xyz=0))
+
+                else:
+                    theta_R = np.arccos(overall_R.direction.isel(xyz=2))
+                    phi_R = np.arctan(overall_R.direction.isel(xyz=1)/overall_R.direction.isel(xyz=0))
 
                 current_start = n_remaining[wl_ind] + n_absorbed
 
@@ -1421,8 +1440,7 @@ def parallel_inner(
     initial_mat,
     initial_dir,
     periodic,
-    lambertian_approximation,
-    analytical_rt,
+    lambertian_approximation=0,
     tmm_args=None,
     existing_rays=None,
 ):
@@ -1526,7 +1544,7 @@ def parallel_inner(
 
     end_ind = nx*ny*np.ones(n_reps, dtype=int)
 
-    if existing_rays is not None:
+    if np.sum(existing_rays.I) > 1e-9:
         ds, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = make_rt_args(existing_rays, xs, ys, n_reps)
         stop_before = int(np.ceil(n_remaining/(nx*ny)))
 
@@ -2029,72 +2047,12 @@ def single_ray_stack(
     # should end when either material = final material (len(materials)-1) & direction == 1 or
     # material = 0 & direction == -1
 
-    # print("NEW RAY")
-
     profile = np.zeros(len(z_pos))
     # do everything in microns
     A_per_layer = np.zeros(len(widths))
 
-    # direction: start travelling downwards; 1 = down, -1 = up
-
-    # surf_below = mat_i
-    # surf_above = mat_i - 1
-
     A_interface_array = 0
     A_interface_index = 0
-
-    # max_below = np.max(surfaces[surf_below].Points[:, 2])
-    # min_above = np.min(surfaces[surf_above].Points[:, 2])
-
-    # all of this can be done outside - will be the same for every ray!
-    # print(max_below, min_above)
-
-    ########
-
-    # same for all wavelengths & rays
-
-    # generally same across wavelengths, but can be changed by analytical
-    # ray tracing happening first
-    # if direction == 1 and mat_i > 0:
-    #     surf_index = mat_i
-    #     z_offset = -cum_width[mat_i - 1] - 1e-8
-    #     # print('z_offset', z_offset, r_a_0)
-    #
-    # elif direction == 1 and mat_i == 0:
-    #     surf_index = 0
-    #     z_offset = r_a_0[2]
-    #
-    # else:
-    #     surf_index = mat_i - 1
-    #     z_offset = -cum_width[mat_i] + 1e-8
-
-    # different for each ray, but same across wavelengths - should pregenerate as an array
-    # r_a = r_a_0 + np.array([x, y, 0])
-    # r_b = np.array([x, y, 0])
-    #
-    # d = (r_b - r_a) / np.linalg.norm(
-    #     r_b - r_a
-    # )  # direction (unit vector) of ray. Always downwards!
-
-    # print(d, -r_a_0/np.linalg.norm(r_a_0))
-    # d = -r_a_0/np.linalg.norm(r_a_0)
-    # want to translate along d so r_a is in between the correct surfaces
-    # first translate to z = 0:
-
-    # nd = -r_a[2] / d[2]
-    #
-    # # print(r_a[2], d[2], nd)
-    #
-    # r_a = r_a + nd * d
-    #
-    # r_a[2] = z_offset
-    #
-    # if direction != 1:
-    #     d[2] = -d[2]
-
-    ##### above here outside
-
-    # don't need direction_i, mat_i after this.
 
     stop = False
     I = I_in
@@ -2221,7 +2179,7 @@ def single_ray_stack(
             if lambertian_approximation and n_passes >= lambertian_approximation:
                 # choose a direction randomly, with probability determined by Lambertian scattering
                 stop = True
-                theta = 10*direction # +ve if travelling down, about to hit rear surface.
+                theta = 10*direction*mat_i # +ve if travelling down, about to hit rear surface.
                 # stop right before next interaction with surface, but AFTER taking into account bulk
                 # absorption on this pass
 
@@ -2340,6 +2298,7 @@ def traverse(width, theta, alpha, x, y, I_i, positions, I_thresh, direction):
 
 
 def decide_RT_Fresnel(n0, n1, theta, d, N, side, pol, rnd, wl=None, lookuptable=None):
+
     ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
 
     if abs(theta) > np.arcsin(ratio):

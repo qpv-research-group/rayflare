@@ -7,7 +7,7 @@ from math import atan2
 from copy import deepcopy
 
 theta_lamb = np.linspace(0, 0.999 * np.pi / 2, 100)
-def traverse_vectorised(width, theta, alpha, I_i, positions, I_thresh, direction):
+def traverse_vectorised(width, theta, alpha, I_i, positions, direction):
 
     ratio = alpha[None, :] / np.real(np.abs(np.cos(theta)))
     DA_u = I_i[:, :, None] * ratio[:, :, None] * np.exp((-ratio[:, :, None] * positions[None, None, :]))
@@ -220,7 +220,7 @@ def analytical_start(nks,
 
         I_rem_data = I_remaining.data[0]
 
-        if np.all(np.abs(normals[:,2]) > 0.99):
+        if np.all(np.abs(normals[:,2]) > 0.999):
             # if the surface is planar, can just use TMM or Fresnel equations directly
             # should already have a lookuptable, if necessary
 
@@ -259,7 +259,7 @@ def analytical_start(nks,
                 R_total = xr.DataArray(I_remaining*R[None, :], dims=["unique_direction", "wl"])
 
                 # INTERFACE (not bulk!) absorption
-                A_per_interface[surf_index] = xr.DataArray((I_rem_data[:,None]*A_per_int_layer)[None, :, :], dims=["unique_direction", "wl", "layer"])
+                A_per_interface[surf_index] = xr.DataArray((I_rem_data[None, :]*A_per_int_layer.T)[None, :, :], dims=["unique_direction", "layer", "wl"])
 
 
             else:
@@ -271,7 +271,7 @@ def analytical_start(nks,
                 T = 1 - R
 
                 # no interface absorption:
-                A_per_interface[surf_index] = xr.DataArray(np.zeros((1, n_wl, 1)), dims=["unique_direction", "wl", "layer"])
+                A_per_interface[surf_index] = xr.DataArray(np.zeros((1, 1, n_wl)), dims=["unique_direction", "layer", "wl"])
 
             n_interactions += 1  # can only have one interaction with planar surface regardless of
             # angle of incidence
@@ -280,7 +280,7 @@ def analytical_start(nks,
                 {
                     "I": R_total,
                     "direction": final_R_directions,
-                    "n_interactions": n_interactions,
+                    "n_interactions": np.array([n_interactions]),
                 }
             )
 
@@ -288,7 +288,7 @@ def analytical_start(nks,
                 {
                     "I": I_remaining * T,
                     "direction": final_T_directions,
-                    "n_interactions": n_interactions,
+                    "n_interactions": np.array([n_interactions]),
                     "theta_t": theta_t,
                 }
             )
@@ -330,7 +330,6 @@ def analytical_start(nks,
             alphas[surf_index + 1], # units?
             np.ones_like(T_data.theta_t),
             depths[surf_index + 1],
-            I_thresh,
             initial_dir,
         )
 
@@ -686,8 +685,6 @@ def analytical_per_face(current_surf,
             "I": R_total,
             "direction": final_R_directions,
             "n_interactions": n_interactions,
-            # "theta_out_R": theta_out_R,
-            # "phi_out_R": phi_out_R,
         }
     )
 
@@ -697,7 +694,6 @@ def analytical_per_face(current_surf,
     final_T_directions = xr.DataArray(final_T_directions, dims=["unique_direction", "xyz", "wl"])
     final_T_n_interactions = xr.DataArray(final_T_n_interactions, dims=["unique_direction"])
     theta_out_T = xr.DataArray(theta_out_T, dims=["unique_direction", "wl"])
-    # phi_out_T = xr.DataArray(phi_out_T, dims=["outgoing", "wl"])
 
     T_data = xr.Dataset(
         {
@@ -705,10 +701,8 @@ def analytical_per_face(current_surf,
             "direction": final_T_directions,
             "n_interactions": final_T_n_interactions,
             "theta_t": theta_out_T,
-            # "phi_out_T": phi_out_T,
         }
     )
-
 
     return R_data, A_data, T_data
 
@@ -860,7 +854,7 @@ def lambertian_scattering(strt, save_location, options):
         A_polar_rear = np.sum(np.mean(A_surf_weighted_rear, 2), 1)
 
         # calculate travel distance for each ray
-        I_rear = I_theta[:, None] * np.exp(-strt.widths[0] * strt.mats[1].alpha(options.wavelength[None, :]) / np.cos(theta_lamb)[:, None])
+        I_rear = I_theta[:, None] * np.exp(-strt.widths[mat_index - 1] * strt.mats[mat_index].alpha(options.wavelength[None, :]) / np.cos(theta_lamb)[:, None])
 
         R_1 = np.sum(I_theta[:, None]*R_polar_front, axis=0)
         R_2 = np.sum(I_theta[:, None]*R_polar_rear, axis=0)
@@ -921,18 +915,42 @@ def lambertian_scattering(strt, save_location, options):
         # Concatenate the two xarrays along the new dimension
         merged = xr.concat([initial_down, initial_up], dim="direction")
 
-    return merged, front_surf_P, rear_surf_P, [R_1, R_2]
+        result_list.append([merged, front_surf_P, rear_surf_P, [R_1, R_2]])
+
+    # stack merged, front_surf_P and rear_surf_P arrays along a nr
+
+    return result_list
 
 
 def calculate_lambertian_profile(strt, I_wl, options, initial_direction,
-                                 lambertian_results, alphas, position):
+                                 lambertian_R_results, alphas, position,
+                                 total_A):
+    def traverse_lambertian(width, theta, alpha, I_i, positions, direction):
+
+        ratio = alpha / np.real(np.abs(np.cos(theta)))
+        DA_u = I_i[:, None] * ratio[:, None] * np.exp((-ratio[:, None] * positions[None, :]))
+        I_back = I_i * np.exp(-ratio * width)
+
+        if direction == -1:
+            DA_u = np.flip(DA_u)
+
+        intgr = np.trapz(DA_u, positions, axis=1)
+
+        DA = np.divide(
+            ((I_i[:, None] - I_back[:, None]) * DA_u).T, intgr,
+        ).T
+
+        DA[intgr == 0] = 0
+
+        return DA, I_back
+
 
     I_theta = np.cos(theta_lamb)
     I_theta = I_theta / np.sum(I_theta)
 
     profile_wl = np.zeros((len(I_wl), len(position)))
 
-    [R_top, R_bot] = lambertian_results
+    [R_top, R_bot] = lambertian_R_results
 
     if initial_direction == 1:
         R1 = R_bot # CHECK
@@ -942,9 +960,11 @@ def calculate_lambertian_profile(strt, I_wl, options, initial_direction,
         R1 = R_top
         R2 = R_bot
 
-    for i1, I0 in enumerate(I_wl):
+    cont_wl_ind = np.where(I_wl > options.I_thresh)[0]
 
-        I = I0
+    for i1 in cont_wl_ind:
+
+        I = I_wl[i1]
         I_angular = I * I_theta
         direction = -initial_direction # first thing that happens is reflection!
         DA = np.zeros((len(theta_lamb), len(position)))
@@ -956,13 +976,12 @@ def calculate_lambertian_profile(strt, I_wl, options, initial_direction,
 
             # absorption
 
-            DA_pass, _, I_angular = traverse_vectorised(
+            DA_pass, I_angular = traverse_lambertian(
                 strt.widths[0]*1e6,
                 theta_lamb,
                 alphas[i1],
                 I_angular,
                 position,
-                options.I_thresh,
                 direction,
             )
 
@@ -972,21 +991,23 @@ def calculate_lambertian_profile(strt, I_wl, options, initial_direction,
 
             direction = -direction
 
-            DA_pass, _, I_angular = traverse_vectorised(
+            DA_pass, I_angular = traverse_lambertian(
                 strt.widths[0],
                 theta_lamb,
                 alphas[i1],
                 I_angular,
                 position,
-                options.I_thresh,
                 direction,
             )
+
             DA += DA_pass
 
             direction = -direction
 
             I = np.sum(I_angular)
 
-        profile_wl[i1] = np.sum(DA, axis=0)
+        sum_over_angles = np.sum(DA, axis=0)
+        int_I = np.trapz(sum_over_angles, position)
+        profile_wl[i1] = (total_A[i1]/int_I)*np.sum(DA, axis=0)
 
     return profile_wl
