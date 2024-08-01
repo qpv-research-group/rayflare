@@ -150,18 +150,17 @@ def analytical_start(nks,
                 phi,
                 surfaces,
                 widths,
-                cum_width,
+                calc_profile,
                 z_pos,
                 depths,
                 depth_indices,
-                I_thresh,
                 pol,
                 initial_mat,
                 initial_dir,
                 tmm_args,
                 max_interactions,
-                wls
-                     ):
+                wls,
+                ):
 
     # if light is incident on a planar surface at an off-normal angle, different wavelengths will
     # have different angles of incidence! This should be fine but not currently expected by
@@ -322,20 +321,21 @@ def analytical_start(nks,
         R_data = xr.merge([R_data, xr.DataArray(n_passes_R).rename("n_passes")])
         T_data = xr.merge([T_data, xr.DataArray(n_passes).rename("n_passes")])
 
-
-        # surf_index only right for incidence from above
-        DA, I = traverse_vectorised(
-            widths[surf_index + 1], # units?
-            T_data.theta_t.data,
-            alphas[surf_index + 1], # units?
-            np.ones_like(T_data.theta_t),
-            depths[surf_index + 1],
-            initial_dir,
-        )
-
-        # expand I_remaining along the face axis using xarray:
         I_rem_data = I_remaining.data[0]
-        DA = DA * I_rem_data[None, :, None] # scaled by intensity remaining BEFORE this surface
+
+        if calc_profile:
+        # surf_index only right for incidence from above
+            DA, I = traverse_vectorised(
+                widths[surf_index + 1], # units?
+                T_data.theta_t.data,
+                alphas[surf_index + 1], # units?
+                np.ones_like(T_data.theta_t),
+                depths[surf_index + 1],
+                initial_dir,
+            )
+
+            DA = DA * I_rem_data[None, :, None] # scaled by intensity remaining BEFORE this surface
+
         I = I * I_rem_data[None, :]
 
         I_abs = I_rem_data - I
@@ -361,14 +361,6 @@ def analytical_start(nks,
 
         # TODO: the above if statements are only for incidence from above.
 
-        # data_lists.append({
-        #     "R_data": R_data,
-        #     "A_data": A_data,
-        #     "T_data": T_data,
-        #     "DA": DA,
-        #     "I": I
-        # }
-        # )
 
         I_out_actual = np.sum(T_data.I.data * I_abs, axis=0)
         # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
@@ -467,14 +459,6 @@ def analytical_start(nks,
             # need to construct d for each wavelength:
 
 
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.plot(wls, data_lists[0]['R_data'].R_total[0])
-    plt.plot(wls, data_lists[0]['A_data'][0])
-    plt.show()
-
-    print('done')
 
 
     # should first check if surface is planar; if it is, can just use TMM directly.
@@ -579,7 +563,9 @@ def analytical_per_face(current_surf,
         # if negative, then the ray is shaded from that pyramid face and will never hit it
 
         tr_par = (n0 / n1) * (r_inc - np.sum(r_inc*normals[relevant_face, :, None], axis=1)[:,None] * normals[relevant_face, :, None])
-        tr_perp = -np.sqrt(1 - np.linalg.norm(tr_par,axis=1) ** 2)[:, None, :] * normals[relevant_face, :, None]
+        tr_par_norm = np.linalg.norm(tr_par,axis=1)
+        tr_par_norm[tr_par_norm > 1] = 1
+        tr_perp = -np.sqrt(1 - tr_par_norm ** 2)[:, None, :] * normals[relevant_face, :, None]
 
         refracted_rays = np.real(tr_par + tr_perp)
         refracted_rays  = refracted_rays / np.linalg.norm(refracted_rays, axis=1)[:,None, :]

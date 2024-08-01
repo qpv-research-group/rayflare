@@ -29,7 +29,7 @@ GaAs = material("GaAs")()
 Pvk = material("Pvk_Ox_165")()
 epoxy = material("BK7")()
 
-n_rays = 300
+n_rays = 2000
 
 d = 100e-6
 
@@ -66,7 +66,7 @@ front_text = planar_surface(
 )
 
 front_text_2 = regular_pyramids(52, True, 1,
-                                interface_layers=[Layer(70e-9, SiN), Layer(400e-9, Pvk)]
+                                interface_layers=[Layer(70e-9, SiN)]
                                                              )
 rear_text = regular_pyramids(52, False, 1)
 
@@ -75,9 +75,9 @@ rt_str = rt_structure(textures=[front_text, front_text_2, rear_text], materials=
                       options=options, use_TMM=True, save_location='current',
                       overwrite=True)
 
-# options.n_rays = 10
-# options.analytical_ray_tracing = 0
-# result = rt_str.calculate(options)
+options.n_rays = 10
+options.analytical_ray_tracing = 0
+result = rt_str.calculate(options)
 
 options.n_rays = n_rays
 options.lambertian_approximation = 0
@@ -89,7 +89,7 @@ print('Elapsed time: ', normal_time)
 
 A_layer = result_1['A_per_layer']
 A_per_interface = result_1['A_per_interface']
-total_1 = result_1['R'] + result_1['T'] + np.sum(A_layer, axis=1) + A_per_interface[1][:,1]
+total_1 = result_1['R'] + result_1['T'] + np.sum(A_layer, axis=1) + A_per_interface[1][:,0]
 #
 # plt.figure()
 # plt.plot(wavelengths*1e9, result_1['R'], label='R')
@@ -102,8 +102,8 @@ total_1 = result_1['R'] + result_1['T'] + np.sum(A_layer, axis=1) + A_per_interf
 # plt.legend()
 # plt.show()
 
-n_bounces = [3, 5, 10, 20, 30, 40, 60, 80, 100, 120, 140, 200, 0]
-n_bounces = [200, 0]
+n_bounces = [3, 5, 10, 15, 20, 30, 40, 60, 80, 100, 120, 0]
+# n_bounces = [200, 0]
 options.analytical_ray_tracing = 2
 
 
@@ -132,7 +132,7 @@ for i1, result in enumerate(result_list):
     plt.plot(wavelengths*1e9, result['R'], 'k-', alpha=alphas[i1])
     plt.plot(wavelengths*1e9, A_layer_2[:,0], 'r-', alpha=alphas[i1])
     plt.plot(wavelengths*1e9, A_layer_2[:,1], 'g-', alpha=alphas[i1])
-    plt.plot(wavelengths*1e9, A_per_interface_2[1][:,1], 'y-', alpha=alphas[i1])
+    plt.plot(wavelengths*1e9, A_per_interface_2[1][:,0], 'y-', alpha=alphas[i1])
 
 plt.show()
 
@@ -168,7 +168,7 @@ int_A_lamb = 1e9*np.trapz(result_list[result_i]['profile'], dx=options.depth_spa
 
 total_2 = (result_list[result_i]['R'] + result_list[result_i]['T'] +
            np.sum(result_list[result_i]['A_per_layer'], axis=1) +
-           result_list[result_i]['A_per_interface'][1][:,1])
+           result_list[result_i]['A_per_interface'][1][:,0])
 
 plt.figure()
 plt.plot(wavelengths*1e9, int_A, label='full RT')
