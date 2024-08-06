@@ -716,7 +716,10 @@ def rcwa_rt_pfbo(S, n_layers, incpf, det_l=False):
 
     T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1)) / incpf
 
-    return R_pfbo, T_pfbo, R_pfbo_int
+    R_amplitudes = S.GetAmplitudes('layer_1')
+    T_amplitudes = S.GetAmplitudes(below)
+
+    return R_pfbo, T_pfbo, R_pfbo_int, R_amplitudes, T_amplitudes
 
 
 def rcwa_rt_pfbo_inkstone(S, n_layers, incpf):
@@ -1138,6 +1141,10 @@ class rcwa_structure:
 
         if options["A_per_order"]:
             A_order = np.real(np.stack([item[3] for item in allres]))
+            R_order = np.real(np.stack([item[4] for item in allres]))
+            T_order = np.real(np.stack([item[5] for item in allres]))
+            R_amplitudes = np.stack([item[6] for item in allres])
+            T_amplitudes = np.stack([item[7] for item in allres])
 
             S_for_orders = self.make_S(options, 0)
 
@@ -1149,6 +1156,10 @@ class rcwa_structure:
                 "T": T,
                 "A_per_layer": A_mat,
                 "A_layer_order": A_order,
+                "R_per_order": R_order,
+                "T_per_order": T_order,
+                "R_amplitudes": R_amplitudes,
+                "T_amplitudes": T_amplitudes,
                 "basis_set": basis_set,
                 "reciprocal": f_mat,
             }
@@ -1587,7 +1598,8 @@ def RCWA_structure_wl(
         A_layer = rcwa_absorption_per_layer(S, len(widths), incpf)
         if A_per_order:
             A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), incpf)
-            return R, T, A_layer, A_per_layer_order
+            R_per_order, T_per_order, _, R_amplitudes, T_amplitudes = rcwa_rt_pfbo(S, len(widths), incpf)
+            return R, T, A_layer, A_per_layer_order, R_per_order, T_per_order, R_amplitudes, T_amplitudes
         else:
             return R, T, A_layer
 
