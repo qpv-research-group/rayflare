@@ -562,7 +562,7 @@ def RCWA_wl(
         S.SetExcitationPlanewave((th, ph), pol[0], pol[1], 0)
         S.SetFrequency(1 / wl)
         _, Ti, incpfi = rcwa_rt(S, len(widths))
-        R_pfbo, T_pfbo, R_pfbo_int = rcwa_rt_pfbo(S, len(widths), incpfi)
+        R_pfbo, T_pfbo, R_pfbo_int, _, _ = rcwa_rt_pfbo(S, len(widths), incpfi)
         T[in_bin[i1]] = Ti
         A_layer[in_bin[i1]] = rcwa_absorption_per_layer(S, len(widths), incpfi)
 
@@ -1142,20 +1142,22 @@ class rcwa_structure:
 
         S_for_orders = self.make_S(options, 0)
 
-        basis_set = S_for_orders.GetBasisSet()
-        f_mat = S_for_orders.GetReciprocalLattice()
 
         results = {
             "R": R,
             "T": T,
             "A_per_layer": A_mat,
-            "basis_set": basis_set,
-            "reciprocal": f_mat,
         }
 
         if options["A_per_order"]:
             A_order = np.real(np.stack([item[3] for item in allres]))
-            results["A_layer_order"] = A_order,
+
+            results["A_layer_order"] = A_order
+
+            basis_set = S_for_orders.GetBasisSet()
+            f_mat = S_for_orders.GetReciprocalLattice()
+            results["basis_set"] = basis_set
+            results["reciprocal"] = f_mat
 
         if options["detailed_rcwa"]:
             R_order = np.real(np.stack([item[4] for item in allres]))
@@ -1167,6 +1169,14 @@ class rcwa_structure:
             results["T_per_order"] = T_order
             results["R_amplitudes"] = R_amplitudes
             results["T_amplitudes"] = T_amplitudes
+
+            if not options["A_per_order"]:
+                basis_set = S_for_orders.GetBasisSet()
+                f_mat = S_for_orders.GetReciprocalLattice()
+                results["basis_set"] = basis_set
+                results["reciprocal"] = f_mat
+
+        self.results = results
 
         return results
 

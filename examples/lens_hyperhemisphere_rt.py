@@ -10,7 +10,10 @@ import os
 from joblib import Parallel, delayed
 from time import time
 
-# NOTE: variables exp_points, nxs and number of theta points changed to make calculation faster for the example. To get
+# paper: https://doi.org/10.1021/acsphotonics.2c00223
+
+# NOTE: variables exp_points, nxs and number of theta points changed to make calculation faster for
+# the example. To get
 # results as generated in the paper, change to values stated in comments.
 
 d_bulk = 0
