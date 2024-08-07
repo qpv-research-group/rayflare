@@ -41,6 +41,7 @@ def test_RAT(RCWA_method):
         "project_name": "ultrathin",
         "orders": 30,
         "RCWA_method": RCWA_method,
+        "detailed_rcwa": False,
     }
 
     if RCWA_method == "S4":

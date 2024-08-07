@@ -562,7 +562,7 @@ def RCWA_wl(
         S.SetExcitationPlanewave((th, ph), pol[0], pol[1], 0)
         S.SetFrequency(1 / wl)
         _, Ti, incpfi = rcwa_rt(S, len(widths))
-        R_pfbo, T_pfbo, R_pfbo_int = rcwa_rt_pfbo(S, len(widths), incpfi)
+        R_pfbo, T_pfbo, R_pfbo_int, _, _ = rcwa_rt_pfbo(S, len(widths), incpfi)
         T[in_bin[i1]] = Ti
         A_layer[in_bin[i1]] = rcwa_absorption_per_layer(S, len(widths), incpfi)
 
@@ -716,7 +716,10 @@ def rcwa_rt_pfbo(S, n_layers, incpf, det_l=False):
 
     T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1)) / incpf
 
-    return R_pfbo, T_pfbo, R_pfbo_int
+    R_amplitudes = S.GetAmplitudes('layer_1')
+    T_amplitudes = S.GetAmplitudes(below)
+
+    return R_pfbo, T_pfbo, R_pfbo_int, R_amplitudes, T_amplitudes
 
 
 def rcwa_rt_pfbo_inkstone(S, n_layers, incpf):
@@ -1125,6 +1128,7 @@ class rcwa_structure:
                 self.size,
                 options["orders"],
                 options["A_per_order"],
+                options["detailed_rcwa"],
                 self.user_options,
             )
             for i1 in range(len(wl))
@@ -1136,29 +1140,45 @@ class rcwa_structure:
 
         self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
 
+        S_for_orders = self.make_S(options, 0)
+
+
+        results = {
+            "R": R,
+            "T": T,
+            "A_per_layer": A_mat,
+        }
+
         if options["A_per_order"]:
             A_order = np.real(np.stack([item[3] for item in allres]))
 
-            S_for_orders = self.make_S(options, 0)
+            results["A_layer_order"] = A_order
 
             basis_set = S_for_orders.GetBasisSet()
             f_mat = S_for_orders.GetReciprocalLattice()
+            results["basis_set"] = basis_set
+            results["reciprocal"] = f_mat
 
-            results = {
-                "R": R,
-                "T": T,
-                "A_per_layer": A_mat,
-                "A_layer_order": A_order,
-                "basis_set": basis_set,
-                "reciprocal": f_mat,
-            }
-            self.results = results
-            return results
+        if options["detailed_rcwa"]:
+            R_order = np.real(np.stack([item[4] for item in allres]))
+            T_order = np.real(np.stack([item[5] for item in allres]))
+            R_amplitudes = np.stack([item[6] for item in allres])
+            T_amplitudes = np.stack([item[7] for item in allres])
 
-        else:
-            results = {"R": R, "T": T, "A_per_layer": A_mat}
-            self.results = results
-            return results
+            results["R_per_order"] = R_order
+            results["T_per_order"] = T_order
+            results["R_amplitudes"] = R_amplitudes
+            results["T_amplitudes"] = T_amplitudes
+
+            if not options["A_per_order"]:
+                basis_set = S_for_orders.GetBasisSet()
+                f_mat = S_for_orders.GetReciprocalLattice()
+                results["basis_set"] = basis_set
+                results["reciprocal"] = f_mat
+
+        self.results = results
+
+        return results
 
     def calculate_profile(self, options):
         """It calculates the absorbed energy density within the material.
@@ -1578,6 +1598,7 @@ def RCWA_structure_wl(
     size,
     orders,
     A_per_order,
+    detailed_rcwa,
     S4_options,
 ):
     def vs_pol(s, p):
@@ -1585,11 +1606,18 @@ def RCWA_structure_wl(
         S.SetFrequency(1 / wl)
         R, T, incpf = rcwa_rt(S, len(widths))
         A_layer = rcwa_absorption_per_layer(S, len(widths), incpf)
+
+        result_list = [R, T, A_layer]
+
         if A_per_order:
             A_per_layer_order = rcwa_absorption_per_layer_order(S, len(widths), incpf)
-            return R, T, A_layer, A_per_layer_order
-        else:
-            return R, T, A_layer
+            result_list.append(A_per_layer_order)
+
+        if detailed_rcwa:
+            R_per_order, T_per_order, _, R_amplitudes, T_amplitudes = rcwa_rt_pfbo(S, len(widths), incpf)
+            result_list += [None, R_per_order, T_per_order, R_amplitudes, T_amplitudes]
+
+        return result_list
 
     S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
 
@@ -1599,7 +1627,8 @@ def RCWA_structure_wl(
 
 
 def RCWA_structure_wl_inkstone(
-    wl, geom_list, layers_oc, shapes_oc, s_names, pol, theta, phi, widths, size, orders, *args
+    wl, geom_list, layers_oc, shapes_oc, s_names, pol,
+        theta, phi, widths, size, orders, *args
 ):
     def vs_pol(s, p):
         S.SetExcitation(theta, phi, s, p)

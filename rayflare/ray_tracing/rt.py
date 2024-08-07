@@ -658,7 +658,7 @@ def calculate_interface_profiles(
         params_front = xr.concat((scale_res, c_params), dim="coeff")
 
         ans_front = (
-            params_front.groupby("angle", squeeze=False)
+            params_front.groupby("angle")
             .map(profile_per_angle, z=z_list, offset=offsets, side=1)
             .drop_vars("coeff")
         )
@@ -702,7 +702,7 @@ def calculate_interface_profiles(
         params_back = xr.concat((scale_res, c_params), dim="coeff")
 
         ans_back = (
-            params_back.groupby("angle", squeeze=False)
+            params_back.groupby("angle")
             .map(profile_per_angle, z=z_list, offset=offsets, side=-1)
             .drop_vars("coeff")
         )
@@ -1066,6 +1066,7 @@ class rt_structure:
             "A_per_interface": A_per_interface,
             "A_interfaces": A_interfaces,
             "interface_profiles": interface_profiles,
+            "xy": [xs, ys],
         }
 
     def calculate_profile(self, options):
@@ -1348,7 +1349,9 @@ def make_profiles_wl(
 
     def profile_per_layer(xx, z, offset, side, non_zero):
         layer_index = xx.coords["layer"].item(0) - 1
-        x = xx[non_zero]
+        x = xx.squeeze()
+        x = x[non_zero]
+
         part1 = x[:, 0] * np.exp(x[:, 4] * z[layer_index])
         part2 = x[:, 1] * np.exp(-x[:, 4] * z[layer_index])
         part3 = (x[:, 2] + 1j * x[:, 3]) * np.exp(1j * x[:, 5] * z[layer_index])
@@ -1363,16 +1366,18 @@ def make_profiles_wl(
     def profile_per_angle(x, z, offset, side, nz):
         i2 = x.coords["global_index"].item(0)
         non_zero = np.where(nz[:, i2])[0]
-        by_layer = x.groupby("layer").map(
+        by_layer = x.groupby("layer", squeeze=False).map(
             profile_per_layer, z=z, offset=offset, side=side, non_zero=non_zero
         )
         return by_layer
 
     def scale_func(x, scale_params):
-        return x.data[:, None, None] * scale_params
+        xx = x.squeeze()
+        return xx.data[:, None, None] * scale_params
 
     def select_func(x, const_params):
-        return (x.data[:, None, None] != 0) * const_params
+        xx = x.squeeze()
+        return (xx.data[:, None, None] != 0) * const_params
 
     pr = xr.DataArray(
         angle_distmat.todense(),
@@ -1397,8 +1402,8 @@ def make_profiles_wl(
     ]  # have to scale these to make sure integrated absorption is correct
     c_params = params.loc[dict(coeff=["a1", "a3"])]  # these should not be scaled
 
-    scale_res = pr.groupby("global_index").map(scale_func, scale_params=s_params)
-    const_res = pr.groupby("global_index").map(select_func, const_params=c_params)
+    scale_res = pr.groupby("global_index", squeeze=False).map(scale_func, scale_params=s_params)
+    const_res = pr.groupby("global_index", squeeze=False).map(select_func, const_params=c_params)
 
     params = xr.concat((scale_res, const_res), dim="coeff").assign_coords(
         layer=np.arange(1, len(widths) + 1)
