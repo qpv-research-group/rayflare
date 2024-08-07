@@ -9,6 +9,7 @@ from joblib import Parallel, delayed
 from time import time
 
 # Paper: https://doi.org/10.1002/adom.201700585
+# We will replicate Figure 1 from this paper
 
 # Define materials:
 MgF2 = material("MgF2")()  # MgF2 (SOPRA database)
@@ -25,15 +26,15 @@ options.orders = 43 # number of diffraction orders. Note that due to the truncat
 # the actual number of orders used can be slightly higher or lower than this. A higher number should
 # give a more accurate result, since the Fourier transformed representation is more accurate, but
 # takes longer to calculate.
-options.A_per_order = True # this makes the RCWA implementation (S4) calculate the power per diffraction order
+options.detailed_rcwa = True # this makes the RCWA implementation (S4) calculate the power per diffraction order
 # and field amplitudes, which are required to calculate the phase. By default, if this option is not turned on,
 # only the total R and T will be calculated.
 options.pol = 's' # polarization of the incident plane wave. This can be 's', 'p', 'u' (equal mixture of s and p),
 # or a Jones vector such as options.pol = (1/np.sqrt(2), 1j/np.sqrt(2)) (circular polarization)
 
-rad_list = np.linspace(100, 1000, 41) # list of pillar radii to scan through
+rad_list = np.linspace(100, 1000, 11) # list of pillar radii to scan through
 
-lattice_constant = np.linspace(1000, 3000, 61)
+lattice_constant = np.linspace(1000, 3000, 21)
 # list of lattice constants to scan through (distance between centre of pillars)
 
 # 21 radii, 31 lattice constants: miniconda python takes 101 s

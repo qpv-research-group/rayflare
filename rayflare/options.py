@@ -32,6 +32,7 @@ class default_options(State):
 
         # RCWA options
         self.A_per_order = False
+        self.detailed_rcwa = False
         self.S4_options = dict(
             LatticeTruncation="Circular",
             DiscretizedEpsilon=False,
