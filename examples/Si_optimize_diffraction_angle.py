@@ -41,7 +41,7 @@ class optimize_surface():
         options = default_options()
         options.wavelength = self.wavelengths
         options.orders = 50
-        options.A_per_order = True
+        options.detailed_rcwa = True
         options.parallel = True
         # options.pol = (1/np.sqrt(2), 1j/np.sqrt(2))
         options.pol = self.pol
@@ -103,11 +103,11 @@ crit_angle = np.arcsin(Air.n(5e-6)/Si.n(5e-6))
 test_wl = np.linspace(4.5,  5.5,10)*1e-6
 
 
-obj_class = optimize_surface(wavelengths=test_wl, target_diffraction_angle=70*np.pi/180,
+obj_class = optimize_surface(wavelengths=test_wl, target_diffraction_angle=45*np.pi/180,
                                    angle_tolerance=10*np.pi/180)
 prob = pg.problem(obj_class)
 
-n_generations = 50
+n_generations = 40
 pop_size = 5*len(prob.get_bounds()[0])
 
 # algo = pg.algorithm(pg.de(gen=n_generations))
@@ -123,13 +123,18 @@ best_x = np.zeros((n_generations, n_params))
 
 pop = pg.population(prob, pop_size)
 
-for i1 in range(n_generations):
+results_table = np.zeros((5, 4))
 
-    pop = algo.evolve(pop)
-    print(i1, pop.champion_f[0])
-    best_f[i1] = pop.champion_f[0]
-    mean_f[i1] = np.mean(pop.get_f())
-    best_x[i1] = pop.champion_x
+for j1 in range(5):
+
+    for i1 in range(n_generations):
+
+        pop = algo.evolve(pop)
+        print(i1, pop.champion_f[0])
+        best_f[i1] = pop.champion_f[0]
+        mean_f[i1] = np.mean(pop.get_f())
+        best_x[i1] = pop.champion_x
+    results_table[j1] = [pop.champion_x[0], pop.champion_x[1], pop.champion_x[2], pop.champion_f[0]]
 
 print(pop.champion_x, pop.champion_f)
 

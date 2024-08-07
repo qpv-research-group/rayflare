@@ -25,7 +25,7 @@ h = 0.242  # height shift of hyperhemisphere
 # (32 GB RAM, M1 chip, 10 cores)
 
 n_thetas = 50  # 100 used for paper data
-exp_points = 13  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
+exp_points = 15  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
 nxs = 70  # 70 points used for paper data
 thetas = np.linspace(0, np.pi / 2 - 0.05, n_thetas)  # 100 angles used for paper data
 
@@ -57,12 +57,12 @@ options.initial_direction = 1  # default initial direction, which is 1 (downward
 options.periodic = 0
 options.wavelength = np.array([6e-6])
 options.parallel = False
-options.n_rays = nxs ** 2
+options.n_rays = 4*nxs ** 2 # every emission point on the surface 4 times
 
 options.theta = 0.1
 options.nx = nxs
 options.ny = nxs
-options.pol = "u"
+options.pol = "u" # assume unpolarized rays
 
 [front, back] = hyperhemisphere(2 ** exp_points, r, h)
 
