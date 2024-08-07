@@ -25,8 +25,8 @@ h = 0.242  # height shift of hyperhemisphere
 # (32 GB RAM, M1 chip, 10 cores)
 
 n_thetas = 50  # 100 used for paper data
-exp_points = 15  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
-nxs = 70  # 70 points used for paper data
+exp_points = 13  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
+nxs = 30 # 70 points used for paper data
 thetas = np.linspace(0, np.pi / 2 - 0.05, n_thetas)  # 100 angles used for paper data
 
 # structure:
@@ -57,7 +57,7 @@ options.initial_direction = 1  # default initial direction, which is 1 (downward
 options.periodic = 0
 options.wavelength = np.array([6e-6])
 options.parallel = False
-options.n_rays = 4*nxs ** 2 # every emission point on the surface 4 times
+options.n_rays = 5*nxs ** 2 # every emission point on the surface 5 times
 
 options.theta = 0.1
 options.nx = nxs
@@ -120,7 +120,7 @@ def parallel_theta(options, th):
     options.theta_in = th
     result = rtstr.calculate(options)
 
-    return result['T'][0], np.mean(result['n_interactions']), result['thetas'][0]
+    return result['T'][0], result['n_interactions'], result['thetas'][0]
 
 if os.path.isfile(
     "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays_2.txt"
@@ -151,8 +151,8 @@ else:
         "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt",
         T_total,
     )
-    np.savetxt(
-        "sphere_raytrace_ninter_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt",
+    np.save(
+        "sphere_raytrace_ninter_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.npy",
         n_interactions,
     )
     np.savetxt(
@@ -160,22 +160,42 @@ else:
         theta_distribution,
     )
 
-min_angle_1 = np.pi - 17.5 * np.pi / 180
-min_angle_2 = np.pi - np.pi * 45 / 180
+min_angle_1 = np.pi - 20 * np.pi / 180
+min_angle_2 = np.pi - 45 * np.pi / 180
 
-T_175 = np.array([np.sum(x > min_angle_1) / options.n_rays for x in theta_distribution])
+T_20 = np.array([np.sum(x > min_angle_1) / options.n_rays for x in theta_distribution])
 T_45 = np.array([np.sum(x > min_angle_2) / options.n_rays for x in theta_distribution])
 
 plt.figure()
 
-plt.plot(thetas * 180 / np.pi, T_total, color=pal[0])
+plt.plot(thetas * 180 / np.pi, T_total, color=pal[0], label=r"$\delta <$ 90°")
 plt.scatter(thetas * 180 / np.pi, T_total, edgecolors=pal[0], facecolors="none")
-plt.plot(thetas * 180 / np.pi, T_45, color=pal[1])
+plt.plot(thetas * 180 / np.pi, T_45, color=pal[1], label=r"$\delta <$ 45°")
 plt.scatter(thetas * 180 / np.pi, T_45, edgecolors=pal[1], facecolors="none")
-plt.plot(thetas * 180 / np.pi, T_175, color=pal[2])
-plt.scatter(thetas * 180 / np.pi, T_175, edgecolors=pal[2], facecolors="none")
+plt.plot(thetas * 180 / np.pi, T_20, color=pal[2], label=r"$\delta <$ 20°")
+plt.scatter(thetas * 180 / np.pi, T_20, edgecolors=pal[2], facecolors="none")
 plt.xlim(0, 90)
 plt.xlabel(r"$\beta$ (rads)")
 plt.ylabel("Transmission")
-
+plt.legend()
 plt.show()
+
+# selection n_interactions for rays escaping within a cone of 45 degrees:
+options.n_rays = 1
+sample_result = result = rtstr.calculate(options)
+n_interactions_escape = [n_interactions[i, 0, theta_distribution[i] > min_angle_2] for i in range(len(thetas))]
+mean_interactions = [np.mean(x) for x in n_interactions_escape]
+min_interactions = [np.min(x) for x in n_interactions_escape]
+max_interactions = [np.max(x) for x in n_interactions_escape]
+
+
+# plot the mean number of interactions for rays escaping in the forward direction, and shade the range:
+
+plt.figure()
+plt.plot(thetas * 180 / np.pi, mean_interactions, color='k', label="Mean")
+# plt.fill_between(thetas * 180 / np.pi, min_interactions, max_interactions, color='k', alpha=0.3)
+plt.xlabel(r"$\beta$ (rads)")
+plt.ylabel("Number of interactions before escape")
+plt.legend()
+plt.show()
+

@@ -8,11 +8,20 @@ import pygmo as pg
 from rayflare.analytic.diffraction import get_order_directions
 import seaborn as sns
 
-# Paper: https://doi.org/10.1002/adom.201700585
-MgF2 = material("MgF2")()  # MgF2 (SOPRA database)
+
+# Optimize an Si diffraction grating of hexagonally-arranged pillars on bulk Si
+# to optimally diffract as much incident light as possible into some target angle
+
 Air = material("Air")()
 Si = material("Si")()
 
+
+# Class which defines the optimization problem. This must have a function called 'fitness'
+# which returns the fitness of the solution, and a function called 'get_bounds' which returns
+# the bounds of the solution space. The fitness function must take a single argument, which is
+# the solution to be evaluated. The bounds function must return two lists, the first of which
+# contains the lower bounds for each parameter, and the second of which contains the upper bounds
+# for each parameter.
 class optimize_surface():
 
     def __init__(self,
@@ -21,9 +30,8 @@ class optimize_surface():
                  angle_tolerance=10*np.pi/180,
                  pol='s',
                  ):
+
         self.wavelengths = wavelengths
-        # self.angle = target_diffraction_angle
-        # self.tolerance = angle_tolerance
         self.target = target_diffraction_angle
         self.tolerance = angle_tolerance
         self.min_angle = np.pi - target_diffraction_angle - angle_tolerance
@@ -31,7 +39,6 @@ class optimize_surface():
         self.pol = pol
 
     def calculate(self, x):
-        # wavelengths = np.array([1e-6])
 
         # lattice vectors for the grating. Units are in nm!
         # Note: annoyingly have to set options here internally every time, since the options object
@@ -67,28 +74,29 @@ class optimize_surface():
 
         RAT, options, size = self.calculate(x)
 
-        # order_power = np.flip(np.argsort(RAT['T_per_order'], axis=1), axis=1) # dimensions: (wl, orders)
+        # diffraction orders retained in the Fourier transform:
         orders = np.array(RAT['basis_set']) # dimensions: (orders, 2)
-        # orders = orders[order_power] # dimensions: (wl, orders, 2)
-        # power_sorted = np.sort(RAT['T_per_order'], axis=0) # dimensions: (wl, orders
 
-        # orders = orders[power_sorted > 1e-7]
-        # power_sorted = power_sorted[power_sorted > 1e-7]
-
+        # Calculate which directions in air and Si each of these diffraction orders correspond
+        # to
         diffracted_directions = get_order_directions(self.wavelengths * 1e9, size, 4, Air, Si,
                                                      options.theta_in,
                                                      0,
                                                      np.pi / 3)
         orders_analytical = diffracted_directions['order_index']
 
+        # Match the diffraction orders from the RCWA calculation to the analytical calculation
         orders_analytical_ind = [np.where(
             np.all((orders_analytical[0].flatten() == x[0], orders_analytical[1].flatten() == x[1]),
                    axis=0))[0][0] for x in orders]
 
+        # pick up angles in silicon (transmission)
         theta_analytical = diffracted_directions['theta_t'][:, orders_analytical_ind]
 
+        # mask to select only the orders which are within the target angle +/- the tolerance
         mask = np.all((theta_analytical > self.min_angle, theta_analytical < self.max_angle), axis=0)
 
+        # Sum the transmitted power at all wavelengths which falls within the allowed angles
         T_in_condition = np.sum(RAT['T_per_order'][mask])
 
         return [-T_in_condition/len(self.wavelengths)]
@@ -97,45 +105,52 @@ class optimize_surface():
         # [lower bounds for all parameters], [upper bounds for all parameters]
         return [(100, 0, 200), (10000, 0.5, 3000)]
 
-
-
-crit_angle = np.arcsin(Air.n(5e-6)/Si.n(5e-6))
+# wavelengths: 4.5 - 5.5 um, 10 points
 test_wl = np.linspace(4.5,  5.5,10)*1e-6
 
+# create an instance of the optimize_surface class which will be passed to Pygmo. We can choose
+# the wavelengths, target angle, and angle tolerance here. Can also set the polarization ('s' by
+# default)
 obj_class = optimize_surface(wavelengths=test_wl, target_diffraction_angle=45*np.pi/180,
                                    angle_tolerance=10*np.pi/180)
+
+# Create the pygmo problem to solve:
 prob = pg.problem(obj_class)
 
-n_generations = 40
-pop_size = 5*len(prob.get_bounds()[0])
+# Number of parameters to optimize (length of candidate vectors)
+n_params = len(prob.get_bounds()[0])
 
-# algo = pg.algorithm(pg.de(gen=n_generations))
-# pop = pg.population(prob, pop_size)
-# pop = algo.evolve(pop)
+# Number of generations and population size:
+n_generations = 40
+pop_size = 5*n_params
 
 algo = pg.algorithm(pg.de(gen=1)) # note: I am running this one generation at a time so I can get the
 # best population at each step and plot how it evolves. If you just care about the final result,
 # you can just set gen=n_generations here and not have the for loop below.
 
-n_params = len(prob.get_bounds()[0])
+# algo = pg.algorithm(pg.de(gen=n_generations))
+# pop = pg.population(prob, pop_size)
+# pop = algo.evolve(pop)
+
+# arrays of zeros to store results
 
 best_f = np.zeros(n_generations)
 mean_f = np.zeros(n_generations)
 best_x = np.zeros((n_generations, n_params))
 
+# create initial populate, will be generated randomly within upper and lower bounds of each parameter
 pop = pg.population(prob, pop_size)
 
 for i1 in range(n_generations):
 
     pop = algo.evolve(pop)
-    print(i1, pop.champion_f[0])
     best_f[i1] = pop.champion_f[0]
     mean_f[i1] = np.mean(pop.get_f())
     best_x[i1] = pop.champion_x
 
 print(pop.champion_x, pop.champion_f)
 
-
+# Plot best and mean fitness in population at each generation
 fig, ax1 = plt.subplots(1, 1, figsize=(5, 4))
 ax1.plot(np.arange(n_generations) + 1, best_f, 'ro-', label="Champion fitness")
 ax1.plot(np.arange(n_generations) + 1, mean_f, 'kx-',  label="Mean fitness")

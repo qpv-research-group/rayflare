@@ -50,7 +50,7 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 install_requires = [
     "matplotlib",
     "scipy",
-    "numpy",
+    "numpy<2.0.0",
     "solcore",
     "xarray",
     "sparse<=0.14.0",

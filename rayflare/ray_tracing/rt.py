@@ -1066,6 +1066,7 @@ class rt_structure:
             "A_per_interface": A_per_interface,
             "A_interfaces": A_interfaces,
             "interface_profiles": interface_profiles,
+            "xy": [xs, ys],
         }
 
     def calculate_profile(self, options):
