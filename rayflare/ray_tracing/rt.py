@@ -27,7 +27,8 @@ from solcore.state import State
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath, get_wavelength
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
-from .analytical_rt import lambertian_scattering, calculate_lambertian_profile, analytical_start
+from .analytical_rt import (lambertian_scattering, calculate_lambertian_profile,
+                            analytical_start, dummy_prop_rays)
 
 from rayflare import logger
 
@@ -777,14 +778,6 @@ def make_rt_args(existing_rays, xs, ys, n_reps):
 
     return ds, i_mats, i_dirs, surf_inds, n_remaining, scale_I, n_inters, n_passes
 
-class dummy_prop_rays:
-
-    def __init__(self):
-        # the only thing this needs to do is return None when used with .isel(wl=i)
-        pass
-
-    def isel(self, wl):
-        return State(I=0)
 
 class rt_structure:
     """Set up structure for RT calculations.
@@ -1060,9 +1053,9 @@ class rt_structure:
             #
             # total_A = np.trapz(profile_to_add, z_pos)
 
-            # total_int = np.sum(overall_R.R_total, axis=0) + np.sum(prop_rays.I, axis=0) + \
-            #             np.sum(A_bulk_to_add, axis=1) + np.sum(np.sum(A_interface[1], axis=0), axis=0) + \
-            # np.sum(np.sum(A_interface[2], axis=0), axis=0)
+            # total_int = np.sum(overall_R.I, axis=0) + np.sum(prop_rays.I, axis=0) + \
+            #             np.sum(A_bulk_to_add, axis=1) + np.sum(np.sum(A_interface[1], axis=0), axis=0)
+            #
             #
             # plt.figure()
             # # plt.plot(wavelengths*1e9, total_A, '-k', label='total bulk A (int)')
@@ -1070,10 +1063,10 @@ class rt_structure:
             #
             # for i1, bulk in enumerate(A_bulk_to_add.T):
             #     plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
-            # plt.plot(wavelengths*1e9, np.sum(overall_R.R_total, axis=0), label='total R')
+            # plt.plot(wavelengths*1e9, np.sum(overall_R.I, axis=0), label='total R')
             # plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
-            # plt.plot(wavelengths*1e9, total_int, label='total int')
-            # plt.plot(wavelengths*1e9, np.sum(A_interface[1], axis=0).T, 'x', label='interface A')
+            # # plt.plot(wavelengths*1e9, total_int, label='total int')
+            # plt.plot(wavelengths*1e9, np.sum(A_interface[0], axis=0).T, 'x', label='interface A')
             # plt.legend()
             # plt.show()
 
@@ -1081,11 +1074,10 @@ class rt_structure:
             # pr.enable()
             # wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
 
-
-            R_to_add = np.sum(overall_R.I, axis=0)
+            R_to_add = np.sum(overall_R.I, axis=0).data
 
             # TODO!
-            T_to_add = 0
+            T_to_add = np.sum(overall_T.I, axis=0).data
 
             A_interface_to_add = []
             for darray in A_interface:
@@ -1096,16 +1088,8 @@ class rt_structure:
                     A_interface_to_add.append(0)
 
         else:
-            # wl_continuing = np.arange(len(wavelengths))
             prop_rays = dummy_prop_rays()
-            # R_to_add = 0
-            # T_to_add = 0
-            # profile_to_add = 0
-            # A_bulk_to_add = 0
             A_interface_to_add = None
-
-            # need to make a dummy object for prop_rays which returns None when used with
-            # any .isel(wl = 0):
 
 
         allres = Parallel(n_jobs=n_jobs)(
@@ -1459,74 +1443,26 @@ def parallel_inner(
 
     # # generally same across wavelengths, but can be changed by analytical
     # # ray tracing happening first
-    if initial_dir == 1 and initial_mat > 0:
-        surf_index = initial_mat
-        z_offset = -cum_width[initial_mat - 1] - 1e-8
-        # print('z_offset', z_offset, r_a_0)
+    # decide whether ray-tracing needs to happen at all:
 
-    elif initial_dir == 1 and initial_mat == 0:
-        surf_index = 0
-        z_offset = r_a_0[2]
+    if existing_rays is None:
+        continue_wl = True
+        prop_rays_analytical = False
 
     else:
-        surf_index = initial_mat - 1
-        z_offset = -cum_width[initial_mat] + 1e-8
+        continue_wl = np.sum(existing_rays.I) > I_thresh
+        n_remaining = 0
+        prop_rays_analytical = True
 
-    d = -r_a_0 / np.linalg.norm(r_a_0)
+        if tmm_args[0] > 0:
 
-    if initial_dir != 1: # upwards initial direction
-        d[2] = -d[2]
+            A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
+        else:
+            A_in_interfaces = 0
 
-    if tmm_args is None:
-        tmm_args = [0]
 
-    profile_arrays = [[] for _ in range(len(surfaces))]
 
-    if tmm_args[0] > 0:
-        (
-            additional_tmm_args,
-            prof_layer_list,
-            interface_layer_widths,
-            depth_spacing_int,
-        ) = make_tmm_args(tmm_args)
-
-        A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
-
-        # pre-generate z positions and arrays if necessary
-        z_lists = [[] for _ in range(len(surfaces))]
-        offsets = [[] for _ in range(len(surfaces))]
-
-        for j1, prof_layer_i in enumerate(prof_layer_list):
-
-            if prof_layer_i is None:
-                # will not calculate profiles for this list.
-                z_lists[j1] = 0
-                offsets[j1] = 0
-
-            else:
-
-                n_z_points = 0
-                widths_int = interface_layer_widths[j1]
-                for k1, l_w in enumerate(widths_int):
-                    z_lists[j1].append(
-                        xr.DataArray(np.arange(0, l_w, depth_spacing_int))
-                    )
-                    if k1 + 1 in prof_layer_i:
-                        n_z_points += len(z_lists[j1][-1])
-
-                profile_arrays[j1] = np.zeros(n_z_points)
-                offsets[j1] = np.cumsum([0] + widths_int)[:-1]
-
-    else:
-        additional_tmm_args = [{} for _ in range(len(surfaces))]
-        A_in_interfaces = 0
-
-    logger.info("Calculating next wavelength...")
-
-    # existing_rays is an xarray DataSet which contains 3 DataArrays:
-    # - I: intensity of the rays travelling in each unique direction, at the wavelength of interest
-    # - direction: the x/y/z directions of the rays
-    # - mat_i: the index of the material the ray has just traversed.
+    # print('continue_wl', continue_wl)
 
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
@@ -1542,143 +1478,216 @@ def parallel_inner(
 
     profiles = np.zeros(len(z_pos))
 
-    end_ind = nx*ny*np.ones(n_reps, dtype=int)
+    profile_arrays = [[] for _ in range(len(surfaces))]
 
-    if np.sum(existing_rays.I) > 1e-9:
-        ds, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = make_rt_args(existing_rays, xs, ys, n_reps)
-        stop_before = int(np.ceil(n_remaining/(nx*ny)))
+    if continue_wl:
 
-        x_y_combs = np.zeros((nx*ny, 2))
+        if initial_dir == 1 and initial_mat > 0:
+            surf_index = initial_mat
+            z_offset = -cum_width[initial_mat - 1] - 1e-8
+            # print('z_offset', z_offset, r_a_0)
 
-        # r_as need to be set so that z is somewhere within the current surface:
-        z_offs = -cum_width[i_mats - 1] - 1e-8
-        r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
-        # will probably need to end somewhere halfway through the x/y loop:
-        end_ind[stop_before:] = 0
-        end_ind[stop_before - 1] = n_remaining - (stop_before - 1)*nx*ny
-        print('remaining', n_remaining)
+        elif initial_dir == 1 and initial_mat == 0:
+            surf_index = 0
+            z_offset = r_a_0[2]
 
-    else:
-        ds = np.array([d for _ in range(n_reps * nx * ny)])
-        i_mats = np.array([initial_mat for _ in range(n_reps * nx * ny)])
-        i_dirs = np.array([initial_dir for _ in range(n_reps * nx * ny)])
-        surf_inds = np.array([surf_index for _ in range(n_reps * nx * ny)])
+        else:
+            surf_index = initial_mat - 1
+            z_offset = -cum_width[initial_mat] + 1e-8
 
-        x_y_combs = np.array(list(product(xs, ys)))
+        d = -r_a_0 / np.linalg.norm(r_a_0)
 
-        r_as = np.array([[r_a_0[0] + vals[0], r_a_0[1] + vals[1], z_offset] for vals in x_y_combs]) # ?
-        # stack this n_reps times:
-        r_as = np.tile(r_as, (n_reps, 1))
+        if initial_dir != 1: # upwards initial direction
+            d[2] = -d[2]
 
-        I_in = np.ones(n_reps * nx * ny)
-        n_passes_in = np.zeros(n_reps * nx * ny)
-        n_inter_in = np.zeros(n_reps * nx * ny)
-        n_remaining = n_reps*nx*ny
+        if tmm_args is None:
+            tmm_args = [0]
 
-    overall_i = 0
-    for j1 in range(n_reps):
-        offset = j1 * nx * ny
 
-        for c, vals in enumerate(x_y_combs[:end_ind[j1]]):
-
+        if tmm_args[0] > 0:
             (
-                I,
-                profile,
-                A_per_layer,
-                th_o,
-                phi_o,
-                n_pass,
-                n_interact,
-                A_interface_array,
-                A_interface_index,
-                th_local,
-                direction,
-            ) = single_ray_stack(
-                vals[0],
-                vals[1],
-                nks,
-                alphas,
-                r_as[overall_i],
-                ds[overall_i],
-                surfaces,
                 additional_tmm_args,
-                widths,
-                cum_width,
-                z_pos,
-                depths,
-                depth_indices,
-                I_thresh,
-                pol,
-                randomize,
-                i_mats[overall_i],
-                i_dirs[overall_i],
-                surf_inds[overall_i],
-                periodic,
-                lambertian_approximation,
-                n_passes_in[overall_i],
-                n_inter_in[overall_i],
-                I_in[overall_i],
-            )
+                prof_layer_list,
+                interface_layer_widths,
+                depth_spacing_int,
+            ) = make_tmm_args(tmm_args)
 
-            overall_i += 1
+            A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
 
-            A_interfaces[A_interface_index].append(A_interface_array)
-            profiles += profile / (n_reps * nx * ny)
-            thetas[c + offset] = th_o
-            phis[c + offset] = phi_o
-            Is[c + offset] = np.real(I)
-            A_layer += A_per_layer / (n_reps * nx * ny)
-            n_passes[c + offset] = n_pass
-            n_interactions[c + offset] = n_interact
-            local_thetas[A_interface_index].append(np.real(th_local))
-            directions[A_interface_index].append(direction)
+            # pre-generate z positions and arrays if necessary
+            z_lists = [[] for _ in range(len(surfaces))]
+            offsets = [[] for _ in range(len(surfaces))]
 
-    A_interfaces = A_interfaces[1:]
-    # index 0 are all entries for non-interface-absorption events.
-    local_thetas = local_thetas[1:]
-    directions = directions[1:]
+            for j1, prof_layer_i in enumerate(prof_layer_list):
 
-    if tmm_args[0] > 0:
-        # process A_interfaces
+                if prof_layer_i is None:
+                    # will not calculate profiles for this list.
+                    z_lists[j1] = 0
+                    offsets[j1] = 0
 
-        for i1, layer_data in enumerate(A_interfaces):
-            # A_interfaces is a list of lists; [[list of absorption events in interface 1],
-            # [list of absorption events in interface 2], ...].
+                else:
 
-            if len(layer_data) > 0:
+                    n_z_points = 0
+                    widths_int = interface_layer_widths[j1]
+                    for k1, l_w in enumerate(widths_int):
+                        z_lists[j1].append(
+                            xr.DataArray(np.arange(0, l_w, depth_spacing_int))
+                        )
+                        if k1 + 1 in prof_layer_i:
+                            n_z_points += len(z_lists[j1][-1])
 
-                data = np.stack(layer_data)
+                    profile_arrays[j1] = np.zeros(n_z_points)
+                    offsets[j1] = np.cumsum([0] + widths_int)[:-1]
 
-                A_in_interfaces[i1] = np.sum(data, axis=0) / (n_reps * nx * ny)
+        else:
+            additional_tmm_args = [{} for _ in range(len(surfaces))]
+            A_in_interfaces = 0
 
-                if prof_layer_list[i1] is not None:
+        logger.info("Calculating next wavelength...")
 
-                    lookuptable = additional_tmm_args[i1]["lookuptable"]
-                    # wl = additional_tmm_args[i1]["wl"]
+        # existing_rays is an xarray DataSet which contains 3 DataArrays:
+        # - I: intensity of the rays travelling in each unique direction, at the wavelength of interest
+        # - direction: the x/y/z directions of the rays
+        # - mat_i: the index of the material the ray has just traversed.
 
-                    A_in_profile_layers = A_in_interfaces[i1][
-                        np.array(prof_layer_list[i1]) - 1
-                    ]  # total absorption per layer
-                    data_profile_layers = data[
-                        :, np.array(prof_layer_list[i1]) - 1
-                    ]  # information on individual absorption events (rays)
 
-                    z_list = z_lists[i1]
-                    offset = offsets[i1]
+        end_ind = nx*ny*np.ones(n_reps, dtype=int)
 
-                    profile_arrays[i1] = calculate_interface_profiles(
-                        data_profile_layers,
-                        A_in_profile_layers,
-                        prof_layer_list[i1],
-                        np.array(local_thetas[i1]),
-                        np.array(directions[i1]),
-                        z_list,
-                        offset,
-                        lookuptable,
-                        # wl,
-                        pol,
-                        depth_spacing_int,
-                    )
+        if prop_rays_analytical:
+            ds, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = make_rt_args(existing_rays, xs, ys, n_reps)
+            stop_before = int(np.ceil(n_remaining/(nx*ny)))
+
+            x_y_combs = np.zeros((nx*ny, 2))
+
+            # r_as need to be set so that z is somewhere within the current surface:
+            z_offs = -cum_width[i_mats - 1] - 1e-8
+            r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
+            # will probably need to end somewhere halfway through the x/y loop:
+            end_ind[stop_before:] = 0
+            end_ind[stop_before - 1] = n_remaining - (stop_before - 1)*nx*ny
+            print('remaining', n_remaining)
+
+        else:
+            ds = np.array([d for _ in range(n_reps * nx * ny)])
+            i_mats = np.array([initial_mat for _ in range(n_reps * nx * ny)])
+            i_dirs = np.array([initial_dir for _ in range(n_reps * nx * ny)])
+            surf_inds = np.array([surf_index for _ in range(n_reps * nx * ny)])
+
+            x_y_combs = np.array(list(product(xs, ys)))
+
+            r_as = np.array([[r_a_0[0] + vals[0], r_a_0[1] + vals[1], z_offset] for vals in x_y_combs]) # ?
+            # stack this n_reps times:
+            r_as = np.tile(r_as, (n_reps, 1))
+
+            I_in = np.ones(n_reps * nx * ny)
+            n_passes_in = np.zeros(n_reps * nx * ny)
+            n_inter_in = np.zeros(n_reps * nx * ny)
+            n_remaining = n_reps*nx*ny
+
+        overall_i = 0
+        for j1 in range(n_reps):
+            offset = j1 * nx * ny
+
+            for c, vals in enumerate(x_y_combs[:end_ind[j1]]):
+
+                (
+                    I,
+                    profile,
+                    A_per_layer,
+                    th_o,
+                    phi_o,
+                    n_pass,
+                    n_interact,
+                    A_interface_array,
+                    A_interface_index,
+                    th_local,
+                    direction,
+                ) = single_ray_stack(
+                    vals[0],
+                    vals[1],
+                    nks,
+                    alphas,
+                    r_as[overall_i],
+                    ds[overall_i],
+                    surfaces,
+                    additional_tmm_args,
+                    widths,
+                    cum_width,
+                    z_pos,
+                    depths,
+                    depth_indices,
+                    I_thresh,
+                    pol,
+                    randomize,
+                    i_mats[overall_i],
+                    i_dirs[overall_i],
+                    surf_inds[overall_i],
+                    periodic,
+                    lambertian_approximation,
+                    n_passes_in[overall_i],
+                    n_inter_in[overall_i],
+                    I_in[overall_i],
+                )
+
+                overall_i += 1
+
+                A_interfaces[A_interface_index].append(A_interface_array)
+                profiles += profile / (n_reps * nx * ny)
+                thetas[c + offset] = th_o
+                phis[c + offset] = phi_o
+                Is[c + offset] = np.real(I)
+                A_layer += A_per_layer / (n_reps * nx * ny)
+                n_passes[c + offset] = n_pass
+                n_interactions[c + offset] = n_interact
+                local_thetas[A_interface_index].append(np.real(th_local))
+                directions[A_interface_index].append(direction)
+
+        A_interfaces = A_interfaces[1:]
+        # index 0 are all entries for non-interface-absorption events.
+        local_thetas = local_thetas[1:]
+        directions = directions[1:]
+
+        if tmm_args[0] > 0:
+            # process A_interfaces
+
+            for i1, layer_data in enumerate(A_interfaces):
+                # A_interfaces is a list of lists; [[list of absorption events in interface 1],
+                # [list of absorption events in interface 2], ...].
+
+                if len(layer_data) > 0:
+
+                    data = np.stack(layer_data)
+
+                    A_in_interfaces[i1] = np.sum(data, axis=0) / (n_reps * nx * ny)
+
+                    if prof_layer_list[i1] is not None:
+
+                        lookuptable = additional_tmm_args[i1]["lookuptable"]
+                        # wl = additional_tmm_args[i1]["wl"]
+
+                        A_in_profile_layers = A_in_interfaces[i1][
+                            np.array(prof_layer_list[i1]) - 1
+                        ]  # total absorption per layer
+                        data_profile_layers = data[
+                            :, np.array(prof_layer_list[i1]) - 1
+                        ]  # information on individual absorption events (rays)
+
+                        z_list = z_lists[i1]
+                        offset = offsets[i1]
+
+                        profile_arrays[i1] = calculate_interface_profiles(
+                            data_profile_layers,
+                            A_in_profile_layers,
+                            prof_layer_list[i1],
+                            np.array(local_thetas[i1]),
+                            np.array(directions[i1]),
+                            z_list,
+                            offset,
+                            lookuptable,
+                            # wl,
+                            pol,
+                            depth_spacing_int,
+                        )
 
     return (
         Is,

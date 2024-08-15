@@ -5,6 +5,7 @@ from rayflare.utilities import get_savepath
 from cmath import acos
 from math import atan2
 from copy import deepcopy
+from solcore.state import State
 
 theta_lamb = np.linspace(0, 0.999 * np.pi / 2, 100)
 def traverse_vectorised(width, theta, alpha, I_i, positions, direction):
@@ -142,6 +143,24 @@ def calc_RAT_TMM(theta, pol, *args):
 
     return np.real(R.data), np.real(A_per_layer.data)
 
+class dummy_prop_rays:
+
+    def __init__(self):
+        # the only thing this needs to do is return None when used with .isel(wl=i)
+        pass
+
+    def isel(self, wl):
+        return None
+
+class zero_intensity_rays:
+
+    def __init__(self):
+        # the only thing this needs to do is return None when used with .isel(wl=i)
+        self.I = 0
+        pass
+
+    def isel(self, wl):
+        return State(I = 0)
 
 def analytical_start(nks,
                 alphas,
@@ -442,8 +461,12 @@ def analytical_start(nks,
                 )
 
             # stack prop_rays along the unique_direction axis:
+            if len(prop_rays) > 0:
+                prop_rays = xr.concat(prop_rays, dim="unique_direction")
 
-            prop_rays = xr.concat(prop_rays, dim="unique_direction")
+            else:
+                prop_rays = zero_intensity_rays()
+
 
             return profile.T, A_per_layer.T, A_per_interface, overall_R, overall_T, prop_rays
 
@@ -518,7 +541,7 @@ def analytical_per_face(current_surf,
 
     opposite_faces = np.where(np.dot(normals, normals.T) < 0)[1]
 
-    if tmm_args[1][surf_index] == 0:
+    if tmm_args[1] == 0:
         calc_RAT = calc_RAT_Fresnel
         R_args = [n0, n1]
         # TODO: above only correct for downwards
