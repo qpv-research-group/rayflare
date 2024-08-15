@@ -1,5 +1,5 @@
 import numpy as np
-from pytest import approx, mark
+from pytest import approx
 
 def check_total_RAT_Fresnel():
     from rayflare.ray_tracing import rt_structure
