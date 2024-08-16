@@ -1075,8 +1075,6 @@ class rt_structure:
             # wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
 
             R_to_add = np.sum(overall_R.I, axis=0).data
-
-            # TODO!
             T_to_add = np.sum(overall_T.I, axis=0).data
 
             A_interface_to_add = []
@@ -1261,6 +1259,10 @@ class rt_structure:
             n_analytical = max_rays - n_remaining # number of rays accounted for by analytical calculation
 
             wl_ind_anlt = np.where(n_analytical > 0)[0]
+
+            R_per_wl = np.sum(overall_R.I, 0)
+            T_per_wl = np.sum(overall_T.I, 0)
+
             for wl_ind in wl_ind_anlt:
                 # TODO: transmission not included here
 
@@ -1297,43 +1299,53 @@ class rt_structure:
 
                 n_other = n_analytical[wl_ind] - n_absorbed
 
-                # divide n_analytical total rays fairly between bins weighted by overall_R.I:
-                R_weights = overall_R.I.isel(wl=wl_ind).data
-
-                # I_R_scale = n_other/np.sum(n_rays_per_R_direction)
-                rays_per_R = R_weights/np.sum(R_weights) * n_other
-                # make entrie of rays_per_R integers, but so they still have the same sum:
-                n_rays_per_R_direction = np.round(rays_per_R).astype(int)
-
-                while sum(n_rays_per_R_direction) < n_other:
-                    n_rays_per_R_direction[np.argmax(rays_per_R- n_rays_per_R_direction)] += 1
-
-                while sum(n_rays_per_R_direction) > n_other:
-                    n_rays_per_R_direction[np.argmin(rays_per_R - n_rays_per_R_direction)] -= 1
-
-                scale_I_R = R_weights*max_rays/n_rays_per_R_direction
-
-                if 'wl' in overall_R.direction.dims:
-                    theta_R = np.arccos(overall_R.direction.isel(wl=wl_ind, xyz=2))
-                    phi_R = np.arctan(overall_R.direction.isel(wl=wl_ind, xyz=1)/overall_R.direction.isel(wl=wl_ind, xyz=0))
+                if T_per_wl[wl_ind] > 0:
+                    n_R = int(np.round(R_per_wl[wl_ind]*n_other,0))
+                    n_T = n_other - n_R
 
                 else:
-                    theta_R = np.arccos(overall_R.direction.isel(xyz=2))
-                    phi_R = np.arctan(overall_R.direction.isel(xyz=1)/overall_R.direction.isel(xyz=0))
+                    n_R = n_other
+                    n_T = 0
+
+                # divide n_analytical total rays fairly between bins weighted by overall_R.I:
+                n_cat = [n_R, n_T]
+                data_x = [overall_R, overall_T]
 
                 current_start = n_remaining[wl_ind] + n_absorbed
 
-                for i1, n_unique_R in enumerate(n_rays_per_R_direction):
-                    thetas[wl_ind][current_start:(current_start + n_unique_R)] = theta_R[i1]
-                    phis[wl_ind][current_start:(current_start + n_unique_R)] = phi_R[i1]
-                    Is[wl_ind][current_start:(current_start + n_unique_R)] = scale_I_R[i1]
-                    n_interactions[wl_ind][current_start:(current_start + n_unique_R)] = overall_R.n_interactions[i1]
-                    current_start += n_unique_R
+                for [anlt_data, n_in_cat] in zip(data_x, n_cat):
+                    if n_in_cat > 0:
+
+                        weights = anlt_data.I.isel(wl=wl_ind).data
+
+                        # I_R_scale = n_R/np.sum(n_rays_per_R_direction)
+                        rays_per_dir = weights/np.sum(weights) * n_in_cat
+                        # make entrie of rays_per_R integers, but so they still have the same sum:
+                        n_rays_per_direction = np.round(rays_per_dir).astype(int)
+
+                        while sum(n_rays_per_direction) < n_in_cat:
+                            n_rays_per_direction[np.argmax(rays_per_dir - n_rays_per_direction)] += 1
+
+                        while sum(n_rays_per_direction) > n_in_cat:
+                            n_rays_per_direction[np.argmin(rays_per_dir - n_rays_per_direction)] -= 1
+
+                        scale_I = weights*max_rays/n_rays_per_direction
+
+                        if 'wl' in anlt_data.direction.dims:
+                            theta_R = np.arccos(anlt_data.direction.isel(wl=wl_ind, xyz=2))
+                            phi_R = np.arctan(anlt_data.direction.isel(wl=wl_ind, xyz=1)/anlt_data.direction.isel(wl=wl_ind, xyz=0))
+
+                        else:
+                            theta_R = np.arccos(anlt_data.direction.isel(xyz=2))
+                            phi_R = np.arctan(anlt_data.direction.isel(xyz=1)/anlt_data.direction.isel(xyz=0))
 
 
-
-
-
+                        for i1, n_unique_R in enumerate(n_rays_per_direction):
+                            thetas[wl_ind][current_start:(current_start + n_unique_R)] = theta_R[i1]
+                            phis[wl_ind][current_start:(current_start + n_unique_R)] = phi_R[i1]
+                            Is[wl_ind][current_start:(current_start + n_unique_R)] = scale_I[i1]
+                            n_interactions[wl_ind][current_start:(current_start + n_unique_R)] = anlt_data.n_interactions[i1]
+                            current_start += n_unique_R
 
         R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
         R0 = np.sum(R0, 0)
@@ -1368,6 +1380,7 @@ class rt_structure:
             # "A_interfaces": A_interfaces,
             "interface_profiles": interface_profiles,
             "Is": Is,
+            "xy": [xs, ys],
         }
 
     def calculate_profile(self, options):
@@ -1725,7 +1738,8 @@ def make_profiles_wl(
 
     def profile_per_layer(xx, z, offset, side, non_zero):
         layer_index = xx.coords["layer"].item(0) - 1
-        x = xx[non_zero]
+        x = xx.squeeze()
+        x = x[non_zero]
         part1 = x[:, 0] * np.exp(x[:, 4] * z[layer_index])
         part2 = x[:, 1] * np.exp(-x[:, 4] * z[layer_index])
         part3 = (x[:, 2] + 1j * x[:, 3]) * np.exp(1j * x[:, 5] * z[layer_index])
@@ -1740,16 +1754,18 @@ def make_profiles_wl(
     def profile_per_angle(x, z, offset, side, nz):
         i2 = x.coords["global_index"].item(0)
         non_zero = np.where(nz[:, i2])[0]
-        by_layer = x.groupby("layer").map(
+        by_layer = x.groupby("layer", squeeze=False).map(
             profile_per_layer, z=z, offset=offset, side=side, non_zero=non_zero
         )
         return by_layer
 
     def scale_func(x, scale_params):
-        return x.data[:, None, None] * scale_params
+        xx = x.squeeze()
+        return xx.data[:, None, None] * scale_params
 
     def select_func(x, const_params):
-        return (x.data[:, None, None] != 0) * const_params
+        xx = x.squeeze()
+        return (xx.data[:, None, None] != 0) * const_params
 
     pr = xr.DataArray(
         angle_distmat.todense(),
@@ -1774,8 +1790,8 @@ def make_profiles_wl(
     ]  # have to scale these to make sure integrated absorption is correct
     c_params = params.loc[dict(coeff=["a1", "a3"])]  # these should not be scaled
 
-    scale_res = pr.groupby("global_index").map(scale_func, scale_params=s_params)
-    const_res = pr.groupby("global_index").map(select_func, const_params=c_params)
+    scale_res = pr.groupby("global_index", squeeze=False).map(scale_func, scale_params=s_params)
+    const_res = pr.groupby("global_index", squeeze=False).map(select_func, const_params=c_params)
 
     params = xr.concat((scale_res, const_res), dim="coeff").assign_coords(
         layer=np.arange(1, len(widths) + 1)

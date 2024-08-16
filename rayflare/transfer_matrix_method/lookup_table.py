@@ -79,7 +79,10 @@ def make_TMM_lookuptable(
         optstacks = [optlayers, optlayers_flip]
 
         if coherency_list is not None:
-            coherency_lists = [coherency_list, coherency_list[::-1]]
+            coherency_list = np.array(coherency_list)
+            coherency_list[np.array(optlayers.widths) == 0] = "c" # incoherent implementation doesn't work/
+            # make sense for zero thickness, coherent implementation will correctly ignore the layer
+            coherency_lists = [coherency_list.tolist(), coherency_list[::-1].tolist()]
         else:
             coherency_lists = [["c"] * n_layers] * 2
         # can calculate by angle, already vectorized over wavelength

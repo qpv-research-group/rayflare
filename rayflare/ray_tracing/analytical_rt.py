@@ -136,8 +136,6 @@ def calc_RAT_TMM(theta, pol, *args):
     )
 
     # rearrange coordinates:
-
-
     R = data["R"].transpose("unique_direction", "wl_angle")
     A_per_layer = data["Alayer"].transpose("unique_direction", "layer", "wl_angle")
 
@@ -208,8 +206,9 @@ def analytical_start(nks,
 
     A_per_interface = [[] for _ in range(len(surfaces))]
 
-    overall_R = 0
-    overall_T = 0
+    # make xarrays with attribute I = 0:
+    overall_R = xr.Dataset({"I": xr.DataArray(np.zeros((1,n_wl)), dims=["unique_direction", "wl"])})
+    overall_T = xr.Dataset({"I": xr.DataArray(np.zeros((1,n_wl)), dims=["unique_direction", "wl"])})
 
     next_mat = initial_mat + initial_dir
 

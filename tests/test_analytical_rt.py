@@ -1,7 +1,7 @@
 import numpy as np
 from pytest import approx
 
-def check_total_RAT_Fresnel():
+def test_total_RAT_Fresnel():
     from rayflare.ray_tracing import rt_structure
     from rayflare.textures import regular_pyramids
     from solcore import material
@@ -44,7 +44,13 @@ def check_total_RAT_Fresnel():
 
     assert total_int == approx(1, abs=options.I_thresh)
 
-def check_total_RAT_TMM():
+    R_from_angles = np.array([np.sum(theta < np.pi/2) for theta in RAT['thetas']])/options.n_rays
+    T_from_angles = np.array([np.sum(theta > np.pi/2) for theta in RAT['thetas']])/options.n_rays
+
+    assert R_from_angles == approx(RAT['R'], abs=1/options.n_rays)
+    assert T_from_angles == approx(RAT['T'], abs=1/options.n_rays)
+
+def test_total_RAT_TMM():
     from rayflare.ray_tracing import rt_structure
     from rayflare.textures import regular_pyramids, planar_surface
     from solcore import material
@@ -102,14 +108,14 @@ def check_total_RAT_TMM():
     assert total_int == approx(1, abs=options.I_thresh)
 
 
-def check_integrated_A_Fresnel():
+def test_integrated_A_Fresnel():
     pass
 
-def check_integrated_A_TMM():
+def test_integrated_A_TMM():
     pass
 
-def check_lambertian_scattering():
+def test_lambertian_scattering():
     pass
 
-def check_lambertian_scattering_integrated():
+def test_lambertian_scattering_integrated():
     pass
