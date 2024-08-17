@@ -4,6 +4,9 @@
 # Please see the LICENSE.txt file included as part of this package.
 #
 # Contact: p.pearce@unsw.edu.au
+# TODO:
+# - new polarization scheme in single_cell_check and RT
+# - check that the absorption profile is working correctly
 
 # pr = c_profile.Profile()
 import numpy as np
@@ -113,7 +116,9 @@ def RT(
         phi_sym = options["phi_symmetry"]
         n_theta_bins = options["n_theta_bins"]
         c_az = options["c_azimuth"]
-        pol = options["pol"]
+
+        pol = process_pol(options.pol)
+        pol = np.array(pol)/np.sum(pol)
 
         if not options["parallel"]:
             n_jobs = 1
@@ -132,7 +137,7 @@ def RT(
             side = -1
 
         if Fr_or_TMM == 1:
-            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc"))
+            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).sel(pol=['s', 'p'])
             if front_or_rear == "rear":
                 # side gets flipped here
                 lookuptable = lookuptable.assign_coords(side=np.flip(lookuptable.side))
@@ -329,6 +334,7 @@ def RT_wl(
     phi_out = np.zeros((n_angles, nx * ny))
     A_surface_layers = np.zeros((n_angles, nx * ny, n_abs_layers))
     theta_local_incidence = np.zeros((n_angles, nx * ny))
+    pol_local_incidence = np.zeros((n_angles, nx * ny, 2))
 
     for i2 in range(n_angles):
 
@@ -341,7 +347,7 @@ def RT_wl(
             )
         )
         for c, vals in enumerate(product(xs, ys)):
-            _, th_o, phi_o, surface_A = single_ray_interface(
+            ray, th_o, phi_o, surface_A = single_ray_interface(
                 vals[0],
                 vals[1],
                 nks[:, i1],
@@ -362,6 +368,7 @@ def RT_wl(
             phi_out[i2, c] = phi_o
             A_surface_layers[i2, c] = surface_A[0]
             theta_local_incidence[i2, c] = np.real(surface_A[1])
+            pol_local_incidence[i2, c] = ray.pol
 
     phi_out = fold_phi(phi_out, phi_sym)
     phis_in = fold_phi(phis_in, phi_sym)
@@ -487,7 +494,6 @@ def RT_wl(
                 side,
                 widths,
                 local_angle_mat,
-                wl,
                 lookuptable_wl,
                 pol,
                 depth_spacing,
@@ -609,9 +615,10 @@ def calculate_interface_profiles(
     offsets,
     lookuptable,
     # wl,
-    pol,
+    local_pols_i,
     depth_spacing,
 ):
+
     def profile_per_layer(x, z, offset, side):
         layer_index = x.coords["layer"].item(0) - 1
 
@@ -637,6 +644,7 @@ def calculate_interface_profiles(
     front_incidence = np.where(directions_i == 1)[0]
     rear_incidence = np.where(directions_i == -1)[0]
 
+    local_pols_i = np.array(local_pols_i).T
     # need to scale absorption profile for each ray depending on
     # how much intensity was left in it when that ray was absorbed (this is done for total absorption inside
     # single_ray_stack)
@@ -644,9 +652,14 @@ def calculate_interface_profiles(
     if len(front_incidence) > 0:
 
         A_lookup_front = lookuptable.Alayer.loc[
-            dict(side=1, pol=pol, layer=prof_layer_list_i)
+            dict(side=1, layer=prof_layer_list_i)
         ].interp(angle=th_array[front_incidence] #, wl=wl * 1e9
                  )# )
+
+        local_pols_dir = local_pols_i[:, front_incidence]
+
+        A_lookup_front = np.sum(local_pols_dir[:,:, None] * A_lookup_front, 0)
+
         data_front = data_prof_layers[front_incidence]
 
         ## CHECK! ##
@@ -665,30 +678,36 @@ def calculate_interface_profiles(
         # so the sum of the absorption per layer recorded in A_interfaces is 1 while the sum of the absorption in the
         # lookuptable is 1 - R - T.
 
-        params_front = lookuptable.Aprof.loc[
-            dict(side=1, pol=pol, layer=prof_layer_list_i)
-        ].interp(angle=th_array[front_incidence],
-                 # wl=wl * 1e9
-                 )
+        params = lookuptable.Aprof.loc[
+            dict(side=1, layer=prof_layer_list_i)
+        ].interp(angle=th_array[front_incidence])
 
-        s_params = params_front.loc[
-            dict(coeff=["A1", "A2", "A3_r", "A3_i"])
-        ]  # have to scale these to make sure integrated absorption is correct
-        c_params = params_front.loc[
-            dict(coeff=["a1", "a3"])
-        ]  # these should not be scaled
+        ans_list = []
 
-        scale_res = s_params * scale_factor[:, None, None]
+        for i1, pol in enumerate(['s', 'p']):
 
-        params_front = xr.concat((scale_res, c_params), dim="coeff")
+            params_pol = params.sel(pol=pol)
 
-        ans_front = (
-            params_front.groupby("angle", squeeze=False)
-            .map(profile_per_angle, z=z_list, offset=offsets, side=1)
-            .drop_vars("coeff")
-        )
+            s_params_pol = params_pol.loc[
+                dict(coeff=["A1", "A2", "A3_r", "A3_i"])
+            ]  # have to scale these to make sure integrated absorption is correct
+            c_params_pol = params_pol.loc[
+                dict(coeff=["a1", "a3"])
+            ]  # these should not be scaled
 
-        profile_front = ans_front.reduce(np.sum, ["angle"]).fillna(0)
+            scale_res = local_pols_dir[i1][:,None, None]*s_params_pol * scale_factor[:, None, None]
+
+            params_pol = xr.concat((scale_res, c_params_pol), dim="coeff")
+
+            ans_pol = (
+                params_pol.groupby("angle", squeeze=False)
+                .map(profile_per_angle, z=z_list, offset=offsets, side=1)
+                .drop_vars("coeff")
+            )
+
+            ans_list.append(ans_pol.reduce(np.sum, ["angle"]).fillna(0))
+
+        profile_front = ans_list[0] + ans_list[1]
 
     else:
         profile_front = 0
@@ -696,10 +715,14 @@ def calculate_interface_profiles(
     if len(rear_incidence) > 0:
 
         A_lookup_back = lookuptable.Alayer.loc[
-            dict(side=-1, pol=pol, layer=prof_layer_list_i)
+            dict(side=-1, layer=prof_layer_list_i)
         ].interp(angle=th_array[rear_incidence],
                  # wl=wl * 1e9,
                  )
+
+        local_pols_dir = local_pols_i[:, rear_incidence]
+
+        A_lookup_back = np.sum(local_pols_dir[:, :, None] * A_lookup_back, 0)
 
         data_back = data_prof_layers[rear_incidence]
 
@@ -709,30 +732,37 @@ def calculate_interface_profiles(
             np.divide(data_back, non_zero).mean(dim="layer", skipna=True).data
         )  # can get slight differences in values between layers
 
-        params_back = lookuptable.Aprof.loc[
-            dict(side=-1, pol=pol, layer=prof_layer_list_i)
-        ].interp(angle=th_array[rear_incidence],
-                 # wl=wl * 1e9,
-                 )
+        params = lookuptable.Aprof.loc[
+            dict(side=-1, layer=prof_layer_list_i)
+        ].interp(angle=th_array[rear_incidence])
 
-        s_params = params_back.loc[
-            dict(coeff=["A1", "A2", "A3_r", "A3_i"])
-        ]  # have to scale these to make sure integrated absorption is correct
-        c_params = params_back.loc[
-            dict(coeff=["a1", "a3"])
-        ]  # these should not be scaled
+        ans_list = []
 
-        scale_res = s_params * scale_factor[:, None, None]
+        for i1, pol in enumerate(['s', 'p']):
+            params_pol = params.sel(pol=pol)
 
-        params_back = xr.concat((scale_res, c_params), dim="coeff")
+            s_params_pol = params_pol.loc[
+                dict(coeff=["A1", "A2", "A3_r", "A3_i"])
+            ]  # have to scale these to make sure integrated absorption is correct
+            c_params_pol = params_pol.loc[
+                dict(coeff=["a1", "a3"])
+            ]  # these should not be scaled
 
-        ans_back = (
-            params_back.groupby("angle", squeeze=False)
-            .map(profile_per_angle, z=z_list, offset=offsets, side=-1)
-            .drop_vars("coeff")
-        )
+            scale_res = local_pols_dir[i1][:, None, None] * s_params_pol * scale_factor[:, None,
+                                                                           None]
 
-        profile_back = ans_back.reduce(np.sum, ["angle"]).fillna(0)
+            params_pol = xr.concat((scale_res, c_params_pol), dim="coeff")
+
+            ans_pol = (
+                params_pol.groupby("angle", squeeze=False)
+                .map(profile_per_angle, z=z_list, offset=offsets, side=1)
+                .drop_vars("coeff")
+            )
+
+            ans_list.append(ans_pol.reduce(np.sum, ["angle"]).fillna(0))
+
+        profile_back = ans_list[0] + ans_list[1]
+
 
     else:
 
@@ -1410,7 +1440,7 @@ def make_tmm_args(arg_list):
 
             structpath = arg_list[2]
             surf_name = arg_list[3][i1] + "int_{}".format(i1)
-            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).loc[dict(wl=arg_list[-1]*1e9)].load()
+            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).loc[dict(wl=arg_list[-1]*1e9)].sel(pol=['s', 'p']).load()
             additional_tmm_args.append(
                 {"Fr_or_TMM": 1, "lookuptable": lookuptable}
             )
@@ -1496,6 +1526,7 @@ def parallel_inner(
 
     A_interfaces = [[] for _ in range(len(surfaces) + 1)]
     local_thetas = [[] for _ in range(len(surfaces) + 1)]
+    local_pols = [[] for _ in range(len(surfaces) + 1)]
     directions = [[] for _ in range(len(surfaces) + 1)]
 
     profiles = np.zeros(len(z_pos))
@@ -1616,7 +1647,7 @@ def parallel_inner(
             for c, vals in enumerate(x_y_combs[:end_ind[j1]]):
 
                 (
-                    I,
+                    ray,
                     profile,
                     A_per_layer,
                     th_o,
@@ -1659,16 +1690,18 @@ def parallel_inner(
                 profiles += profile / (n_reps * nx * ny)
                 thetas[c + offset] = th_o
                 phis[c + offset] = phi_o
-                Is[c + offset] = np.real(I)
+                Is[c + offset] = np.real(ray.I)
                 A_layer += A_per_layer / (n_reps * nx * ny)
                 n_passes[c + offset] = n_pass
                 n_interactions[c + offset] = n_interact
                 local_thetas[A_interface_index].append(np.real(th_local))
+                local_pols[A_interface_index].append(ray.pol)
                 directions[A_interface_index].append(direction)
 
         A_interfaces = A_interfaces[1:]
         # index 0 are all entries for non-interface-absorption events.
         local_thetas = local_thetas[1:]
+        local_pols = local_pols[1:]
         directions = directions[1:]
 
         if tmm_args[0] > 0:
@@ -1709,7 +1742,7 @@ def parallel_inner(
                             offset,
                             lookuptable,
                             # wl,
-                            pol,
+                            local_pols[i1],
                             depth_spacing_int,
                         )
 
@@ -1739,7 +1772,6 @@ def make_profiles_wl(
     side,
     widths,
     angle_distmat,
-    wl,
     lookuptable,
     pol,
     depth_spacing,
@@ -1786,7 +1818,8 @@ def make_profiles_wl(
 
     # lookuptable layers are 1-indexed
 
-    data = lookuptable.loc[dict(side=1, pol=pol)].interp(
+    # TODO: fixed 's' pol here! Needs to be weighted
+    data = lookuptable.loc[dict(side=1, pol='s')].interp(
         angle=pr.coords["local_theta"], #wl=wl * 1e9
     )
 
@@ -2222,7 +2255,7 @@ def single_ray_stack(
                 # absorption on this pass
 
     return (
-        ray.I,
+        ray,
         profile,  # bulk profile only. Profile in interfaces gets calculated after ray-tracing is done.
         A_per_layer,  # absorption in bulk layers only, not interfaces
         theta,  # global theta
@@ -2243,7 +2276,6 @@ def single_ray_interface(
     mat_index = 0  # start in first medium
     surf_index = 0
     stop = False
-    I = 1
 
     # could be done before to avoid recalculating every time
     r_a = r_a_0 + np.array([x, y, 0])
@@ -2252,20 +2284,21 @@ def single_ray_interface(
     )  # set r_a and r_b so that ray has correct angle & intersects with first surface
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a)  # direction (unit vector) of ray
 
+    ray = Ray(1, d, r_a, pol)
+
     while not stop:
 
         surf = surfaces[surf_index]
 
-        r_a[0] = r_a[0] - surf.Lx * (
-            (r_a[0] + d[0] * (surf.zcov - r_a[2]) / d[2]) // surf.Lx
+        ray.r_a[0] = ray.r_a[0] - surf.Lx * (
+            (ray.r_a[0] + ray.d[0] * (surf.zcov - ray.r_a[2]) / ray.d[2]) // surf.Lx
         )
-        r_a[1] = r_a[1] - surf.Ly * (
-            (r_a[1] + d[1] * (surf.zcov - r_a[2]) / d[2]) // surf.Ly
+        ray.r_a[1] = ray.r_a[1] - surf.Ly * (
+            (ray.r_a[1] + ray.d[1] * (surf.zcov - ray.r_a[2]) / ray.d[2]) // surf.Ly
         )
 
-        res, theta, phi, r_a, d, theta_loc, _, _ = single_interface_check(
-            r_a,
-            d,
+        res, theta, phi, theta_loc, _, _ = single_interface_check(
+            ray,
             nks[mat_index],
             nks[mat_index + 1],
             surf,
@@ -2273,7 +2306,6 @@ def single_ray_interface(
             surf.Ly,
             direction,
             surf.zcov,
-            pol,
             0,
             wl,
             Fr_or_TMM,
@@ -2310,7 +2342,7 @@ def single_ray_interface(
         elif direction == -1 and mat_index == 0:
             stop = True
 
-    return I, theta, phi, surface_A
+    return ray, theta, phi, surface_A
 
 
 def traverse(ray, width, theta, alpha, x, y, positions, I_thresh, direction):
@@ -2374,7 +2406,7 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable):
 
     data_sp = lookuptable.loc[dict(side=side)].sel(
         angle=abs(theta), method="nearest",
-    ).sel(pol=['s', 'p']) # why do I have to do this in two steps?
+    ) # why do I have to do this in two steps?
 
     # multiply along the pol dimension by ray.pol:
     [Rs, Rp] = data_sp.R.data*ray.pol
@@ -2587,10 +2619,8 @@ def single_interface_check(
                     side,
                 )
 
-
 def single_cell_check(
-    r_a,
-    d,
+    ray,
     ni,
     nj,
     tri,
@@ -2598,7 +2628,6 @@ def single_cell_check(
     Ly,
     side,
     z_cov,
-    pol,
     n_interactions=0,
     wl=None,
     Fr_or_TMM=0,
@@ -2608,7 +2637,7 @@ def single_cell_check(
 
     theta = 0  # needs to be assigned so no issue with return in case of miss
     # print('side', side)
-    d0 = d
+    d0 = ray.d
     intersect = True
     n_ints_loop = 0
     # [top, right, bottom, left]
@@ -2620,16 +2649,16 @@ def single_cell_check(
         with np.errstate(
             divide="ignore", invalid="ignore"
         ):  # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
-            result = check_intersect(r_a, d, tri)
+            result = check_intersect(ray.r_a, ray.d, tri)
 
         if result is False:
 
             n_misses += 1
 
-            o_t = np.real(acos(d[2] / np.linalg.norm(d)))
-            o_p = np.real(atan2(d[1], d[0]))
+            o_t = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+            o_p = np.real(atan2(ray.d[1], ray.d[0]))
 
-            if np.sign(d0[2]) == np.sign(d[2]):
+            if np.sign(d0[2]) == np.sign(ray.d[2]):
                 intersect = False
                 final_res = 1
 
@@ -2641,8 +2670,6 @@ def single_cell_check(
                 final_res,
                 o_t,
                 o_p,
-                r_a,
-                d,
                 theta,
                 n_interactions,
                 side,
@@ -2672,12 +2699,12 @@ def single_cell_check(
 
             rnd = random()
 
-            d, side, A = decide[Fr_or_TMM](
-                n0, n1, theta, d, N, side, pol, rnd, wl, lookuptable
+            side, A = decide[Fr_or_TMM](
+                ray, n0, n1, theta, N, side, rnd, wl, lookuptable
             )
 
-            r_a = np.real(
-                intersn + d / 1e9
+            ray.r_a = np.real(
+                intersn + ray.d / 1e9
             )  # this is to make sure the raytracer doesn't immediately just find the same intersection again
 
             if A is not None:
@@ -2691,8 +2718,6 @@ def single_cell_check(
                     final_res,
                     o_t,  # A array
                     o_p,
-                    r_a,
-                    d,
                     theta,  # LOCAL incidence angle
                     n_interactions,
                     side,
