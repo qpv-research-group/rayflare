@@ -323,8 +323,8 @@ def RT_wl(
 ):
 
     if lookuptable is not None:
+        lookuptable_wl_sp = lookuptable.sel(pol=["s", "p"]).sel(wl=wl * 1e9).load()
         lookuptable_wl = lookuptable.sel(wl=wl * 1e9).load()
-        lookuptable_wl_sp = lookuptable.sel(pol=["s", "p"])
 
     else:
         lookuptable_wl = None
@@ -1819,9 +1819,16 @@ def make_profiles_wl(
     )
 
     # lookuptable layers are 1-indexed
+    if pol[0] > 0.999:
+        pol_s = "s"
 
-    # TODO: fixed 's' pol here! Needs to be weighted
-    data = lookuptable.loc[dict(side=1, pol=pol)].interp(
+    elif pol[1] > 0.999:
+        pol_s = "p"
+
+    else:
+        pol_s = "u"
+
+    data = lookuptable.loc[dict(side=1, pol=pol_s)].interp(
         angle=pr.coords["local_theta"], #wl=wl * 1e9
     )
 
