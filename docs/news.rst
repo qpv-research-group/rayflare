@@ -2,6 +2,8 @@ News & Updates
 ================
 .. _news:
 
+If you want to be notified about new releases, please join our [mailing list](https://www.solcore.solar/mailing-list).
+
 To update to the latest version of RayFlare, run the following command in your terminal:
 
 .. code-block:: bash

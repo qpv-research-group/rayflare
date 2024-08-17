@@ -349,3 +349,21 @@ def get_wavelength(options):
             "The option 'wavelengths' (plural) will be deprecated in the next major version. Please use 'wavelength' (singular) instead. "
             "Currently, wavelengths (plural) will override wavelength (singular) if both are specified."
         )
+
+def process_pol(input_pol):
+    if len(input_pol) == 2:
+        pol = input_pol
+
+    else:
+        if input_pol in "sp":
+            pol = (int(input_pol == "s"), int(input_pol == "p"))
+
+        elif input_pol == "u":
+            pol = (np.sqrt(2) / 2, np.sqrt(2) / 2)
+
+        else:
+            raise ValueError(
+                "Polarization must be 's', 'p', 'u', or a tuple with the s and p components."
+            )
+
+    return pol

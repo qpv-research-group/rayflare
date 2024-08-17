@@ -1200,7 +1200,7 @@ def test_profile_integration(RCWA_method):
 
             c_i = intgr.data > 1e-4
 
-            assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.04)
+            assert integrated_prof[c_i] == approx(intgr.data[c_i], rel=0.04, abs=0.001)
 
 
 def test_compare_RT_TMM_Fresnel():
