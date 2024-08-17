@@ -137,7 +137,7 @@ def RT(
             side = -1
 
         if Fr_or_TMM == 1:
-            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).sel(pol=['s', 'p'])
+            lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc"))
             if front_or_rear == "rear":
                 # side gets flipped here
                 lookuptable = lookuptable.assign_coords(side=np.flip(lookuptable.side))
@@ -324,9 +324,11 @@ def RT_wl(
 
     if lookuptable is not None:
         lookuptable_wl = lookuptable.sel(wl=wl * 1e9).load()
+        lookuptable_wl_sp = lookuptable.sel(pol=["s", "p"])
 
     else:
         lookuptable_wl = None
+        lookuptable_wl_sp = None
 
     logger.info(f"RT calculation for wavelength = {wl * 1e9} nm")
 
@@ -358,7 +360,7 @@ def RT_wl(
                 pol,
                 wl,
                 Fr_or_TMM,
-                lookuptable_wl,
+                lookuptable_wl_sp,
             )
 
             if th_o < 0:  # can do outside loup with np.where
@@ -1819,7 +1821,7 @@ def make_profiles_wl(
     # lookuptable layers are 1-indexed
 
     # TODO: fixed 's' pol here! Needs to be weighted
-    data = lookuptable.loc[dict(side=1, pol='s')].interp(
+    data = lookuptable.loc[dict(side=1, pol=pol)].interp(
         angle=pr.coords["local_theta"], #wl=wl * 1e9
     )
 
