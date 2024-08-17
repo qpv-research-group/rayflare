@@ -1555,6 +1555,7 @@ def test_tmm_rt_methods():
     options.depth_spacing_bulk = 1e-9
     options.only_incidence_angle = True
     options.theta_in = 0.5
+    options.pol = 's'
 
     # set up Solcore materials
     Ge = material("Ge")()
@@ -1631,6 +1632,14 @@ def test_tmm_rt_methods():
     rt_front = result_RT_only["interface_profiles"][0]
     rt_back = result_RT_only["interface_profiles"][1]
     rt_Ge = result_RT_only["profile"]
+
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.plot(rt_front.T)
+    plt.plot(prof_front.data.T, '--')
+    plt.show()
+
 
     ratio = rt_front[rt_front > 1e-6] / prof_front.data[rt_front > 1e-6]
 

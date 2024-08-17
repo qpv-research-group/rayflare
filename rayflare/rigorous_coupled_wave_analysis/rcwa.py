@@ -769,7 +769,7 @@ def initialise_S_inkstone(size, orders, geom_list, mats_oc, shapes_oc, shape_mat
                             vertices[i2] = [v[0] + center[0], v[1] + center[1]]
 
                     if "angle" in shape:
-                        logger.warn("Angle not implemented for polygon shapes in Inkstone")
+                        logger.warning("Angle not implemented for polygon shapes in Inkstone")
 
                     S.AddPatternPolygon(layer_name, mat_name, vertices)
 
