@@ -1218,8 +1218,7 @@ class rt_structure:
             depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
 
         if analytical_rt > 0:
-            # TODO: fix pol in analytical_start
-            profile_to_add, A_bulk_to_add, A_interface, overall_R, overall_T, prop_rays = analytical_start(
+            profile_to_add, A_bulk_to_add, A_details, A_interface, overall_R, overall_T, prop_rays = analytical_start(
                 nks,
                 alphas,
                 theta,
@@ -1237,37 +1236,6 @@ class rt_structure:
                 options.analytical_ray_tracing,
                 wavelengths*1e9
             )
-
-            # print('a')
-            # # checks:
-            import matplotlib.pyplot as plt
-            # plt.figure()
-            # plt.semilogy(z_pos, profile)
-            # plt.ylim(1e-5, 1e3)
-            # plt.show()
-            #
-            # total_A = np.trapz(profile_to_add, z_pos)
-
-            # total_int = np.sum(overall_R.I, axis=0) + np.sum(prop_rays.I, axis=0) + \
-            #             np.sum(A_bulk_to_add, axis=1) + np.sum(np.sum(A_interface[1], axis=0), axis=0)
-            #
-            #
-            # plt.figure()
-            # # plt.plot(wavelengths*1e9, total_A, '-k', label='total bulk A (int)')
-            # plt.plot(wavelengths*1e9, np.sum(A_bulk_to_add, axis=1), 'o', label='total A')
-            #
-            # for i1, bulk in enumerate(A_bulk_to_add.T):
-            #     plt.plot(wavelengths*1e9, bulk, '--', label=f'layer {i1}')
-            # plt.plot(wavelengths*1e9, np.sum(overall_R.I, axis=0), label='total R')
-            # plt.plot(wavelengths*1e9, np.sum(prop_rays.I, axis=0), label='propagating')
-            # # plt.plot(wavelengths*1e9, total_int, label='total int')
-            # plt.plot(wavelengths*1e9, np.sum(A_interface[0], axis=0).T, 'x', label='interface A')
-            # plt.legend()
-            # plt.show()
-
-            # remaining_I_per_wl = np.sum(prop_rays.I, axis=0)
-            # pr.enable()
-            # wl_continuing = np.where(remaining_I_per_wl > 1e-9)[0]
 
             R_to_add = np.sum(overall_R.I, axis=0).data
             T_to_add = np.sum(overall_T.I, axis=0).data
@@ -1534,7 +1502,6 @@ class rt_structure:
                             theta_R = np.arccos(anlt_data.direction.isel(xyz=2))
                             phi_R = np.arctan(anlt_data.direction.isel(xyz=1)/anlt_data.direction.isel(xyz=0))
 
-
                         for i1, n_unique_R in enumerate(n_rays_per_direction):
                             thetas[wl_ind][current_start:(current_start + n_unique_R)] = theta_R[i1]
                             phis[wl_ind][current_start:(current_start + n_unique_R)] = phi_R[i1]
@@ -1654,25 +1621,6 @@ def parallel_inner(
     # # ray tracing happening first
     # decide whether ray-tracing needs to happen at all:
 
-    if existing_rays is None:
-        continue_wl = True
-        prop_rays_analytical = False
-
-    else:
-        continue_wl = np.sum(existing_rays.I) > I_thresh
-        n_remaining = 0
-        prop_rays_analytical = True
-
-        if tmm_args[0] > 0:
-
-            A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
-        else:
-            A_in_interfaces = 0
-
-
-
-    # print('continue_wl', continue_wl)
-
     # thetas and phis divided into
     thetas = np.zeros(n_reps * nx * ny)
     phis = np.zeros(n_reps * nx * ny)
@@ -1689,6 +1637,28 @@ def parallel_inner(
     profiles = np.zeros(len(z_pos))
 
     profile_arrays = [[] for _ in range(len(surfaces))]
+
+    if existing_rays is None:
+        continue_wl = True
+        prop_rays_analytical = False
+
+    else:
+        continue_wl = np.sum(existing_rays.I) > I_thresh
+        n_remaining = 0
+        prop_rays_analytical = True
+
+        if tmm_args[0] > 0:
+
+            A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
+        else:
+            A_in_interfaces = 0
+
+        # need to populate the arrays with results from the rays which were already
+        # absorbed:
+
+
+
+    # print('continue_wl', continue_wl)
 
     if continue_wl:
 

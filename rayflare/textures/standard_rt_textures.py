@@ -505,7 +505,7 @@ def hemisphere_surface(
     :param radius: radius of the hemispherical cap
     :param offset: the hemisphere is shifted DOWN by this value (any points which end up below the z = 0 surface will be
                     removed from the surface)
-    :param noise_angle: the maximum opening angle/surface normal angle that will be used to generate the random noise.
+    :param noise_angle: the maximum opening angle/surface normal angle (radians) that will be used to generate the random noise.
                     This is used to keep the height of the roughness for some noise_angle consistent with diferent n_points
     :param stretch: factor by which the height of the hemispherical cap is stretched (for ellipsoid rather than spheres)
     :return:
@@ -518,7 +518,7 @@ def hemisphere_surface(
     x = np.linspace(-size / 2, size / 2, n_per_side)
     y = np.linspace(-size / 2, size / 2, n_per_side)
 
-    ds = np.diff(x)[0]
+    ds = np.diff(x.flatten())[0]
     noise_height = ds * np.tan(noise_angle)
 
     xs, ys = np.meshgrid(x, y)

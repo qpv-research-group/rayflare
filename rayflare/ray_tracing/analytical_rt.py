@@ -174,6 +174,12 @@ def analytical_start(nks,
     # # generally same across wavelengths, but can be changed by analytical
     # # ray tracing happening first
 
+    if np.sum(tmm_args[0]) == 0:
+        # only Fresnel surfaces and tmm_args is just a list of zeroes.
+        tmm_args = [0] + [len(surfaces)*[0]]
+        # need tmm_args to have a second element, so that inner functions can correctly
+        # identify that they need to use Fresnel and not TMM
+
     n_wl = len(wls)
     wls = xr.DataArray(wls, dims='wl_angle')
 
@@ -216,7 +222,11 @@ def analytical_start(nks,
 
     n_interactions = 0
 
-    data_lists = []
+    # TODO: absorbed_details should include interface absorption
+
+    absorbed_details = [[] for _ in range(len(widths))]
+
+    prop_rays = []
 
     while single_direction:
 
@@ -227,7 +237,7 @@ def analytical_start(nks,
 
         I_rem_data = I_remaining.data[0]
 
-        if np.all(np.abs(normals[:,2]) > 0.999):
+        if np.all(np.abs(normals[:,2]) > 0.999) and d.ndim == 1:
             # if the surface is planar, can just use TMM or Fresnel equations directly
             # should already have a lookuptable, if necessary
 
@@ -247,7 +257,11 @@ def analytical_start(nks,
 
             theta_t = xr.DataArray(theta_t[None, :], dims=["unique_direction", "wl"])
 
+            # if d.ndim == 1:
             final_R_directions = xr.DataArray(deepcopy(d)[None, :], dims=["unique_direction", "xyz"])
+
+            # else:
+            #     final_R_directions = xr.DataArray(deepcopy(d)[None, :, :], dims=["unique_direction", "xyz", "wl"])
 
             # reflection: z -> -z, no other changes to ray direction
             final_R_directions[:, 2] = -final_R_directions[:, 2]
@@ -348,11 +362,11 @@ def analytical_start(nks,
 
         # surf_index only right for incidence from above
         DA, I = traverse_vectorised(
-            widths[surf_index + 1], # units?
+            widths[surf_index + initial_dir], # units?
             T_data.theta_t.data,
-            alphas[surf_index + 1], # units?
+            alphas[surf_index + initial_dir], # units?
             np.ones_like(T_data.theta_t),
-            depths[surf_index + 1],
+            depths[surf_index + initial_dir],
             initial_dir,
         )
 
@@ -361,39 +375,84 @@ def analytical_start(nks,
         # DA = DA * I_rem_data[None, :, None] # scaled by intensity remaining BEFORE this surface
         # I = I * I_rem_data[None, :]
 
-        I_abs = 1 - I
-
         if surf_index == 0 and initial_dir == 1:
             # any rays that were reflected here are reflected overall into the incidence medium
             overall_R = R_data
-            include_R = False # do not want to include reflected rays in propagating rays, they are
-            # accounted for here
+            # do not want to include reflected rays in propagating rays, they are
+            # accounted for in overall_R
 
         else:
-            include_R = True
+            # could have multiple planar surfaces (though should really just make them
+            # all part of the same surface in that case, with incoherent layers if necessary!),
+            # and in that case we want to record rays travelling upwards here but continue with
+            # analytical ray tracing
+
+            # need to propagate these rays through the bulk and account for attenuation
+            # of these rays and absorption in the bulk:
+            theta_R = np.arccos(
+                R_data.direction[:, 2] / np.linalg.norm(R_data.direction, axis=1))
+
+            DA_R, I_R = traverse_vectorised(
+                widths[mat_i],  # units?
+                theta_R.data,
+                alphas[mat_i],  # units?
+                np.ones_like(theta_R.data),
+                depths[mat_i],
+                initial_dir,
+            )
+
+            I_abs_R = 1 - I_R
+
+            I_out_per_direction_R = R_data.I.data * I_abs_R
+            absorbed_details[mat_i].append(
+                xr.Dataset({
+                    "A": xr.DataArray(I_out_per_direction_R, dims=["unique_direction", "wl"]),
+                    "n_interactions": R_data.n_interactions,
+                    "n_passes": R_data.n_interactions
+                })
+            )
+
+            A_actual_R = np.sum(I_out_per_direction_R, axis=0)
+            # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
+            DA_actual_R = np.sum(R_data.I.data.T * DA_R, axis=2)
+
+            A_per_layer[mat_i] += np.real(A_actual_R)
+            profile[depth_indices[mat_i]] += np.real(+ DA_actual_R)
+
+            R_remaining = R_data.I * I_R
+            prop_rays.append(xr.Dataset(
+                {
+                    "I": R_remaining,
+                    "direction": R_data.direction,
+                    "mat_i": mat_i,
+                    "n_interactions": R_data.n_interactions,
+                    "n_passes": R_data.n_passes,
+                    "pol": xr.DataArray(R_pol, dims=["unique_direction", "wl", "sp"]),
+                }
+            )
+            )
 
         if surf_index == len(surfaces) - 1 and initial_dir == 1:
             # any rays that were transmitted here are transmitted overall into the transmission medium
             overall_T = T_data
             include_T = False  # do not want to include transmitted rays in propagating rays, they are
-            # accounted for here
-            # TODO: this needs to be scaled (?)
+            # accounted for in overall_T
+            # TODO: does this need to be scaled?
 
         else:
             include_T = True
 
-        # TODO: the above if statements are only for incidence from above.
+        I_abs = 1 - I
 
-        # data_lists.append({
-        #     "R_data": R_data,
-        #     "A_data": A_data,
-        #     "T_data": T_data,
-        #     "DA": DA,
-        #     "I": I
-        # }
-        # )
-
-        I_out_actual = np.sum(T_data.I.data * I_abs, axis=0)
+        I_out_per_direction = T_data.I.data * I_abs
+        absorbed_details[mat_i + initial_dir].append(
+            xr.Dataset({
+                "A": xr.DataArray(I_out_per_direction, dims=["unique_direction", "wl"]),
+                "n_interactions": T_data.n_interactions,
+                "n_passes": T_data.n_interactions
+            })
+        )
+        A_actual = np.sum(I_out_per_direction, axis=0)
         # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
         DA_actual = np.sum(T_data.I.data.T*DA, axis=2)
         # theta_out_T[stop] = np.nan
@@ -402,22 +461,19 @@ def analytical_start(nks,
         surf_index += initial_dir
         mat_i += initial_dir
 
-        A_per_layer[mat_i] = np.real(A_per_layer[mat_i] + I_out_actual)
-        profile[depth_indices[mat_i]] = np.real(
-            profile[depth_indices[mat_i]] + DA_actual
-        )
+        A_per_layer[mat_i] += np.real(A_actual)
+        profile[depth_indices[mat_i]] += np.real(+ DA_actual)
         remaining_after_bulk = np.real(T_data.I * I)
 
+        in_structure = surf_index < len(surfaces) and surf_index >= 0
+
         # if all rays are still travelling in the same direction, continue with analytical RT. Otherwise continue on to
-        # 'normal' ray tracing.
+        # 'normal' ray tracing. Otherwise, or if we have check the last surface in the structure,
+        # end and return results.
 
-        if np.unique(T_data.direction, axis=0).shape[0] > 1:
+        if np.unique(T_data.direction, axis=0).shape[0] > 1 or not in_structure:
 
-            # # find theta and phi of rays:
-            # o_t = np.real(np.arccos(d[2])) # directions vectors MUST have length 1 here! np.linalg.norm(T_data.direction, axis=1)
-            # o_p = np.real(atan2(d[1], d[0]))
-
-            single_direction = False
+            # single_direction = False
             # end, need to save/return final results here
             # absorption (profile and total) in bulk have been tracked as we went along
             # Need to save results for of remaining intensities and directions for each wavelength,
@@ -430,24 +486,6 @@ def analytical_start(nks,
 
             # array with dimensions: (face, wl)
             # dataarrays for: direction (xyz), intensity, number of interactions,
-
-            prop_rays = []
-
-            if include_R:
-
-                # TODO: add n_interactions
-                R_remaining = R_data.I
-                prop_rays.append(xr.Dataset(
-                    {
-                        "I": R_remaining,
-                        "direction": R_data.direction,
-                        "mat_i": mat_i - initial_dir,
-                        "n_interactions": R_data.n_interactions,
-                        "n_passes": R_data.n_passes,
-                        "pol": xr.DataArray(R_pol, dims=["unique_direction", "wl", "sp"]),
-                    }
-                )
-                )
 
             if include_T:
                 prop_rays.append(xr.Dataset(
@@ -469,9 +507,7 @@ def analytical_start(nks,
             else:
                 prop_rays = zero_intensity_rays()
 
-
-            return profile.T, A_per_layer.T, A_per_interface, overall_R, overall_T, prop_rays
-
+            return profile.T, A_per_layer.T, absorbed_details, A_per_interface, overall_R, overall_T, prop_rays
 
         else:
             # continue, but need to update inputs: transmitted rays at each wavelength become new
@@ -486,20 +522,24 @@ def analytical_start(nks,
             # I_new = I_rem_data - np.sum(R_data.I, 0) - np.sum(A_per_layer, 0)
             I_remaining = remaining_after_bulk
             # TODO: I think this only works for downwards
+            # can only reach here if surfaces so far have been planar; end up with
+            # two directions because planar surface is made of two triangles, but they
+            # contain the same information
+            I_remaining = I_remaining.sum(dim='unique_direction').expand_dims('unique_direction')
 
-            d = T_data.direction.data[0]
+            d = T_data.direction[0].expand_dims('unique_direction').data
+
 
             # need to construct d for each wavelength:
 
-
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.plot(wls, data_lists[0]['R_data'].R_total[0])
-    plt.plot(wls, data_lists[0]['A_data'][0])
-    plt.show()
-
-    print('done')
+    # import matplotlib.pyplot as plt
+    #
+    # plt.figure()
+    # plt.plot(wls, data_lists[0]['R_data'].R_total[0])
+    # plt.plot(wls, data_lists[0]['A_data'][0])
+    # plt.show()
+    #
+    # print('done')
 
 
     # should first check if surface is planar; if it is, can just use TMM directly.
@@ -543,7 +583,7 @@ def analytical_per_face(current_surf,
 
     opposite_faces = np.where(np.dot(normals, normals.T) < 0)[1]
 
-    if tmm_args[1] == 0:
+    if tmm_args[1][surf_index] == 0:
         calc_RAT = calc_RAT_Fresnel
         R_args = [n0, n1]
         # TODO: above only correct for downwards

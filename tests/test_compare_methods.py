@@ -1633,14 +1633,6 @@ def test_tmm_rt_methods():
     rt_back = result_RT_only["interface_profiles"][1]
     rt_Ge = result_RT_only["profile"]
 
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.plot(rt_front.T)
-    plt.plot(prof_front.data.T, '--')
-    plt.show()
-
-
     ratio = rt_front[rt_front > 1e-6] / prof_front.data[rt_front > 1e-6]
 
     assert np.allclose(ratio, 1, atol=0.25)
