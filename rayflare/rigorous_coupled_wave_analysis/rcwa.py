@@ -15,7 +15,7 @@ from solcore.state import State
 from solcore.absorption_calculator import OptiStack
 
 from rayflare.angles import make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths, get_wavelength
+from rayflare.utilities import get_matrices_or_paths, get_wavelength, process_pol
 
 from inkstone import Inkstone
 
@@ -37,25 +37,6 @@ except Exception as err:
     print(
         "WARNING: The RCWA solver will not be available because an S4 installation has not been found."
     )
-
-
-def process_pol(input_pol):
-    if len(input_pol) == 2:
-        pol = input_pol
-
-    else:
-        if input_pol in "sp":
-            pol = (int(input_pol == "s"), int(input_pol == "p"))
-
-        elif input_pol == "u":
-            pol = (np.sqrt(2) / 2, np.sqrt(2) / 2)
-
-        else:
-            raise ValueError(
-                "Polarization must be 's', 'p', 'u', or a tuple with the s and p components."
-            )
-
-    return pol
 
 
 def set_incident_wave(S, s, p, options, wavelength):
@@ -788,7 +769,7 @@ def initialise_S_inkstone(size, orders, geom_list, mats_oc, shapes_oc, shape_mat
                             vertices[i2] = [v[0] + center[0], v[1] + center[1]]
 
                     if "angle" in shape:
-                        logger.warn("Angle not implemented for polygon shapes in Inkstone")
+                        logger.warning("Angle not implemented for polygon shapes in Inkstone")
 
                     S.AddPatternPolygon(layer_name, mat_name, vertices)
 

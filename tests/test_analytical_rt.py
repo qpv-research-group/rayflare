@@ -107,6 +107,11 @@ def test_total_RAT_TMM():
 
     assert total_int == approx(1, abs=options.I_thresh)
 
+def test_compare_Fresnel():
+    pass
+
+def test_compare_TMM():
+    pass
 
 def test_integrated_A_Fresnel():
     pass

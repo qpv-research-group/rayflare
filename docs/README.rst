@@ -9,9 +9,12 @@ optical models behind RayFlare, you can do that :ref:`here <overview>` or get st
 
 Check the :ref:`news & updates page <news>` for recent changes and new functionality.
 
+If you want to be notified about new releases, please join our `mailing list`_:.
+
 If you use RayFlare in your work, please cite the `JOSS paper`_:
 
 *Pearce, P. M., (2021). RayFlare: flexible optical modelling of solar cells. Journal of Open Source Software, 6(65), 3460.
 https://doi.org/10.21105/joss.03460*
 
 .. _JOSS paper: https://doi.org/10.21105/joss.03460
+.. _mailing list: https://www.solcore.solar/mailing-list
