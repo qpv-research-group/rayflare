@@ -616,6 +616,7 @@ def calculate_interface_profiles(
     z_list,
     offsets,
     lookuptable,
+    # wl,
     local_pols_i,
     depth_spacing,
 ):
@@ -739,7 +740,6 @@ def calculate_interface_profiles(
             np.divide(data_back, non_zero).mean(dim="layer", skipna=True).data
         )  # can get slight differences in values between layers
 
-
         params = lookuptable.Aprof.loc[
             dict(side=-1, layer=prof_layer_list_i)
         ].interp(angle=th_array[rear_incidence])
@@ -775,6 +775,7 @@ def calculate_interface_profiles(
 
         profile_back = ans_list[0] + ans_list[1]
 
+
     else:
 
         profile_back = 0
@@ -801,7 +802,150 @@ def calculate_interface_profiles(
 
     else:
         return []
- 
+    #
+    # def profile_per_layer(x, z, offset, side):
+    #     layer_index = x.coords["layer"].item(0) - 1
+    #
+    #     part1 = x[:, 0] * np.exp(x[:, 4] * z[layer_index])
+    #     part2 = x[:, 1] * np.exp(-x[:, 4] * z[layer_index])
+    #     part3 = (x[:, 2] + 1j * x[:, 3]) * np.exp(1j * x[:, 5] * z[layer_index])
+    #     part4 = (x[:, 2] - 1j * x[:, 3]) * np.exp(-1j * x[:, 5] * z[layer_index])
+    #     result = np.real(part1 + part2 + part3 + part4)
+    #
+    #     if side == -1:
+    #         result = np.flip(result, 1)
+    #     return result.reduce(np.sum, axis=0).assign_coords(
+    #         dim_0=z[layer_index] + offset[layer_index]
+    #     )
+    #
+    # def profile_per_angle(x, z, offset, side):
+    #     by_layer = x.groupby("layer").map(
+    #         profile_per_layer, z=z, offset=offset, side=side
+    #     )
+    #     return by_layer
+    #
+    # th_array = np.abs(local_thetas_i)
+    # front_incidence = np.where(directions_i == 1)[0]
+    # rear_incidence = np.where(directions_i == -1)[0]
+    #
+    # # need to scale absorption profile for each ray depending on
+    # # how much intensity was left in it when that ray was absorbed (this is done for total absorption inside
+    # # single_ray_stack)
+    #
+    # pol = 's'
+    #
+    # if len(front_incidence) > 0:
+    #
+    #     A_lookup_front = lookuptable.Alayer.loc[
+    #         dict(side=1, pol=pol, layer=prof_layer_list_i)
+    #     ].interp(angle=th_array[front_incidence])
+    #     data_front = data_prof_layers[front_incidence]
+    #
+    #     ## CHECK! ##
+    #     non_zero = xr.where(A_lookup_front > 1e-10, A_lookup_front, np.nan)
+    #
+    #     scale_factor = (
+    #         np.divide(data_front, non_zero).mean(dim="layer", skipna=True).data
+    #     )  # can get slight differences in values between layers due to lookuptable resolution
+    #
+    #     # layers because lookuptable angles are not exactly the same as the angles of the rays when absorbed. Take mean.
+    #     # TODO: check what happens when one of these is zero or almost zero?
+    #
+    #     # note that if a ray is absorbed in the interface on the first pass, the absorption per layer
+    #     # recorded in A_interfaces will be LARGER than the A from the lookuptable because the lookuptable
+    #     # includes front surface reflection, and by definition if the ray was absorbed it was not reflected
+    #     # so the sum of the absorption per layer recorded in A_interfaces is 1 while the sum of the absorption in the
+    #     # lookuptable is 1 - R - T.
+    #
+    #     params_front = lookuptable.Aprof.loc[
+    #         dict(side=1, pol=pol, layer=prof_layer_list_i)
+    #     ].interp(angle=th_array[front_incidence])
+    #
+    #     import matplotlib.pyplot as plt
+    #     plt.hist(th_array[front_incidence])
+    #     plt.show()
+    #     s_params = params_front.loc[
+    #         dict(coeff=["A1", "A2", "A3_r", "A3_i"])
+    #     ]  # have to scale these to make sure integrated absorption is correct
+    #     c_params = params_front.loc[
+    #         dict(coeff=["a1", "a3"])
+    #     ]  # these should not be scaled
+    #
+    #     scale_res = s_params * scale_factor[:, None, None]
+    #
+    #     params_front = xr.concat((scale_res, c_params), dim="coeff")
+    #
+    #     ans_front = (
+    #         params_front.groupby("angle", squeeze=False)
+    #         .map(profile_per_angle, z=z_list, offset=offsets, side=1)
+    #         .drop_vars("coeff")
+    #     )
+    #
+    #     profile_front = ans_front.reduce(np.sum, ["angle"]).fillna(0)
+    #
+    # else:
+    #     profile_front = 0
+    #
+    # if len(rear_incidence) > 0:
+    #
+    #     A_lookup_back = lookuptable.Alayer.loc[
+    #         dict(side=-1, pol=pol, layer=prof_layer_list_i)
+    #     ].interp(angle=th_array[rear_incidence])
+    #
+    #     data_back = data_prof_layers[rear_incidence]
+    #
+    #     non_zero = xr.where(A_lookup_back > 1e-10, A_lookup_back, np.nan)
+    #
+    #     scale_factor = (
+    #         np.divide(data_back, non_zero).mean(dim="layer", skipna=True).data
+    #     )  # can get slight differences in values between layers
+    #
+    #     params_back = lookuptable.Aprof.loc[
+    #         dict(side=-1, pol=pol, layer=prof_layer_list_i)
+    #     ].interp(angle=th_array[rear_incidence])
+    #
+    #     s_params = params_back.loc[
+    #         dict(coeff=["A1", "A2", "A3_r", "A3_i"])
+    #     ]  # have to scale these to make sure integrated absorption is correct
+    #     c_params = params_back.loc[
+    #         dict(coeff=["a1", "a3"])
+    #     ]  # these should not be scaled
+    #
+    #     scale_res = s_params * scale_factor[:, None, None]
+    #
+    #     params_back = xr.concat((scale_res, c_params), dim="coeff")
+    #
+    #     ans_back = (
+    #         params_back.groupby("angle", squeeze=False)
+    #         .map(profile_per_angle, z=z_list, offset=offsets, side=-1)
+    #         .drop_vars("coeff")
+    #     )
+    #
+    #     profile_back = ans_back.reduce(np.sum, ["angle"]).fillna(0)
+    #
+    # else:
+    #
+    #     profile_back = 0
+    #
+    # profile = profile_front + profile_back
+    #
+    # integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
+    #
+    # A_corr = np.sum(A_in_prof_layers)
+    #
+    # scale_profile = np.real(
+    #     np.divide(
+    #         A_corr,
+    #         integrated_profile.data,
+    #         where=integrated_profile.data > 0,
+    #         out=np.zeros_like(A_corr),
+    #     )
+    # )
+    #
+    # interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
+    #
+    # return interface_profile.data
+
 
 def make_rt_args(existing_rays, xs, ys, n_reps):
     """Make arguments for single_ray_stack with existing rays from analytical calculation."""
@@ -1108,6 +1252,7 @@ class rt_structure:
             prop_rays = dummy_prop_rays()
             A_interface_to_add = None
 
+
         allres = Parallel(n_jobs=n_jobs)(
             delayed(parallel_inner)(
                 nks[:, i1],
@@ -1135,6 +1280,8 @@ class rt_structure:
                 prop_rays.isel(wl=i1),
             )
             for i1 in range(len(wavelengths)))
+
+        # pr.disable()
 
         Is = np.stack([item[0] for item in allres])
         absorption_profiles = np.stack([item[1] for item in allres])
@@ -1763,7 +1910,6 @@ def make_profiles_wl(
         layer_index = xx.coords["layer"].item(0) - 1
         x = xx.squeeze()
         x = x[non_zero]
-
         part1 = x[:, 0] * np.exp(x[:, 4] * z[layer_index])
         part2 = x[:, 1] * np.exp(-x[:, 4] * z[layer_index])
         part3 = (x[:, 2] + 1j * x[:, 3]) * np.exp(1j * x[:, 5] * z[layer_index])
@@ -1809,7 +1955,6 @@ def make_profiles_wl(
 
     data = lookuptable.loc[dict(side=1, pol=pol_s)].interp(
         angle=pr.coords["local_theta"], #wl=wl * 1e9
-
     )
 
     params = (
@@ -1997,7 +2142,6 @@ class RTSurface:
 def calc_R(n1, n2, theta, ray):
     theta_t = np.arcsin((n1 / n2) * np.sin(theta))
     if ray.pol[0] == 1: # 100% s-polarized. Only need to calculate Rs, do not need to update ray.pol
-
         Rs = (
                 np.abs(
                     (n1 * np.cos(theta) - n2 * np.cos(theta_t))
@@ -2008,7 +2152,6 @@ def calc_R(n1, n2, theta, ray):
         return Rs, 0
 
     elif ray.pol[1] == 1: # 100% p-polarized. Only need to calculate Rp, do not need to update ray.pol
-
         Rp = (
                 np.abs(
                     (n1 * np.cos(theta_t) - n2 * np.cos(theta))
@@ -2016,7 +2159,6 @@ def calc_R(n1, n2, theta, ray):
                 )
                 ** 2
         )
-
         return 0, Rp
 
     else:
@@ -2120,6 +2262,7 @@ def single_ray_stack(
     A_interface_index = 0
 
     stop = False
+    # I = I_in
 
     while not stop:
         #
