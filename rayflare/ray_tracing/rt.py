@@ -106,28 +106,32 @@ def RT(
         return path_or_mats
 
     else:
-        get_wavelength(options)
-        wavelengths = options["wavelength"]
-        n_rays = options["n_rays"]
-        nx = options["nx"]
-        ny = options["ny"]
+        wavelengths = options.wavelength
+        n_rays = options.n_rays
+        nx = options.nx
+        ny = options.ny
         n_angles = int(np.ceil(n_rays / (nx * ny)))
 
-        phi_sym = options["phi_symmetry"]
-        n_theta_bins = options["n_theta_bins"]
-        c_az = options["c_azimuth"]
+        phi_sym = options.phi_symmetry
+        n_theta_bins = options.n_theta_bins
+        c_az = options.c_azimuth
 
         pol = process_pol(options.pol)
         pol = np.array(pol)/np.sum(pol)
 
-        if not options["parallel"]:
+        if not (pol[0] == 1 or pol[1] == 1):
+            logger.warning("Warning: you have specificied unpolarized/partially polarized light. "
+                           "The ARRM RT class does not currently take into account polarization "
+                           "changes at interfaces.")
+
+        if not options.parallel:
             n_jobs = 1
 
         else:
             n_jobs = options.n_jobs if "n_jobs" in options else -1
 
         if calc_profile is not None:
-            depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
+            depth_spacing = options.depth_spacing * 1e9  # convert from m to nm
         else:
             depth_spacing = None
 
@@ -152,28 +156,28 @@ def RT(
 
         if only_incidence_angle:
             logger.info("Calculating matrix only for incidence theta/phi")
-            if options["theta_in"] == 0:
+            if options.theta_in == 0:
                 th_in = 0.0001
             else:
-                th_in = options["theta_in"]
+                th_in = options.theta_in
 
             angles_in = angle_vector[: int(len(angle_vector) / 2), :]
             n_reps = int(np.ceil(n_angles / len(angles_in)))
             thetas_in = np.tile(th_in, n_reps)
             n_angles = n_reps
 
-            if options["phi_in"] == "all":
+            if options.phi_in == "all":
                 # get relevant phis
-                phis_in = np.tile(options["phi_in"], n_reps)
+                phis_in = np.tile(options.phi_in, n_reps)
             else:
-                if options["phi_in"] == 0:
+                if options.phi_in == 0:
                     phis_in = np.tile(0.0001, n_reps)
 
                 else:
-                    phis_in = np.tile(options["phi_in"], n_reps)
+                    phis_in = np.tile(options.phi_in, n_reps)
 
         else:
-            if options["random_ray_angles"]:
+            if options.random_ray_angles:
                 thetas_in = np.random.random(n_angles) * np.pi / 2
                 phis_in = np.random.random(n_angles) * 2 * np.pi
             else:
@@ -214,7 +218,7 @@ def RT(
 
         h = max(surfaces[0].Points[:, 2])
         x_limits = (
-            options["x_limits"]
+            options.x_limits
             if "x_limits" in options
             else [
                 surfaces[0].x_min + 0.01 * surfaces[0].Lx,
@@ -222,7 +226,7 @@ def RT(
             ]
         )
         y_limits = (
-            options["y_limits"]
+            options.y_limits
             if "y_limits" in options
             else [
                 surfaces[0].y_min + 0.01 * surfaces[0].Ly,
@@ -230,7 +234,7 @@ def RT(
             ]
         )
 
-        if options["random_ray_position"]:
+        if options.random_ray_position:
             xs = np.random.uniform(x_limits[0], x_limits[1], nx)
             ys = np.random.uniform(y_limits[0], y_limits[1], ny)
 
@@ -578,7 +582,7 @@ def make_lookuptable_rt_structure(
             prof_layers_list.append(None)
             widths.append(None)
 
-    savepath = get_savepath(save_location, options["project_name"])
+    savepath = get_savepath(save_location, options.project_name)
 
     for (layers, inc, trn, coh, coh_list, name, prof_layers) in zip(
         layers_for_lookuptable,
@@ -802,149 +806,6 @@ def calculate_interface_profiles(
 
     else:
         return []
-    #
-    # def profile_per_layer(x, z, offset, side):
-    #     layer_index = x.coords["layer"].item(0) - 1
-    #
-    #     part1 = x[:, 0] * np.exp(x[:, 4] * z[layer_index])
-    #     part2 = x[:, 1] * np.exp(-x[:, 4] * z[layer_index])
-    #     part3 = (x[:, 2] + 1j * x[:, 3]) * np.exp(1j * x[:, 5] * z[layer_index])
-    #     part4 = (x[:, 2] - 1j * x[:, 3]) * np.exp(-1j * x[:, 5] * z[layer_index])
-    #     result = np.real(part1 + part2 + part3 + part4)
-    #
-    #     if side == -1:
-    #         result = np.flip(result, 1)
-    #     return result.reduce(np.sum, axis=0).assign_coords(
-    #         dim_0=z[layer_index] + offset[layer_index]
-    #     )
-    #
-    # def profile_per_angle(x, z, offset, side):
-    #     by_layer = x.groupby("layer").map(
-    #         profile_per_layer, z=z, offset=offset, side=side
-    #     )
-    #     return by_layer
-    #
-    # th_array = np.abs(local_thetas_i)
-    # front_incidence = np.where(directions_i == 1)[0]
-    # rear_incidence = np.where(directions_i == -1)[0]
-    #
-    # # need to scale absorption profile for each ray depending on
-    # # how much intensity was left in it when that ray was absorbed (this is done for total absorption inside
-    # # single_ray_stack)
-    #
-    # pol = 's'
-    #
-    # if len(front_incidence) > 0:
-    #
-    #     A_lookup_front = lookuptable.Alayer.loc[
-    #         dict(side=1, pol=pol, layer=prof_layer_list_i)
-    #     ].interp(angle=th_array[front_incidence])
-    #     data_front = data_prof_layers[front_incidence]
-    #
-    #     ## CHECK! ##
-    #     non_zero = xr.where(A_lookup_front > 1e-10, A_lookup_front, np.nan)
-    #
-    #     scale_factor = (
-    #         np.divide(data_front, non_zero).mean(dim="layer", skipna=True).data
-    #     )  # can get slight differences in values between layers due to lookuptable resolution
-    #
-    #     # layers because lookuptable angles are not exactly the same as the angles of the rays when absorbed. Take mean.
-    #     # TODO: check what happens when one of these is zero or almost zero?
-    #
-    #     # note that if a ray is absorbed in the interface on the first pass, the absorption per layer
-    #     # recorded in A_interfaces will be LARGER than the A from the lookuptable because the lookuptable
-    #     # includes front surface reflection, and by definition if the ray was absorbed it was not reflected
-    #     # so the sum of the absorption per layer recorded in A_interfaces is 1 while the sum of the absorption in the
-    #     # lookuptable is 1 - R - T.
-    #
-    #     params_front = lookuptable.Aprof.loc[
-    #         dict(side=1, pol=pol, layer=prof_layer_list_i)
-    #     ].interp(angle=th_array[front_incidence])
-    #
-    #     import matplotlib.pyplot as plt
-    #     plt.hist(th_array[front_incidence])
-    #     plt.show()
-    #     s_params = params_front.loc[
-    #         dict(coeff=["A1", "A2", "A3_r", "A3_i"])
-    #     ]  # have to scale these to make sure integrated absorption is correct
-    #     c_params = params_front.loc[
-    #         dict(coeff=["a1", "a3"])
-    #     ]  # these should not be scaled
-    #
-    #     scale_res = s_params * scale_factor[:, None, None]
-    #
-    #     params_front = xr.concat((scale_res, c_params), dim="coeff")
-    #
-    #     ans_front = (
-    #         params_front.groupby("angle", squeeze=False)
-    #         .map(profile_per_angle, z=z_list, offset=offsets, side=1)
-    #         .drop_vars("coeff")
-    #     )
-    #
-    #     profile_front = ans_front.reduce(np.sum, ["angle"]).fillna(0)
-    #
-    # else:
-    #     profile_front = 0
-    #
-    # if len(rear_incidence) > 0:
-    #
-    #     A_lookup_back = lookuptable.Alayer.loc[
-    #         dict(side=-1, pol=pol, layer=prof_layer_list_i)
-    #     ].interp(angle=th_array[rear_incidence])
-    #
-    #     data_back = data_prof_layers[rear_incidence]
-    #
-    #     non_zero = xr.where(A_lookup_back > 1e-10, A_lookup_back, np.nan)
-    #
-    #     scale_factor = (
-    #         np.divide(data_back, non_zero).mean(dim="layer", skipna=True).data
-    #     )  # can get slight differences in values between layers
-    #
-    #     params_back = lookuptable.Aprof.loc[
-    #         dict(side=-1, pol=pol, layer=prof_layer_list_i)
-    #     ].interp(angle=th_array[rear_incidence])
-    #
-    #     s_params = params_back.loc[
-    #         dict(coeff=["A1", "A2", "A3_r", "A3_i"])
-    #     ]  # have to scale these to make sure integrated absorption is correct
-    #     c_params = params_back.loc[
-    #         dict(coeff=["a1", "a3"])
-    #     ]  # these should not be scaled
-    #
-    #     scale_res = s_params * scale_factor[:, None, None]
-    #
-    #     params_back = xr.concat((scale_res, c_params), dim="coeff")
-    #
-    #     ans_back = (
-    #         params_back.groupby("angle", squeeze=False)
-    #         .map(profile_per_angle, z=z_list, offset=offsets, side=-1)
-    #         .drop_vars("coeff")
-    #     )
-    #
-    #     profile_back = ans_back.reduce(np.sum, ["angle"]).fillna(0)
-    #
-    # else:
-    #
-    #     profile_back = 0
-    #
-    # profile = profile_front + profile_back
-    #
-    # integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
-    #
-    # A_corr = np.sum(A_in_prof_layers)
-    #
-    # scale_profile = np.real(
-    #     np.divide(
-    #         A_corr,
-    #         integrated_profile.data,
-    #         where=integrated_profile.data > 0,
-    #         out=np.zeros_like(A_corr),
-    #     )
-    # )
-    #
-    # interface_profile = scale_profile * profile.reduce(np.sum, dim="layer")
-    #
-    # return interface_profile.data
 
 
 def make_rt_args(existing_rays, xs, ys, n_reps):
@@ -1105,14 +966,14 @@ class rt_structure:
         theta = options.theta_in
         phi = options.phi_in
         I_thresh = options.I_thresh
-        periodic = options["periodic"] if "periodic" in options else 1
+        periodic = options.periodic if "periodic" in options else 1
         depth_spacing_interfaces = (
-            options["depth_spacing"] * 1e9 if "depth_spacing" in options else 1
+            options.depth_spacing * 1e9 if "depth_spacing" in options else 1
         )
         lambertian_approximation = options.lambertian_approximation
         analytical_rt = options.analytical_ray_tracing
 
-        if not options["parallel"]:
+        if not options.parallel:
             n_jobs = 1
 
         else:
@@ -1123,7 +984,7 @@ class rt_structure:
         widths.append(0)
         widths = 1e6 * np.array(widths)  # convert to um
 
-        z_space = 1e6 * options["depth_spacing_bulk"]  # convert from m to um
+        z_space = 1e6 * options.depth_spacing_bulk  # convert from m to um
         z_pos = np.arange(0, sum(widths), z_space)
 
         mats = self.mats[:]
@@ -1162,7 +1023,7 @@ class rt_structure:
         )
 
         x_limits = (
-            options["x_limits"]
+            options.x_limits
             if "x_limits" in options
             else [
                 surfaces[0].x_min + 0.01 * surfaces[0].Lx,
@@ -1170,7 +1031,7 @@ class rt_structure:
             ]
         )
         y_limits = (
-            options["y_limits"]
+            options.y_limits
             if "y_limits" in options
             else [
                 surfaces[0].y_min + 0.01 * surfaces[0].Ly,
@@ -1178,10 +1039,10 @@ class rt_structure:
             ]
         )
 
-        nx = options["nx"]
-        ny = options["ny"]
+        nx = options.nx
+        ny = options.ny
 
-        if options["random_ray_position"]:
+        if options.random_ray_position:
             xs = np.random.uniform(x_limits[0], x_limits[1], nx)
             ys = np.random.uniform(y_limits[0], y_limits[1], ny)
 
@@ -1192,18 +1053,18 @@ class rt_structure:
         # need to calculate r_a and r_b
         # a total of n_rays will be traced; this is divided by the number of x and y points to scan so we know
         # how many times we need to repeat
-        n_reps = int(np.ceil(options["n_rays"] / (nx * ny)))
+        n_reps = int(np.ceil(options.n_rays / (nx * ny)))
 
         pol = process_pol(options.pol)
         pol = np.array(pol)/np.sum(pol)
 
-        randomize = options["randomize_surface"]
+        randomize = options.randomize_surface
 
         initial_mat = (
-            options["initial_material"] if "initial_material" in options else 0
+            options.initial_material if "initial_material" in options else 0
         )
         initial_dir = (
-            options["initial_direction"] if "initial_direction" in options else 1
+            options.initial_direction if "initial_direction" in options else 1
         )
 
         cum_width = np.cumsum([0] + widths)
