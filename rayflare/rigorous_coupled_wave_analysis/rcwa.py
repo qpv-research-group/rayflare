@@ -194,7 +194,7 @@ def RCWA(
         )
 
         if only_incidence_angle:
-            thetas_in = np.array([options,theta_in])
+            thetas_in = np.array([options.theta_in])
             phis_in = np.array([options.phi_in])
         else:
             angles_in = angle_vector[: int(len(angle_vector) / 2), :]

@@ -368,7 +368,7 @@ def analytical_start(nks,
             A_int_detail = A_int_detail*I_rem_data[None, :]
 
             for i1, Ada in enumerate(A_int_detail):
-                update_absorbed_details(a_details, Ada,   np.array([n_interactions]), np.array([n_passes]))
+                update_absorbed_details(a_details, Ada,   np.array([n_int_detail[i1]]), np.array([n_passes]))
 
             # scale R_data and T_data by I_remaining:
             R_data['I'] = R_data.I * I_rem_data[None, :]
