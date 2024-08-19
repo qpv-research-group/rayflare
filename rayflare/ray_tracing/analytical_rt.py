@@ -191,6 +191,9 @@ def analytical_start(nks,
     # # generally same across wavelengths, but can be changed by analytical
     # # ray tracing happening first
 
+    if initial_dir == -1:
+        raise ValueError("Incidence from below not yet implemented for analytical ray-tracing")
+
     if np.sum(tmm_args[0]) == 0:
         # only Fresnel surfaces and tmm_args is just a list of zeroes.
         tmm_args = [0] + [len(surfaces)*[0]]
@@ -204,13 +207,12 @@ def analytical_start(nks,
 
     mat_i = initial_mat
 
-    n_passes = 0
+    # if initial_dir == 1: # travelling down
+    surf_index = initial_mat
+    next_mat = initial_mat + initial_dir
 
-    if initial_dir == 1: # travelling down
-        surf_index = initial_mat
-
-    else: # travelling up
-        surf_index = initial_mat - 1
+    # else: # travelling up
+    #     surf_index = initial_mat - 1
 
     profile = np.zeros((len(z_pos), n_wl))
     # do everything in microns
@@ -222,27 +224,21 @@ def analytical_start(nks,
     overall_R = xr.Dataset({"I": xr.DataArray(np.zeros((1, n_wl)), dims=["unique_direction", "wl"])})
     overall_T = xr.Dataset({"I": xr.DataArray(np.zeros((1, n_wl)), dims=["unique_direction", "wl"])})
 
-    next_mat = initial_mat + initial_dir
-
     theta = theta*np.ones(n_wl)
     angles = xr.DataArray(theta, dims='wl_angle')
 
     single_direction = True
 
     d = -r_a_0 / np.linalg.norm(r_a_0)
-    # TODO: check d for travelling upwards
 
-    if initial_dir != 1:
-        d[2] = -d[2]
-
+    # this doesn't work for incidence from below at the moment
+    # if initial_dir != 1:
+    #     d[2] = -d[2]
     I_remaining = xr.DataArray(np.ones((1, n_wl)), dims=["unique_direction", "wl"])
 
     n_interactions = 0
-
-    # TODO: absorbed_details should include interface absorption
-
+    n_passes = 0
     a_details = []
-
     prop_rays = []
 
     while single_direction:
@@ -258,91 +254,10 @@ def analytical_start(nks,
             # if the surface is planar, can just use TMM or Fresnel equations directly
             # should already have a lookuptable, if necessary
 
-            theta_t = np.arcsin(n0) / n1 * np.sin(angles.data)
-
-            x = np.sin(theta_t) * np.cos(phi)
-            y = np.sin(theta_t) * np.sin(phi)
-            z = np.cos(theta_t)
-
-            # make sign of x, y, z the same as d:
-            x = np.abs(x) * np.sign(d[0])
-            y = np.abs(y) * np.sign(d[1])
-            z = np.abs(z) * np.sign(d[2])
-
-            final_T_directions = xr.DataArray(np.real(np.stack((x, y, z)))[None, :, :],
-                                              dims=["unique_direction", "xyz", "wl"])
-
-            theta_t = xr.DataArray(theta_t[None, :], dims=["unique_direction", "wl"])
-
-            # if d.ndim == 1:
-            final_R_directions = xr.DataArray(deepcopy(d)[None, :], dims=["unique_direction", "xyz"])
-
-            # else:
-            #     final_R_directions = xr.DataArray(deepcopy(d)[None, :, :], dims=["unique_direction", "xyz", "wl"])
-
-            # reflection: z -> -z, no other changes to ray direction
-            final_R_directions[:, 2] = -final_R_directions[:, 2]
-
-            if tmm_args[1][surf_index] == 1:
-                structpath = tmm_args[2]
-                surf_name = tmm_args[3][surf_index] + "int_{}".format(surf_index)
-
-                lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).loc[
-                    dict(side=initial_dir, pol=['s', 'p'])].interp(angle=angles, wl=wls).load()
-
-                [Rs, Rp] = lookuptable.R.data
-                [Ts, Tp] = lookuptable.T.data
-
-                A_per_int_layer = np.sum(lookuptable.Alayer.transpose("layer", "wl_angle", "pol")*current_pol, -1)
-
-                R = np.sum(np.stack((Rs, Rp), -1) * current_pol, -1)
-                T = np.sum(np.stack((Ts, Tp), -1) * current_pol, -1)
-
-                # INTERFACE (not bulk!) absorption
-                A_per_interface[surf_index] = xr.DataArray((I_rem_data[None, :]*A_per_int_layer.data)[None, :, :],
-                                                           dims=["unique_direction", "layer", "wl"])
-
-            else:
-                # Fresnel equations
-                Rs, Rp, _, Ts, Tp = calc_RAT_Fresnel(theta, pol, n0, n1)
-
-                R = np.sum(np.stack((Rs, Rp),-1) * current_pol, -1)
-
-                T = 1 - R
-
-                # no interface absorption:
-                A_per_interface[surf_index] = xr.DataArray(np.zeros((1, 1, n_wl)), dims=["unique_direction", "layer", "wl"])
-
-            R_pol = np.stack((Rs, Rp), -1) * current_pol
-            R_pol = R_pol / (np.sum(R_pol, -1)[:, None])
-
-            T_pol = np.stack((Ts, Tp), -1) * current_pol
-            T_pol = T_pol / (np.sum(T_pol, -1)[:, None])
-
-            R_total = xr.DataArray(I_remaining * R[None, :], dims=["unique_direction", "wl"])
-
-            n_interactions += 1  # can only have one interaction with planar surface regardless of
-            # angle of incidence
-
-            R_data = xr.Dataset(
-                {
-                    "I": R_total,
-                    "direction": final_R_directions,
-                    "n_interactions": xr.DataArray(np.array([n_interactions]), dims=["unique_direction"]),
-                }
-            )
-
-            T_data = xr.Dataset(
-                {
-                    "I": I_remaining * T,
-                    "direction": final_T_directions,
-                    "n_interactions": xr.DataArray(np.array([n_interactions]), dims=["unique_direction"]),
-                    "theta_t": theta_t,
-                }
-            )
-
-            update_absorbed_details(a_details, np.sum(A_per_int_layer.data, 0)[None, :],
-                                    np.array([n_interactions]), np.array([n_passes]))
+            R_data, T_data, T_pol, R_pol = analytical_planar(n0, n1, angles, phi, d, tmm_args,
+                                                             surf_index, initial_dir, current_pol,
+                      I_rem_data, wls, A_per_interface, a_details, n_interactions, n_passes,
+                      theta)
 
         else:
             # do analytical RT for non-planar surface with multiple faces
@@ -561,6 +476,100 @@ def analytical_start(nks,
 
             d = T_data.direction[0].expand_dims('unique_direction').data
 
+
+def analytical_planar(n0, n1, angles, phi, d, tmm_args, surf_index, initial_dir, current_pol,
+                      I_rem_data, wls, A_per_interface, a_details, n_interactions, n_passes,
+                      theta):
+    theta_t = np.arcsin(n0) / n1 * np.sin(angles.data)
+
+    x = np.sin(theta_t) * np.cos(phi)
+    y = np.sin(theta_t) * np.sin(phi)
+    z = np.cos(theta_t)
+
+    # make sign of x, y, z the same as d:
+    x = np.abs(x) * np.sign(d[0])
+    y = np.abs(y) * np.sign(d[1])
+    z = np.abs(z) * np.sign(d[2])
+
+    final_T_directions = xr.DataArray(np.real(np.stack((x, y, z)))[None, :, :],
+                                      dims=["unique_direction", "xyz", "wl"])
+
+    theta_t = xr.DataArray(theta_t[None, :], dims=["unique_direction", "wl"])
+
+    # if d.ndim == 1:
+    final_R_directions = xr.DataArray(deepcopy(d)[None, :], dims=["unique_direction", "xyz"])
+
+    # else:
+    #     final_R_directions = xr.DataArray(deepcopy(d)[None, :, :], dims=["unique_direction", "xyz", "wl"])
+
+    # reflection: z -> -z, no other changes to ray direction
+    final_R_directions[:, 2] = -final_R_directions[:, 2]
+
+    if tmm_args[1][surf_index] == 1:
+        structpath = tmm_args[2]
+        surf_name = tmm_args[3][surf_index] + "int_{}".format(surf_index)
+
+        lookuptable = xr.open_dataset(os.path.join(structpath, surf_name + ".nc")).loc[
+            dict(side=initial_dir, pol=['s', 'p'])].interp(angle=angles, wl=wls).load()
+
+        [Rs, Rp] = lookuptable.R.data
+        [Ts, Tp] = lookuptable.T.data
+
+        A_per_int_layer = np.sum(
+            lookuptable.Alayer.transpose("layer", "wl_angle", "pol") * current_pol, -1)
+
+        R = np.sum(np.stack((Rs, Rp), -1) * current_pol, -1)
+        T = np.sum(np.stack((Ts, Tp), -1) * current_pol, -1)
+
+        # INTERFACE (not bulk!) absorption
+        A_per_interface[surf_index] = xr.DataArray(
+            (I_rem_data[None, :] * A_per_int_layer.data)[None, :, :],
+            dims=["unique_direction", "layer", "wl"])
+
+        update_absorbed_details(a_details, np.sum(A_per_int_layer.data, 0)[None, :],
+                                np.array([n_interactions + 1]), np.array([n_passes]))
+
+    else:
+        # Fresnel equations
+        Rs, Rp, _, Ts, Tp = calc_RAT_Fresnel(theta,  0, n0, n1)
+
+        R = np.sum(np.stack((Rs, Rp), -1) * current_pol, -1)
+
+        T = 1 - R
+
+        # no interface absorption:
+        A_per_interface[surf_index] = xr.DataArray(np.zeros((1, 1, len(wls))),
+                                                   dims=["unique_direction", "layer", "wl"])
+
+    R_pol = np.stack((Rs, Rp), -1) * current_pol
+    R_pol = R_pol / (np.sum(R_pol, -1)[:, None])
+
+    T_pol = np.stack((Ts, Tp), -1) * current_pol
+    T_pol = T_pol / (np.sum(T_pol, -1)[:, None])
+
+    R_total = xr.DataArray(I_rem_data[None, :] * R[None, :], dims=["unique_direction", "wl"])
+
+    n_interactions += 1  # can only have one interaction with planar surface regardless of
+    # angle of incidence
+
+    R_data = xr.Dataset(
+        {
+            "I": R_total,
+            "direction": final_R_directions,
+            "n_interactions": xr.DataArray(np.array([n_interactions]), dims=["unique_direction"]),
+        }
+    )
+
+    T_data = xr.Dataset(
+        {
+            "I": xr.DataArray(I_rem_data[None, :] * T[None, :], dims=["unique_direction", "wl"]),
+            "direction": final_T_directions,
+            "n_interactions": xr.DataArray(np.array([n_interactions]), dims=["unique_direction"]),
+            "theta_t": theta_t,
+        }
+    )
+
+    return R_data, T_data, T_pol, R_pol
 
 def analytical_per_face(current_surf,
                          surf_index,
