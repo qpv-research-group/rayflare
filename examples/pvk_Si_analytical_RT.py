@@ -1,7 +1,4 @@
-from rayflare.ray_tracing.analytical_rt import lambertian_scattering
-
 from solcore.light_source import LightSource
-from solcore.constants import q
 import numpy as np
 from rayflare.textures import regular_pyramids, planar_surface
 import matplotlib.pyplot as plt
@@ -10,9 +7,7 @@ from solcore import material
 from solcore.structure import Layer
 from rayflare.options import default_options
 from rayflare.ray_tracing import rt_structure
-from rayflare.ray_tracing.analytical_rt import analytical_start
 from time import time
-import seaborn as sns
 
 SiN = material("Si3N4")()
 Si = material("Si")()

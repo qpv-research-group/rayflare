@@ -2647,7 +2647,7 @@ def single_interface_check(
                     ray.d[2] = -ray.d[2]
 
                     o_t = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
-                    o_p = np.real(atan2(ray.d[1], d[0]))
+                    o_p = np.real(atan2(ray.d[1], ray.d[0]))
                     return 0, o_t, o_p, 0, n_interactions, side
 
         elif result is False and checked_translation:

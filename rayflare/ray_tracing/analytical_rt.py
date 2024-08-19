@@ -2,8 +2,6 @@ import numpy as np
 import xarray as xr
 import os
 from rayflare.utilities import get_savepath
-from cmath import acos
-from math import atan2
 from copy import deepcopy
 from solcore.state import State
 
