@@ -142,10 +142,29 @@ class zero_intensity_rays:
     def __init__(self):
         # the only thing this needs to do is return I=0 when used with .isel(wl=i)
         self.I = 0
-        pass
 
     def isel(self, wl):
         return State(I = 0)
+
+def update_absorbed_details(x, A, n_interactions, n_passes):
+
+    if A.ndim == 1:
+        A = A[None, :]
+
+    if n_passes.ndim == 0:
+        n_passes = np.array([n_passes]*A.shape[0])
+
+    if n_interactions.ndim == 0:
+        n_interactions = np.array([n_interactions]*A.shape[0])
+
+    x.append(xr.Dataset({
+                "A": xr.DataArray(A,
+                                  dims=["unique_direction", "wl"]),
+                "n_interactions": xr.DataArray(n_interactions,
+                                               dims=["unique_direction"]),
+                "n_passes": xr.DataArray(n_passes, dims=["unique_direction"]),
+            }))
+
 
 def analytical_start(nks,
                 alphas,
@@ -222,7 +241,7 @@ def analytical_start(nks,
 
     # TODO: absorbed_details should include interface absorption
 
-    absorbed_details = [[] for _ in range(len(widths))]
+    a_details = []
 
     prop_rays = []
 
@@ -280,8 +299,8 @@ def analytical_start(nks,
                 T = np.sum(np.stack((Ts, Tp), -1) * current_pol, -1)
 
                 # INTERFACE (not bulk!) absorption
-                A_per_interface[surf_index] = xr.DataArray((I_rem_data[None, :]*A_per_int_layer.data)[None, :, :], dims=["unique_direction", "layer", "wl"])
-
+                A_per_interface[surf_index] = xr.DataArray((I_rem_data[None, :]*A_per_int_layer.data)[None, :, :],
+                                                           dims=["unique_direction", "layer", "wl"])
 
             else:
                 # Fresnel equations
@@ -309,7 +328,7 @@ def analytical_start(nks,
                 {
                     "I": R_total,
                     "direction": final_R_directions,
-                    "n_interactions": np.array([n_interactions]),
+                    "n_interactions": xr.DataArray(np.array([n_interactions]), dims=["unique_direction"]),
                 }
             )
 
@@ -317,15 +336,18 @@ def analytical_start(nks,
                 {
                     "I": I_remaining * T,
                     "direction": final_T_directions,
-                    "n_interactions": np.array([n_interactions]),
+                    "n_interactions": xr.DataArray(np.array([n_interactions]), dims=["unique_direction"]),
                     "theta_t": theta_t,
                 }
             )
 
+            update_absorbed_details(a_details, np.sum(A_per_int_layer.data, 0)[None, :],
+                                    np.array([n_interactions]), np.array([n_passes]))
+
         else:
             # do analytical RT for non-planar surface with multiple faces
 
-            R_data, A_data, T_data, R_pol, T_pol = analytical_per_face(surfaces[surf_index],
+            R_data, A_data, T_data, R_pol, T_pol, A_int_detail = analytical_per_face(surfaces[surf_index],
                                           surf_index,
                                           d,
                                           tmm_args,
@@ -340,6 +362,13 @@ def analytical_start(nks,
 
             R_data['n_interactions'] = R_data["n_interactions"] + n_interactions
             T_data['n_interactions'] = T_data["n_interactions"] + n_interactions
+
+            n_int_detail = np.arange(1, A_int_detail.shape[0] + 1) + n_interactions
+
+            A_int_detail = A_int_detail*I_rem_data[None, :]
+
+            for i1, Ada in enumerate(A_int_detail):
+                update_absorbed_details(a_details, Ada,   np.array([n_interactions]), np.array([n_passes]))
 
             # scale R_data and T_data by I_remaining:
             R_data['I'] = R_data.I * I_rem_data[None, :]
@@ -402,13 +431,7 @@ def analytical_start(nks,
             I_abs_R = 1 - I_R
 
             I_out_per_direction_R = R_data.I.data * I_abs_R
-            absorbed_details[mat_i].append(
-                xr.Dataset({
-                    "A": xr.DataArray(I_out_per_direction_R, dims=["unique_direction", "wl"]),
-                    "n_interactions": R_data.n_interactions,
-                    "n_passes": R_data.n_interactions
-                })
-            )
+            update_absorbed_details(a_details, I_out_per_direction_R, R_data.n_interactions, R_data.n_passes)
 
             A_actual_R = np.sum(I_out_per_direction_R, axis=0)
             # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
@@ -443,13 +466,8 @@ def analytical_start(nks,
         I_abs = 1 - I
 
         I_out_per_direction = T_data.I.data * I_abs
-        absorbed_details[mat_i + initial_dir].append(
-            xr.Dataset({
-                "A": xr.DataArray(I_out_per_direction, dims=["unique_direction", "wl"]),
-                "n_interactions": T_data.n_interactions,
-                "n_passes": T_data.n_interactions
-            })
-        )
+        update_absorbed_details(a_details, I_out_per_direction, T_data.n_interactions,
+                                            T_data.n_passes)
         A_actual = np.sum(I_out_per_direction, axis=0)
         # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
         DA_actual = np.sum(T_data.I.data.T*DA, axis=2)
@@ -505,54 +523,43 @@ def analytical_start(nks,
             else:
                 prop_rays = zero_intensity_rays()
 
-            return profile.T, A_per_layer.T, absorbed_details, A_per_interface, overall_R, overall_T, prop_rays
+            a_details = xr.concat(a_details, dim="unique_direction")
+            a_details["A"] = np.real(a_details["A"])
+
+            # set nan values to 0:
+            a_details["A"] = a_details["A"].fillna(0)
+
+            R_to_add = np.sum(overall_R.I, axis=0).data
+            T_to_add = np.sum(overall_T.I, axis=0).data
+
+            A_interface_to_add = []
+            for darray in A_per_interface:
+                if np.sum(darray) > 0:
+                    A_interface_to_add.append(np.sum(darray.data, axis=0).T)
+
+                else:
+                    A_interface_to_add.append(0)
+
+            # return profile.T, A_per_layer.T, a_details, A_per_interface, overall_R, overall_T, prop_rays
+            result_per_wl = {"R": R_to_add, "T": T_to_add, "A_per_layer": A_per_layer.T,
+                             "A_per_interface": A_interface_to_add, "profile": profile.T}
+            result_detail = {"overall_R": overall_R, "overall_T": overall_T, "A_details": a_details}
+
+            return prop_rays, result_per_wl, result_detail
 
         else:
             # continue, but need to update inputs: transmitted rays at each wavelength become new
             # incident rays.
             angles.data = T_data.theta_t.data[0]
             theta = T_data.theta_t.data[0]
-            #I_remaining.data = 0
-            # losses from:
-            # - interface absorption
-            # - bulk absorption
-            # - reflection
-            # I_new = I_rem_data - np.sum(R_data.I, 0) - np.sum(A_per_layer, 0)
             I_remaining = remaining_after_bulk
-            # TODO: I think this only works for downwards
+
             # can only reach here if surfaces so far have been planar; end up with
             # two directions because planar surface is made of two triangles, but they
             # contain the same information
             I_remaining = I_remaining.sum(dim='unique_direction').expand_dims('unique_direction')
 
             d = T_data.direction[0].expand_dims('unique_direction').data
-
-
-            # need to construct d for each wavelength:
-
-    # import matplotlib.pyplot as plt
-    #
-    # plt.figure()
-    # plt.plot(wls, data_lists[0]['R_data'].R_total[0])
-    # plt.plot(wls, data_lists[0]['A_data'][0])
-    # plt.show()
-    #
-    # print('done')
-
-
-    # should first check if surface is planar; if it is, can just use TMM directly.
-
-    # what information do we need at the end of this?
-    # - information about the rays which need to be propagated forward to the normal ray-tracing procedure:
-    #    - intensities
-    #    - directions
-    #    - distribution of these directions (same as intensities)
-    #    - number of interactions of these rays
-    #    - all of these are as a function of wavelength
-    #    - need information on what has already happened to the rays: absorption per layer (bulk
-    #      and interface) so far, overall reflection/transmission into semi-infinite surrounding media,
-    #      and bulk absorption profiles
-    #    - can implement interface absorption profiles later
 
 
 def analytical_per_face(current_surf,
@@ -563,7 +570,7 @@ def analytical_per_face(current_surf,
                          direction,
                          current_pol,
                          max_interactions,
-                         ):
+                        ):
 
     n_wavelengths = nks.shape[1]
     how_many_faces = len(current_surf.N)
@@ -642,8 +649,11 @@ def analytical_per_face(current_surf,
         cos_inc[cos_inc < 0] = 0
         # if negative, then the ray is shaded from that pyramid face and will never hit it
 
-        tr_par = (n0 / n1) * (r_inc - np.sum(r_inc*normals[relevant_face, :, None], axis=1)[:,None] * normals[relevant_face, :, None])
-        tr_perp = -np.sqrt(1 - np.linalg.norm(tr_par,axis=1) ** 2)[:, None, :] * normals[relevant_face, :, None]
+        tr_par = (n0 / n1) * (r_inc - np.sum(r_inc * normals[relevant_face, :, None], axis=1)[:,
+                                      None] * normals[relevant_face, :, None])
+        tr_par_norm = np.linalg.norm(tr_par, axis=1)
+        tr_par_norm[tr_par_norm > 1] = 1
+        tr_perp = -np.sqrt(1 - tr_par_norm ** 2)[:, None, :] * normals[relevant_face, :, None]
 
         refracted_rays = np.real(tr_par + tr_perp)
         refracted_rays  = refracted_rays / np.linalg.norm(refracted_rays, axis=1)[:,None, :]
@@ -729,6 +739,11 @@ def analytical_per_face(current_surf,
     final_T_pol = np.array(final_T_pol)
     final_T_pol = final_T_pol / np.sum(final_T_pol, -1)[:, :, None]
 
+    # A_per_it has dimensions: (face, layer, interaction, wavelength)
+    # sum over layers:
+    A_per_it_sum = np.sum(hit_prob[:,None]*remaining_intensity*np.sum(A_per_it, axis=1), 0)
+    # A_per_it_sum is the total absorption in the interface (all faces) per interaction
+
     A_total = hit_prob[:, None] * np.sum(remaining_intensity[:, None, :, :] * A_per_it, axis=2)
 
     # theta_out_R = np.arccos(final_R_directions[:, 2] / np.linalg.norm(final_R_directions, axis=1))
@@ -784,7 +799,7 @@ def analytical_per_face(current_surf,
         }
     )
 
-    return R_data, A_data, T_data, final_R_pol, final_T_pol
+    return R_data, A_data, T_data, final_R_pol, final_T_pol, A_per_it_sum
 
 
 def lambertian_scattering(strt, save_location, options):

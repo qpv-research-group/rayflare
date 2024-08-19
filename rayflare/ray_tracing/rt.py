@@ -1079,7 +1079,7 @@ class rt_structure:
             depths.append(z_pos[depth_indices[i1]] - np.cumsum(widths)[i1 - 1])
 
         if analytical_rt > 0:
-            profile_to_add, A_bulk_to_add, A_details, A_interface, overall_R, overall_T, prop_rays = analytical_start(
+            prop_rays, result_per_wl, result_detail = analytical_start(
                 nks,
                 alphas,
                 theta,
@@ -1097,17 +1097,7 @@ class rt_structure:
                 options.analytical_ray_tracing,
                 wavelengths*1e9
             )
-
-            R_to_add = np.sum(overall_R.I, axis=0).data
-            T_to_add = np.sum(overall_T.I, axis=0).data
-
-            A_interface_to_add = []
-            for darray in A_interface:
-                if np.sum(darray) > 0:
-                    A_interface_to_add.append(np.sum(darray.data, axis=0).T)
-
-                else:
-                    A_interface_to_add.append(0)
+            A_interface_to_add = result_per_wl["A_per_interface"]
 
         else:
             prop_rays = dummy_prop_rays()
@@ -1155,7 +1145,7 @@ class rt_structure:
         # local_thetas = [item[8] for item in allres]
         # directions = [item[9] for item in allres]
         profile_interfaces = [item[8] for item in allres]
-        n_remaining = np.stack([item[9] for item in allres])
+        n_rem = np.stack([item[9] for item in allres])
 
         if sum(self.tmm_or_fresnel) > 0:
 
@@ -1213,7 +1203,7 @@ class rt_structure:
         # process A_interfaces
 
         if np.any(np.abs(thetas) >= 10):  # Lambertian scattering
-
+            # TODO: make this a separate function
             # +ve if travelling down, about to hit rear surface.
             # stop normal RT right before next interaction with surface, but AFTER taking into account bulk
             # absorption on this pass
@@ -1266,128 +1256,22 @@ class rt_structure:
 
         # add results from analytical ray tracing:
         if analytical_rt > 0:
-            R += R_to_add
-            T += T_to_add
-            A_layer += A_bulk_to_add
-            absorption_profiles += profile_to_add
 
-            # also need to modify correctly set entries of n_interactions,
-            # n_passes, thetas, phis, and Is
+            # TODO: make this a separate function
+            R += result_per_wl["R"]
+            T += result_per_wl["T"]
+            A_layer += result_per_wl["A_per_layer"]
+            absorption_profiles += result_per_wl["profile"]
 
-            max_rays = len(xs) * len(ys) * n_reps  # shouldn't really need to calculate this here
+            max_rays = len(xs) * len(ys) * n_reps
 
-            # select prop_rays.direction where I < 1e-9:
-            # theta_anlt = np.arccos(prop_rays.direction[:,2])
-            # phi_anlt = np.arctan(prop_rays.direction[:,1]/prop_rays.direction[:,0])
+            thetas, phis, Is, n_passes, n_interactions = update_ray_tracing_results(
+                max_rays, n_rem, result_detail, thetas, phis, Is, n_passes, n_interactions
+            )
 
-            n_analytical = max_rays - n_remaining # number of rays accounted for by analytical calculation
-
-            wl_ind_anlt = np.where(n_analytical > 0)[0]
-
-            R_per_wl = np.sum(overall_R.I, 0)
-            T_per_wl = np.sum(overall_T.I, 0)
-
-            for wl_ind in wl_ind_anlt:
-                # TODO: transmission not included here
-
-                A_interf = np.sum([np.sum(A_intf[wl_ind]) if not isinstance(A_intf, int) else 0 for A_intf in A_interface_to_add])
-                total_A = np.sum(A_bulk_to_add[wl_ind]) + A_interf
-                n_absorbed = int(np.round(total_A*max_rays, 0))
-
-                # set absorbed thetas to nan:
-                thetas[wl_ind][n_remaining[wl_ind]:(n_remaining[wl_ind] + n_absorbed)] = np.nan
-                phis[wl_ind][n_remaining[wl_ind]:(n_remaining[wl_ind] + n_absorbed)] = 0
-                Is[wl_ind][n_remaining[wl_ind]:(n_remaining[wl_ind] + n_absorbed)] = 0
-
-                A_bulk_wl = A_bulk_to_add[wl_ind][1:-1]
-                A_interface_wl = [A_interf[wl_ind] if not isinstance(A_interf, int) else 0 for
-                                  A_interf in A_interface_to_add]
-
-                n_per_bulk = max_rays * A_bulk_wl
-                n_per_interface = np.array(
-                    [np.sum(max_rays * A_interf) for A_interf in A_interface_wl])
-
-                n_per_bulk_int = np.round(n_per_bulk).astype(int)
-                n_per_interface_int = np.round(n_per_interface).astype(int)
-
-                while np.sum(n_per_bulk_int) + np.sum(n_per_interface_int) < n_absorbed:
-                    n_per_bulk_int[np.argmax(n_per_bulk - n_per_bulk_int)] += 1
-
-                while np.sum(n_per_bulk_int) + np.sum(n_per_interface_int) > n_absorbed:
-                    n_per_bulk_int[np.argmin(n_per_bulk - n_per_bulk_int)] -= 1
-
-                offset_n = 0
-                for i1, n_entries in enumerate(n_per_bulk_int):
-                    n_passes[wl_ind][(n_remaining[wl_ind] + offset_n):(n_remaining[wl_ind] + offset_n + n_entries)] = i1+1
-                    offset_n += n_entries
-
-                n_other = n_analytical[wl_ind] - n_absorbed
-
-                if T_per_wl[wl_ind] > 0:
-                    n_R = int(np.round(R_per_wl[wl_ind]*n_other,0))
-                    n_T = n_other - n_R
-
-                else:
-                    n_R = n_other
-                    n_T = 0
-
-                # divide n_analytical total rays fairly between bins weighted by overall_R.I:
-                n_cat = [n_R, n_T]
-                data_x = [overall_R, overall_T]
-
-                current_start = n_remaining[wl_ind] + n_absorbed
-
-                for [anlt_data, n_in_cat] in zip(data_x, n_cat):
-                    if n_in_cat > 0:
-
-                        weights = anlt_data.I.isel(wl=wl_ind).data
-
-                        # I_R_scale = n_R/np.sum(n_rays_per_R_direction)
-                        rays_per_dir = weights/np.sum(weights) * n_in_cat
-                        # make entrie of rays_per_R integers, but so they still have the same sum:
-                        n_rays_per_direction = np.round(rays_per_dir).astype(int)
-
-                        while sum(n_rays_per_direction) < n_in_cat:
-                            n_rays_per_direction[np.argmax(rays_per_dir - n_rays_per_direction)] += 1
-
-                        while sum(n_rays_per_direction) > n_in_cat:
-                            n_rays_per_direction[np.argmin(rays_per_dir - n_rays_per_direction)] -= 1
-
-                        scale_I = weights*max_rays/n_rays_per_direction
-
-                        if 'wl' in anlt_data.direction.dims:
-                            theta_R = np.arccos(anlt_data.direction.isel(wl=wl_ind, xyz=2))
-                            phi_R = np.arctan(anlt_data.direction.isel(wl=wl_ind, xyz=1)/anlt_data.direction.isel(wl=wl_ind, xyz=0))
-
-                        else:
-                            theta_R = np.arccos(anlt_data.direction.isel(xyz=2))
-                            phi_R = np.arctan(anlt_data.direction.isel(xyz=1)/anlt_data.direction.isel(xyz=0))
-
-                        for i1, n_unique_R in enumerate(n_rays_per_direction):
-                            thetas[wl_ind][current_start:(current_start + n_unique_R)] = theta_R[i1]
-                            phis[wl_ind][current_start:(current_start + n_unique_R)] = phi_R[i1]
-                            Is[wl_ind][current_start:(current_start + n_unique_R)] = scale_I[i1]
-                            n_interactions[wl_ind][current_start:(current_start + n_unique_R)] = anlt_data.n_interactions[i1]
-                            current_start += n_unique_R
 
         R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
         R0 = np.sum(R0, 0)
-
-        # total = R + T + np.sum(A_layer[:, 1:-1], axis=1) + A_per_interface[1][:,1] + \
-        #         A_per_interface[2][:, 0]
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.plot(wavelengths*1e9, R, label='R')
-        # plt.plot(wavelengths*1e9, T, label='T')
-        # plt.plot(wavelengths*1e9, A_layer[:, 1:-1], label='A')
-        # plt.plot(wavelengths*1e9, A_per_interface[1][:,1], label='GaAs')
-        # plt.plot(wavelengths*1e9, A_per_interface[2][:,0], label='Si_back')
-        # plt.plot(wavelengths*1e9, total, 'k-', label='total')
-        # plt.axhline(1)
-        # plt.legend()
-        # plt.show()
-
-
 
         return {
             "R": R,
@@ -1400,7 +1284,6 @@ class rt_structure:
             "n_passes": n_passes,
             "n_interactions": n_interactions,
             "A_per_interface": A_per_interface,
-            # "A_interfaces": A_interfaces,
             "interface_profiles": interface_profiles,
             "Is": Is,
             "xy": [xs, ys],
@@ -1410,6 +1293,88 @@ class rt_structure:
         prof_results = self.calculate(options)
         return prof_results
 
+
+def update_ray_tracing_results(
+    max_rays, n_rem, analytical_result, thetas, phis, Is, n_passes, n_interactions
+):
+    n_analytical = max_rays - n_rem
+    wl_ind_anlt = np.where(n_analytical > 0)[0]
+
+    overall_R = analytical_result["overall_R"]
+    overall_T = analytical_result["overall_T"]
+    A_details = analytical_result["A_details"]
+
+    n_abs_anlt = np.round(np.sum(A_details.A.data, 0) * max_rays, 0).astype(int)
+    R_per_wl = np.sum(overall_R.I, 0)
+    T_per_wl = np.sum(overall_T.I, 0)
+
+    for wl_ind in wl_ind_anlt:
+        thetas[wl_ind][n_rem[wl_ind]:(n_rem[wl_ind] + n_abs_anlt[wl_ind])] = np.nan
+        phis[wl_ind][n_rem[wl_ind]:(n_rem[wl_ind] + n_abs_anlt[wl_ind])] = np.nan
+        Is[wl_ind][n_rem[wl_ind]:(n_rem[wl_ind] + n_abs_anlt[wl_ind])] = 0
+
+        A_details_wl = A_details.isel(wl=wl_ind)
+        n_per_entry = max_rays * A_details_wl.A.data
+        n_per_entry_int = np.round(n_per_entry).astype(int)
+
+        while np.sum(n_per_entry_int) < n_abs_anlt[wl_ind]:
+            n_per_entry_int[np.argmax(n_per_entry - n_per_entry_int)] += 1
+
+        while np.sum(n_per_entry_int) > n_abs_anlt[wl_ind]:
+            n_per_entry_int[np.argmin(n_per_entry - n_per_entry_int)] -= 1
+
+        A_details_wl = A_details_wl.sel(unique_direction=n_per_entry_int > 0)
+        n_per_entry_int = n_per_entry_int[n_per_entry_int > 0]
+
+        offset_n = 0
+        for i1, n_entries in enumerate(n_per_entry_int):
+            n_passes[wl_ind][(n_rem[wl_ind] + offset_n):(n_rem[wl_ind] + n_entries)] = A_details_wl.n_passes[i1].data
+            n_interactions[wl_ind][(n_rem[wl_ind] + offset_n):(n_rem[wl_ind] + n_entries)] = A_details_wl.n_interactions[i1].data
+            offset_n += n_entries
+
+        n_other = n_analytical[wl_ind] - n_abs_anlt[wl_ind]
+
+        if T_per_wl[wl_ind] > 0:
+            n_R = int(np.round(R_per_wl[wl_ind] * n_other, 0))
+            n_T = n_other - n_R
+        else:
+            n_R = n_other
+            n_T = 0
+
+        n_cat = [n_R, n_T]
+        data_x = [overall_R, overall_T]
+
+        current_start = n_rem[wl_ind] + n_abs_anlt[wl_ind]
+
+        for anlt_data, n_in_cat in zip(data_x, n_cat):
+            if n_in_cat > 0:
+                weights = anlt_data.I.isel(wl=wl_ind).data
+                rays_per_dir = weights / np.sum(weights) * n_in_cat
+                n_rays_per_direction = np.round(rays_per_dir).astype(int)
+
+                while sum(n_rays_per_direction) < n_in_cat:
+                    n_rays_per_direction[np.argmax(rays_per_dir - n_rays_per_direction)] += 1
+
+                while sum(n_rays_per_direction) > n_in_cat:
+                    n_rays_per_direction[np.argmin(rays_per_dir - n_rays_per_direction)] -= 1
+
+                scale_I = weights * max_rays / n_rays_per_direction
+
+                if 'wl' in anlt_data.direction.dims:
+                    theta_R = np.arccos(anlt_data.direction.isel(wl=wl_ind, xyz=2))
+                    phi_R = np.arctan(anlt_data.direction.isel(wl=wl_ind, xyz=1) / anlt_data.direction.isel(wl=wl_ind, xyz=0))
+                else:
+                    theta_R = np.arccos(anlt_data.direction.isel(xyz=2))
+                    phi_R = np.arctan(anlt_data.direction.isel(xyz=1) / anlt_data.direction.isel(xyz=0))
+
+                for i1, n_unique_R in enumerate(n_rays_per_direction):
+                    thetas[wl_ind][current_start:(current_start + n_unique_R)] = theta_R[i1]
+                    phis[wl_ind][current_start:(current_start + n_unique_R)] = phi_R[i1]
+                    Is[wl_ind][current_start:(current_start + n_unique_R)] = scale_I[i1]
+                    n_interactions[wl_ind][current_start:(current_start + n_unique_R)] = anlt_data.n_interactions[i1]
+                    current_start += n_unique_R
+
+    return thetas, phis, Is, n_passes, n_interactions
 
 def make_tmm_args(arg_list):
     # print("TMM lookup tables used for interfaces: {}".format([i1 for i1, x in enumerate(arg_list[1]) if x == 1]))
@@ -1691,6 +1656,8 @@ def parallel_inner(
         local_thetas = local_thetas[1:]
         local_pols = local_pols[1:]
         directions = directions[1:]
+
+        phis[np.isnan(thetas)] = np.nan
 
         if tmm_args[0] > 0:
             # process A_interfaces
