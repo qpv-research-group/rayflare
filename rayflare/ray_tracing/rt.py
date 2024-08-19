@@ -31,6 +31,10 @@ from .analytical_rt import (lambertian_scattering, calculate_lambertian_profile,
 
 from rayflare import logger
 
+unit_cell_N = np.array(
+    [[0, -1, 0], [-1, 0, 0], [0, 1, 0], [1, 0, 0]]
+)  # surface normals: top, right, bottom, left
+
 class Ray:
     """Class to store ray information for ray-tracing calculations."""
     def __init__(self,
@@ -2010,16 +2014,10 @@ def calc_R(n1, n2, theta, ray):
         return Rs, Rp
 
 
-def exit_side(r_a, d, Lx, Ly):
-    n = np.array(
-        [[0, -1, 0], [-1, 0, 0], [0, 1, 0], [1, 0, 0]]
-    )  # surface normals: top, right, bottom, left
-    p_0 = np.array(
-        [[0, Ly, 0], [Lx, 0, 0], [0, 0, 0], [0, 0, 0]]
-    )  # points on each plane
-    denom = np.sum(d * n, axis=1)
+def exit_side(r_a, d, p_0):
+    denom = np.sum(d * unit_cell_N, axis=1)
     denom[denom == 0] = 1e-12
-    t = np.sum((p_0 - r_a) * n, axis=1) / denom  # r_intersect = r_a + t*d
+    t = np.sum((p_0 - r_a) * unit_cell_N, axis=1) / denom  # r_intersect = r_a + t*d
     which_intersect = t > 0  # only want intersections of forward-travelling ray
     t[~which_intersect] = float(
         "inf"
@@ -2423,6 +2421,10 @@ def single_interface_check(
 ):
     decide = {0: decide_RT_Fresnel, 1: decide_RT_TMM}
 
+    p_0 = np.array(
+        [[0, Ly, 0], [Lx, 0, 0], [0, 0, 0], [0, 0, 0]]
+    )  # points on each plane
+
     d0 = ray.d
     intersect = True
     checked_translation = False
@@ -2441,7 +2443,7 @@ def single_interface_check(
 
         if result is False and not checked_translation:
             if i1 > 1:
-                which_side, _ = exit_side(ray.r_a, ray.d, Lx, Ly)
+                which_side, _ = exit_side(ray.r_a, ray.d, p_0)
                 ray.r_a = ray.r_a + translation[which_side]
                 # if random pyramid, need to change surface at this point
                 tri.refresh()
@@ -2493,7 +2495,7 @@ def single_interface_check(
                     ray.r_a[1] = (
                         ray.r_a[1] % Ly
                     )  # translate back into until cell before doing any additional translation
-                ex, t = exit_side(ray.r_a, ray.d, Lx, Ly)
+                ex, t = exit_side(ray.r_a, ray.d, p_0)
 
                 ray.r_a = ray.r_a + t * ray.d + translation[ex]
                 # also change surface here
