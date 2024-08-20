@@ -2366,7 +2366,7 @@ def traverse(ray, width, theta, alpha, x, y, positions, I_thresh, direction):
 
     return DA, stop, theta
 
-def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side, theta):
+def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side):
     # TODO: is it necessary to normalize here or will it already be normalized?
     if np.abs(np.linalg.norm(ray.d) - 1) > 1e-2:
         raise ValueError(f"Ray direction not normalized {np.linalg.norm(ray.d)}")
@@ -2544,7 +2544,7 @@ def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
     R_plus_T = 1
 
     side, _ = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, 1-Rs, 1-Rp, 0,
-                              n0, n1, N, side, theta)
+                              n0, n1, N, side)
 
     return side, None  # never absorbed, A = False
 
@@ -2565,7 +2565,7 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable):
     R_plus_T = R + T
 
     side, A = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer,
-                              n0, n1, N, side, theta)
+                              n0, n1, N, side)
 
     return side, A
 
