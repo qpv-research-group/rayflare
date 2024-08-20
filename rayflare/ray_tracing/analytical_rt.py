@@ -399,7 +399,8 @@ def analytical_start(nks,
         # 'normal' ray tracing. Otherwise, or if we have check the last surface in the structure,
         # end and return results.
 
-        if np.unique(T_data.direction, axis=0).shape[0] > 1 or not in_structure:
+        if (np.unique(T_data.direction, axis=0).shape[0] > 1 or
+                not in_structure or surfaces[surf_index-1].phong):
 
             # single_direction = False
             # end, need to save/return final results here
@@ -416,6 +417,10 @@ def analytical_start(nks,
             # dataarrays for: direction (xyz), intensity, number of interactions,
 
             if include_T:
+
+                if T_pol.ndim == 2:
+                    T_pol = T_pol[None, :, :]
+
                 prop_rays.append(xr.Dataset(
                     {
                         "I": remaining_after_bulk,

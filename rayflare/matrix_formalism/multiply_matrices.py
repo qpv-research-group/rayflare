@@ -166,7 +166,7 @@ def dot_wl(mat, vec):
         result = einsum('ijk,ik->ij', mat, vec).todense()
 
     if len(mat.shape) == 2:
-        result = einsum('ijk,ik->ij', mat, vec).todense()
+        result = einsum('jk,ik->ij', mat, vec).todense()
 
     return result
 

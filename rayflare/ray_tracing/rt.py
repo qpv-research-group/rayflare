@@ -812,7 +812,7 @@ def calculate_interface_profiles(
         return []
 
 
-def make_rt_args(existing_rays, xs, ys, n_reps):
+def make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options):
     """Make arguments for single_ray_stack with existing rays from analytical calculation."""
     max_rays = len(xs) * len(ys) * n_reps  # shouldn't really need to calculate this here
 
@@ -825,14 +825,26 @@ def make_rt_args(existing_rays, xs, ys, n_reps):
     n_passes = existing_rays.n_passes[Is > 1e-9]
     Is = Is[Is > 1e-9]
 
+    previous_surface = current_mat - (dirs[:,2] < 0) # for rays travelling up, the last surface
+    # interacted with has surf_index = current_mat. For rays travelling down, they were transmitted
+    # through that same surface, so the surf_index is current_mat -1. These should all be the same
+    # surface, otherwise something has gone wrong.
+    previous_surface = np.unique(previous_surface)[0]
+
     rays_per_direction = np.floor(Is*max_rays).astype(int)
     rays_per_direction[rays_per_direction == 0] = 1
     # TODO: keep track of which face the rays came from, then generate random position within that face?
     # print(dirs)
     scale_factor = Is/(rays_per_direction/max_rays)
 
-    ds = np.vstack([np.tile(dirs[i], (rays_per_direction[i], 1)) for i in range(len(dirs))])
-    pols = np.vstack([np.tile(pols[i], (rays_per_direction[i], 1)) for i in range(len(pols))])
+    if phong_params[previous_surface]:
+
+        ds, pols = ray_update_phong_vec(dirs, pols, phong_options[previous_surface], rays_per_direction)
+
+    else:
+
+        ds = np.vstack([np.tile(dirs[i], (rays_per_direction[i], 1)) for i in range(len(dirs))])
+        pols = np.vstack([np.tile(pols[i], (rays_per_direction[i], 1)) for i in range(len(pols))])
 
     i_mats = np.concatenate([[current_mat[i]]*rays_per_direction[i] for i in range(len(current_mat))])
     i_dirs = np.ones_like(i_mats)
@@ -1567,9 +1579,12 @@ def parallel_inner(
         end_ind = nx*ny*np.ones(n_reps, dtype=int)
 
         if prop_rays_analytical:
+
+            phong_params = np.array([x.phong for x in surfaces])
+            phong_options = [x.phong_options for x in surfaces]
             # TODO: pol will also change if already interacted with a surface!
             ds, pols, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = (
-                make_rt_args(existing_rays, xs, ys, n_reps))
+                make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options))
             stop_before = int(np.ceil(n_remaining/(nx*ny)))
 
             x_y_combs = np.zeros((nx*ny, 2))
@@ -1881,7 +1896,17 @@ class RTSurface:
         self.z_min = min(Points[:, 2])
         self.z_max = max(Points[:, 2])
 
-        self.phong = False
+        if "phong" in kwargs:
+            self.phong = kwargs["phong"]
+
+        else:
+            self.phong = False
+
+        if "phong_options" in kwargs:
+            self.phong_options = kwargs["phong_options"]
+
+        else:
+            self.phong_options = [0.15, True, True]
 
         # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
         # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
@@ -2066,7 +2091,8 @@ def single_ray_stack(
     single_surface = {0: single_cell_check, 1: single_interface_check}
 
     ray = Ray(I_in, d, r_a, pol)
-    ray_update_funcs = [update_ray_d_pol, update_ray_d_pol_phong]
+    # 0: do nothing, 1: Phong scattering
+
     # use single_cell_check if not periodic, single_interface_check if is periodic
 
     # final_res = 0: reflection
@@ -2124,7 +2150,6 @@ def single_ray_stack(
             ray.r_a = r_b - n_z * ray.d
             # print('after', r_a)
 
-
         if periodic:
 
             ray.r_a[0] = ray.r_a[0] - surf.Lx * (
@@ -2156,7 +2181,6 @@ def single_ray_stack(
             direction,
             surf.zcov,
             n_interactions,
-            ray_update_funcs[surf.phong],
             **tmm_kwargs_list[surf_index]
         )
 
@@ -2167,10 +2191,18 @@ def single_ray_stack(
             # staying in the same material, so mat_i does not change, but surf_index does
             surf_index = surf_index + direction
 
+            if surf.phong:
+                # do phong scattering
+                theta, phi = ray_update_phong(ray, direction, theta, phi, surf.phong_options)
+
 
         elif res == 1:  # transmission
             surf_index = surf_index + direction
             mat_i = mat_i + direction
+
+            if surf.phong:
+                # do phong scattering
+                theta, phi = ray_update_phong(ray, direction, theta, phi, surf.phong_options)
 
         elif res == 2:  # absorption
             stop = True  # absorption in an interface (NOT a bulk layer!)
@@ -2244,8 +2276,6 @@ def single_ray_interface(
     surf_index = 0
     stop = False
 
-    ray_update_funcs = [update_ray_d_pol, update_ray_d_pol_phong]
-
     # could be done before to avoid recalculating every time
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array(
@@ -2276,7 +2306,6 @@ def single_ray_interface(
             direction,
             surf.zcov,
             0,
-            ray_update_funcs[surf.phong],
             wl,
             Fr_or_TMM,
             lookuptable,
@@ -2337,75 +2366,17 @@ def traverse(ray, width, theta, alpha, x, y, positions, I_thresh, direction):
 
     return DA, stop, theta
 
-def update_ray_d_pol(ray):
-    ray.d = ray.d / np.linalg.norm(ray.d)
-    ray.pol = ray.pol / np.sum(
-        ray.pol)  # must always sum to 1, these are weights not intensities
-
-def update_ray_d_pol_phong(ray):
-    ray.d = ray.d / np.linalg.norm(ray.d)
-    ray.pol = ray.pol / np.sum(
-        ray.pol)  # must always sum to 1, these are weights not intensities
-
-def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
-                        lookuptable=None, ray_update_func=update_ray_d_pol, ):
-
-    ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
-
-    if abs(theta) > np.arcsin(ratio):
-        Rs, Rp = 1, 1
-    else:
-        Rs, Rp = calc_R(n0, n1, abs(theta), ray)
-
-    # print('local theta/R', theta, R, n0, n1, d, N, side)
-    # if np.real(n1) == 1:
-    #     print('local theta', theta, R)
-    R = ray.pol[0]*Rs + ray.pol[1]*Rp
+def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side, theta):
+    # TODO: is it necessary to normalize here or will it already be normalized?
+    if np.abs(np.linalg.norm(ray.d) - 1) > 1e-2:
+        raise ValueError(f"Ray direction not normalized {np.linalg.norm(ray.d)}")
 
     if rnd <= R:  # REFLECTION
         ray.d = np.real(ray.d - 2 * np.dot(ray.d, N) * N)
-        ray.pol = [Rs * ray.pol[0], Rp * ray.pol[1]]
-
-    else:  # TRANSMISSION)
-        # transmission, refraction
-        # for now, ignore effect of k on refraction
-        tr_par = (np.real(n0) / np.real(n1)) * (ray.d - np.dot(ray.d, N) * N)
-        tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
-        side = -side
-        ray.d = np.real(tr_par + tr_perp)
-        ray.pol = [(1-Rs) * ray.pol[0], (1-Rp) * ray.pol[1]]
-
-    # ray.d = ray.d / np.linalg.norm(ray.d)
-    # ray.pol = ray.pol / np.sum(
-    #     ray.pol)  # must always sum to 1, these are weights not intensities
-    ray_update_func(ray)
-
-    return side, None  # never absorbed, A = False
-
-
-def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable,
-                  ray_update_func=update_ray_d_pol):
-
-    data_sp = lookuptable.loc[dict(side=side)].sel(
-        angle=abs(theta), method="nearest",
-    ) # why do I have to do this in two steps?
-
-    # multiply along the pol dimension by ray.pol:
-    [Rs, Rp] = data_sp.R.data*ray.pol
-    [Ts, Tp] = data_sp.T.data*ray.pol
-    A_per_layer = np.sum(data_sp.Alayer.data.T * ray.pol, 1)
-
-    R = Rs + Rp
-    T = Ts + Tp
-
-    if rnd <= R:  # REFLECTION
-
-        ray.d = np.real(ray.d - 2 * np.dot(ray.d, N) * N)
-
         ray.pol = [Rs*ray.pol[0], Rp*ray.pol[1]]
         A = None
 
-    elif (rnd > R) & (rnd <= (R + T)):  # TRANSMISSION
+    elif (rnd > R) & (rnd <= (R_plus_T)):  # TRANSMISSION
         # transmission, refraction
         # tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
         tr_par = (n0 / n1) * (ray.d - np.dot(ray.d, N) * N)
@@ -2420,10 +2391,181 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable,
         # absorption
         A = A_per_layer
 
-    # ray.d = ray.d / np.linalg.norm(ray.d)
-    # ray.pol = ray.pol / np.sum(
-    #     ray.pol)
-    ray_update_func(ray)
+    ray.d = ray.d / np.linalg.norm(ray.d)
+    ray.pol = ray.pol / np.sum(
+        ray.pol)  # must always sum to 1, these are weights not intensities
+
+    return side, A
+
+# def update_ray_d_pol_phong(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side,
+#                            theta):
+#     # TODO: is it necessary to normalize here or will it already be normalized?
+#     if np.abs(np.linalg.norm(ray.d) - 1) > 1e-2:
+#         raise ValueError(f"Ray direction not normalized {np.linalg.norm(ray.d)}")
+#
+#     alpha = 2 # 1 = Lambertian, higher = more specular
+#     rnd2 = np.random.rand(2)
+#     delta_theta = np.arccos(rnd2[0]**(1/(alpha+1)))
+#     signed_cos_theta = np.dot(ray.d, N)
+#     phong_angle = np.real(theta) + delta_theta
+#     if phong_angle >= np.pi/2:
+#         phong_angle = phong_angle - np.pi/2
+#     theta_extra_cos = np.sign(signed_cos_theta)*np.cos(phong_angle)
+#
+#     if rnd <= R:  # REFLECTION
+#         ray.d = np.real(ray.d - (2 * np.dot(ray.d, N) * N))
+#         test = np.real(ray.d - (signed_cos_theta) * N )
+#         test = test/np.linalg.norm(test)
+#         # randomize the x and y directions (i.e., randomize phi):
+#         xy_mag = np.linalg.norm(ray.d[:2])
+#         new_x = np.random.rand()
+#         new_y = np.sqrt(xy_mag**2 - new_x**2)
+#         ray.d = np.array([new_x, new_y, ray.d[2]])
+#         ray.pol = [Rs*ray.pol[0], Rp*ray.pol[1]]
+#         A = None
+#
+#     elif (rnd > R) & (rnd <= (R_plus_T)):  # TRANSMISSION
+#         # transmission, refraction
+#         # tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N) # not really sure what makes more sense here
+#         tr_par = (n0 / n1) * (ray.d - np.dot(ray.d, N) * N)
+#         tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
+#
+#         side = -side
+#         ray.d = np.real(tr_par + tr_perp)
+#         ray.pol = [Ts * ray.pol[0], Tp * ray.pol[1]]
+#         A = None
+#
+#     else:
+#         # absorption
+#         A = A_per_layer
+#
+#     ray.d = ray.d / np.linalg.norm(ray.d)
+#     ray.pol = ray.pol / np.sum(
+#         ray.pol)  # must always sum to 1, these are weights not intensities
+#
+#     return side, A
+
+def ray_update_phong(ray, direction, theta, phi, phong_options):
+
+    # TODO: alpha should be an option
+
+    delta_theta = np.random.normal(0, phong_options[0]) # std dev in radians
+
+    phong_angle = np.real(theta) % np.pi + delta_theta
+
+    if phong_angle > np.pi/2:
+        phong_angle = np.pi/2 - phong_angle # must be < pi/2 / 90 degrees
+
+    z = np.cos(phong_angle)
+    xy_magnitude = np.sin(phong_angle)
+
+    if phong_options[1]:
+        # randomize the x and y directions (i.e., randomize phi
+        phi = 2*np.pi*np.random.rand()
+
+    x = np.cos(phi)*xy_magnitude
+    y = np.sin(phi)*xy_magnitude
+
+    ray.d = np.array([x, y, -direction*z])
+
+    theta = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+
+    if phong_options[2]:
+        # randomise the polarization
+        ray.pol = np.random.rand(2)
+        ray.pol = ray.pol / np.sum(ray.pol)
+
+    return theta, phi
+
+def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
+
+    total_rays = np.sum(n_rays)
+    # TODO: alpha should be an option
+    delta_theta = np.random.normal(0, phong_options[0], total_rays) # std dev in radians
+
+    delta_theta[delta_theta > np.pi] = delta_theta[delta_theta > np.pi] - 2*np.pi
+    delta_theta[delta_theta < -np.pi] = delta_theta[delta_theta < -np.pi] + 2*np.pi
+
+    thetas = np.arccos(ray_ds[:, 2])
+    # repeat each thetas as many times as n_rays index says:
+    dir_sign = np.sign(ray_ds[:, 2])
+    phis = np.arctan2(ray_ds[:, 1], ray_ds[:, 0])
+    thetas = np.repeat(thetas, n_rays)
+    phis = np.repeat(phis, n_rays)
+    dir_sign = np.repeat(dir_sign, n_rays)
+
+    phong_angle = thetas + delta_theta
+
+    quadrant = np.sign(np.cos(phong_angle))
+
+    flipped_direction = dir_sign != quadrant
+
+    phong_angle[flipped_direction] = thetas[flipped_direction] - delta_theta[flipped_direction] # go in other direction
+    # make sure this is in range (0, np.pi):
+    phis[phong_angle < 0] = (phis[phong_angle < 0] + np.pi) % (2*np.pi)
+    phong_angle[phong_angle < 0] = -phong_angle[phong_angle < 0]
+
+    phis[phong_angle > np.pi] = (phis[phong_angle > np.pi] + np.pi) % (2*np.pi)
+    phong_angle[phong_angle > np.pi] = 2*np.pi - phong_angle[phong_angle > np.pi]
+
+    z = np.cos(phong_angle)
+    xy_magnitude = np.sin(phong_angle)
+
+    if phong_options[1]:
+        # randomize the x and y directions (i.e., randomize phi
+        phis = 2*np.pi*np.random.rand(total_rays)
+
+    x = np.cos(phis)*xy_magnitude
+    y = np.sin(phis)*xy_magnitude
+
+    ray_ds = np.column_stack((x, y, z))
+
+    if phong_options[2]:
+        # randomise the polarization
+        pols = np.random.rand(total_rays, 2)
+        pols = pols / np.sum(pols, 1)[:, None]
+
+    else:
+        pols = np.vstack([np.tile(pols[i], (n_rays[i], 1)) for i in range(len(pols))])
+
+    return ray_ds, pols
+
+def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
+                        lookuptable=None):
+
+    ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
+
+    if abs(theta) > np.arcsin(ratio):
+        Rs, Rp = 1, 1
+    else:
+        Rs, Rp = calc_R(n0, n1, abs(theta), ray)
+
+    R = ray.pol[0]*Rs + ray.pol[1]*Rp
+    R_plus_T = 1
+
+    side, _ = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, 1-Rs, 1-Rp, 0,
+                              n0, n1, N, side, theta)
+
+    return side, None  # never absorbed, A = False
+
+
+def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable):
+
+    data_sp = lookuptable.loc[dict(side=side)].sel(
+        angle=abs(theta), method="nearest",
+    ) # why do I have to do this in two steps?
+
+    # multiply along the pol dimension by ray.pol:
+    [Rs, Rp] = data_sp.R.data*ray.pol
+    [Ts, Tp] = data_sp.T.data*ray.pol
+    A_per_layer = np.sum(data_sp.Alayer.data.T * ray.pol, 1)
+
+    R = Rs + Rp
+    T = Ts + Tp
+    R_plus_T = R + T
+
+    side, A = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer,
+                              n0, n1, N, side, theta)
 
     return side, A
 
@@ -2438,7 +2580,6 @@ def single_interface_check(
     side,
     z_cov,
     n_interactions=0,
-    ray_update_func=update_ray_d_pol,
     wl=None,
     Fr_or_TMM=0,
     lookuptable=None,
@@ -2582,7 +2723,7 @@ def single_interface_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable, ray_update_func,
+                ray, n0, n1, theta, N, side, rnd, lookuptable
             )
 
             ray.r_a = np.real(
@@ -2617,7 +2758,6 @@ def single_cell_check(
     side,
     z_cov,
     n_interactions=0,
-    ray_update_func=update_ray_d_pol,
     wl=None,
     Fr_or_TMM=0,
     lookuptable=None,
@@ -2689,7 +2829,7 @@ def single_cell_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable, ray_update_func
+                ray, n0, n1, theta, N, side, rnd, lookuptable
             )
 
             ray.r_a = np.real(

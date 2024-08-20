@@ -54,7 +54,7 @@ rtstr_text = rt_structure(
     overwrite=True,
 )
 
-angle_in = np.linspace(0, 70, 8)
+angle_in = np.linspace(5, 5, 1)
 
 n_int_R_a = np.zeros((len(angle_in), len(wl)))
 n_int_T_a = np.zeros((len(angle_in), len(wl)))
