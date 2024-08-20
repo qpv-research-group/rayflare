@@ -5,6 +5,8 @@ from rayflare.utilities import get_savepath
 from copy import deepcopy
 from solcore.state import State
 
+from rayflare import logger
+
 theta_lamb = np.linspace(0, 0.999 * np.pi / 2, 100)
 def traverse_vectorised(width, theta, alpha, I_i, positions, direction):
 
@@ -312,11 +314,6 @@ def analytical_start(nks,
             initial_dir,
         )
 
-        # expand I_remaining along the face axis using xarray:
-        # I_rem_after_int = I_remaining.data[0] # updated with interface absorption
-        # DA = DA * I_rem_data[None, :, None] # scaled by intensity remaining BEFORE this surface
-        # I = I * I_rem_data[None, :]
-
         if surf_index == 0 and initial_dir == 1:
             # any rays that were reflected here are reflected overall into the incidence medium
             overall_R = R_data
@@ -475,6 +472,7 @@ def analytical_start(nks,
             I_remaining = I_remaining.sum(dim='unique_direction').expand_dims('unique_direction')
 
             d = T_data.direction[0].expand_dims('unique_direction').data
+            current_pol = current_pol[0]
 
 
 def analytical_planar(n0, n1, angles, phi, d, tmm_args, surf_index, initial_dir, current_pol,
@@ -646,16 +644,13 @@ def analytical_per_face(current_surf,
 
     N_interaction = 0
 
-    while N_interaction < max_interactions:
-
-        cos_inc = -np.sum(normals[relevant_face, :, None] * r_inc, 1)  # dot product
+    while np.sum(cos_inc) > 0:
 
         reflected_direction = r_inc - 2 * np.sum(r_inc*normals[relevant_face, :, None], axis=1)[:, None] * normals[relevant_face, :, None]
         reflected_direction = reflected_direction / np.linalg.norm(reflected_direction, axis=1)[:, None]
 
         reflected_ray_directions[:, :, N_interaction] = reflected_direction
 
-        cos_inc[cos_inc < 0] = 0
         # if negative, then the ray is shaded from that pyramid face and will never hit it
 
         tr_par = (n0 / n1) * (r_inc - np.sum(r_inc * normals[relevant_face, :, None], axis=1)[:,
@@ -678,8 +673,6 @@ def analytical_per_face(current_surf,
 
         current_pol = R_stack * current_pol
         current_pol = current_pol / (np.sum(current_pol, -1)[:, :, None])
-
-        # nor
 
         if np.sum(A_prob) > 0:
             A_prob_sum = np.sum(A_prob, axis=1)
@@ -715,6 +708,9 @@ def analytical_per_face(current_surf,
         if np.sum(cos_inc) == 0:
             # no more interactions with any of the faces
             break
+
+        cos_inc = -np.sum(normals[relevant_face, :, None] * r_inc, 1)  # dot product
+        cos_inc[cos_inc < 0] = 0
 
         N_interaction += 1
 
@@ -777,6 +773,12 @@ def analytical_per_face(current_surf,
     # phi_out_T: (number of outgoing directions, wavelength)
 
     # make xarrays for each of these:
+    total_I = np.sum(R_total, 0) + np.sum(final_T_weights, 0) + np.sum(np.sum(A_total, 1), 0)
+
+    if not np.allclose(total_I, 1, rtol=1e-3, atol=1e-3):
+        logger.warning(f"Total intensity not conserved in analytical ray tracing, indicating "
+                      f"the number of interactions is not constant across the unit cell. Maximum "
+                      f"deviation: {100*np.max(np.abs(total_I - 1)):.1f} %")
 
     R_total = xr.DataArray(R_total, dims=["unique_direction", "wl"])
     final_R_directions = xr.DataArray(final_R_directions, dims=["unique_direction", "xyz", "wl"])
@@ -784,15 +786,18 @@ def analytical_per_face(current_surf,
     # theta_out_R = xr.DataArray(theta_out_R, dims=["unique_direction"])
     # phi_out_R = xr.DataArray(phi_out_R, dims=["unique_direction"])
 
+    # if all rays originating from a surface had the same number of interactions, this should sum
+    # to:
+
     R_data = xr.Dataset(
         {
-            "I": R_total,
+            "I": R_total/total_I,
             "direction": final_R_directions,
             "n_interactions": n_interactions,
         }
     )
 
-    A_data = xr.DataArray(A_total, dims=["unique_direction", "layer", "wl"])
+    A_data = xr.DataArray(A_total/total_I[None, None, :], dims=["unique_direction", "layer", "wl"])
 
     final_T_weights = xr.DataArray(final_T_weights, dims=["unique_direction", "wl"])
     final_T_directions = xr.DataArray(final_T_directions, dims=["unique_direction", "xyz", "wl"])
@@ -801,7 +806,7 @@ def analytical_per_face(current_surf,
 
     T_data = xr.Dataset(
         {
-            "I": final_T_weights,
+            "I": final_T_weights/total_I,
             "direction": final_T_directions,
             "n_interactions": final_T_n_interactions,
             "theta_t": theta_out_T,

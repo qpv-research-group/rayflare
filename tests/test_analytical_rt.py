@@ -124,3 +124,5 @@ def test_lambertian_scattering():
 
 def test_lambertian_scattering_integrated():
     pass
+
+# should have a test to check is Is, thetas calculate to correct R and T

@@ -24,6 +24,10 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
 
+    if elevation_angle == 45:
+        elevation_angle = 45.001 # this is to prevent rays travelling exactly
+        # parallel to the surface, which causes numerical errors in the ray tracing
+
     char_angle = math.radians(elevation_angle)
     Lx = size * 1
     Ly = size * 1
@@ -83,6 +87,11 @@ def V_grooves(elevation_angle=55, width=1, direction="y", **kwargs):
     :param direction: Whether the V-grooves lie along the 'x' or 'y' direction (string)
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
+
+    if elevation_angle == 45:
+        elevation_angle = 45.001 # this is to prevent rays travelling exactly
+        # parallel to the surface, which causes numerical errors in the ray tracing
+
     char_angle = math.radians(elevation_angle)
     h = width * math.tan(char_angle) / 2
     if direction == "y":
@@ -369,6 +378,10 @@ def rough_pyramids(
             regular_grid=True.
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
+
+    if elevation_angle == 45:
+        elevation_angle = 45.001 # this is to prevent rays travelling exactly
+        # parallel to the surface, which causes numerical errors in the ray tracing
 
     char_angle = math.radians(elevation_angle)
 

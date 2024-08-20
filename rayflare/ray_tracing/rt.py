@@ -1196,12 +1196,6 @@ class rt_structure:
         R = np.sum(R, 0)
         T = np.sum(T, 0)
 
-        refl_0 = (
-            non_abs
-            * np.less_equal(np.real(thetas), np.pi / 2, where=non_abs)
-            * (n_passes == 0)
-        )
-
         absorption_profiles[absorption_profiles < 0] = 0
 
         # process A_interfaces
@@ -1273,6 +1267,11 @@ class rt_structure:
                 max_rays, n_rem, result_detail, thetas, phis, Is, n_passes, n_interactions
             )
 
+        refl_0 = (
+            non_abs
+            * np.less_equal(np.real(thetas), np.pi / 2, where=non_abs)
+            * (n_passes == 0)
+        )
 
         R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
         R0 = np.sum(R0, 0)
@@ -1362,7 +1361,11 @@ def update_ray_tracing_results(
                 while sum(n_rays_per_direction) > n_in_cat:
                     n_rays_per_direction[np.argmin(rays_per_dir - n_rays_per_direction)] -= 1
 
-                scale_I = weights * max_rays / n_rays_per_direction
+                # scale_I = weights * max_rays / n_rays_per_direction
+                # avoid warning if n_rays_per_direction is 0 anywhere:
+                scale_I = np.divide(weights * max_rays, n_rays_per_direction,
+                                    out=np.zeros_like(weights),
+                                    where=n_rays_per_direction != 0)
 
                 if 'wl' in anlt_data.direction.dims:
                     theta_R = np.arccos(anlt_data.direction.isel(wl=wl_ind, xyz=2))
@@ -1577,7 +1580,7 @@ def parallel_inner(
             # will probably need to end somewhere halfway through the x/y loop:
             end_ind[stop_before:] = 0
             end_ind[stop_before - 1] = n_remaining - (stop_before - 1)*nx*ny
-            print('remaining', n_remaining)
+            # print('remaining', n_remaining)
 
         else:
             ds = np.array([d for _ in range(n_reps * nx * ny)])
@@ -1878,6 +1881,8 @@ class RTSurface:
         self.z_min = min(Points[:, 2])
         self.z_max = max(Points[:, 2])
 
+        self.phong = False
+
         # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
         # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
         # like regular pyramids but doesn't work well for e.g. AFM scans, hyperhemisphere
@@ -2061,6 +2066,7 @@ def single_ray_stack(
     single_surface = {0: single_cell_check, 1: single_interface_check}
 
     ray = Ray(I_in, d, r_a, pol)
+    ray_update_funcs = [update_ray_d_pol, update_ray_d_pol_phong]
     # use single_cell_check if not periodic, single_interface_check if is periodic
 
     # final_res = 0: reflection
@@ -2150,6 +2156,7 @@ def single_ray_stack(
             direction,
             surf.zcov,
             n_interactions,
+            ray_update_funcs[surf.phong],
             **tmm_kwargs_list[surf_index]
         )
 
@@ -2237,6 +2244,8 @@ def single_ray_interface(
     surf_index = 0
     stop = False
 
+    ray_update_funcs = [update_ray_d_pol, update_ray_d_pol_phong]
+
     # could be done before to avoid recalculating every time
     r_a = r_a_0 + np.array([x, y, 0])
     r_b = np.array(
@@ -2267,6 +2276,7 @@ def single_ray_interface(
             direction,
             surf.zcov,
             0,
+            ray_update_funcs[surf.phong],
             wl,
             Fr_or_TMM,
             lookuptable,
@@ -2327,8 +2337,18 @@ def traverse(ray, width, theta, alpha, x, y, positions, I_thresh, direction):
 
     return DA, stop, theta
 
+def update_ray_d_pol(ray):
+    ray.d = ray.d / np.linalg.norm(ray.d)
+    ray.pol = ray.pol / np.sum(
+        ray.pol)  # must always sum to 1, these are weights not intensities
 
-def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd, wl=None, lookuptable=None):
+def update_ray_d_pol_phong(ray):
+    ray.d = ray.d / np.linalg.norm(ray.d)
+    ray.pol = ray.pol / np.sum(
+        ray.pol)  # must always sum to 1, these are weights not intensities
+
+def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
+                        lookuptable=None, ray_update_func=update_ray_d_pol, ):
 
     ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
 
@@ -2355,14 +2375,16 @@ def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd, wl=None, lookuptable=Non
         ray.d = np.real(tr_par + tr_perp)
         ray.pol = [(1-Rs) * ray.pol[0], (1-Rp) * ray.pol[1]]
 
-    ray.d = ray.d / np.linalg.norm(ray.d)
-    ray.pol = ray.pol / np.sum(
-        ray.pol)  # must always sum to 1, these are weights not intensities
+    # ray.d = ray.d / np.linalg.norm(ray.d)
+    # ray.pol = ray.pol / np.sum(
+    #     ray.pol)  # must always sum to 1, these are weights not intensities
+    ray_update_func(ray)
 
     return side, None  # never absorbed, A = False
 
 
-def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable):
+def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable,
+                  ray_update_func=update_ray_d_pol):
 
     data_sp = lookuptable.loc[dict(side=side)].sel(
         angle=abs(theta), method="nearest",
@@ -2398,9 +2420,10 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable):
         # absorption
         A = A_per_layer
 
-    ray.d = ray.d / np.linalg.norm(ray.d)
-    ray.pol = ray.pol / np.sum(
-        ray.pol)
+    # ray.d = ray.d / np.linalg.norm(ray.d)
+    # ray.pol = ray.pol / np.sum(
+    #     ray.pol)
+    ray_update_func(ray)
 
     return side, A
 
@@ -2415,6 +2438,7 @@ def single_interface_check(
     side,
     z_cov,
     n_interactions=0,
+    ray_update_func=update_ray_d_pol,
     wl=None,
     Fr_or_TMM=0,
     lookuptable=None,
@@ -2558,7 +2582,7 @@ def single_interface_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable
+                ray, n0, n1, theta, N, side, rnd, lookuptable, ray_update_func,
             )
 
             ray.r_a = np.real(
@@ -2593,6 +2617,7 @@ def single_cell_check(
     side,
     z_cov,
     n_interactions=0,
+    ray_update_func=update_ray_d_pol,
     wl=None,
     Fr_or_TMM=0,
     lookuptable=None,
@@ -2664,7 +2689,7 @@ def single_cell_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, wl, lookuptable
+                ray, n0, n1, theta, N, side, rnd, lookuptable, ray_update_func
             )
 
             ray.r_a = np.real(
