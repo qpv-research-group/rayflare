@@ -65,16 +65,24 @@ rtstr_phong = rt_structure(
 
 result_phong = rtstr_phong.calculate(options)
 
+options.analytical_ray_tracing = 0
+
+result_phong_full = rtstr_phong.calculate(options)
+
 # plot the results
 plt.figure()
 plt.plot(options.wavelength * 1e9, result_planar["R"], '-k',  label="R")
 plt.plot(options.wavelength * 1e9, result_phong["R"], '--k')
+plt.plot(options.wavelength*1e9, result_phong_full["R"], '-.k')
 
 plt.plot(options.wavelength * 1e9, result_planar["A_per_layer"], '-r', label="A")
 plt.plot(options.wavelength * 1e9, result_phong["A_per_layer"], '--r')
+plt.plot(options.wavelength*1e9, result_phong_full["A_per_layer"], '-.r')
 
 plt.plot(options.wavelength * 1e9, result_planar["T"], '-b', label="T")
 plt.plot(options.wavelength * 1e9, result_phong["T"], '--b')
+plt.plot(options.wavelength*1e9, result_phong_full["T"], '-.b')
+
 plt.ylim(0, 1)
 plt.legend()
 plt.show()

@@ -2451,10 +2451,7 @@ def ray_update_phong(ray, direction, theta, phi, phong_options):
 
     delta_theta = np.random.normal(0, phong_options[0]) # std dev in radians
 
-    phong_angle = np.real(theta) % np.pi + delta_theta
-
-    if phong_angle > np.pi/2:
-        phong_angle = np.pi/2 - phong_angle # must be < pi/2 / 90 degrees
+    phong_angle = np.real(theta) + delta_theta
 
     z = np.cos(phong_angle)
     xy_magnitude = np.sin(phong_angle)
@@ -2466,7 +2463,7 @@ def ray_update_phong(ray, direction, theta, phi, phong_options):
     x = np.cos(phi)*xy_magnitude
     y = np.sin(phi)*xy_magnitude
 
-    ray.d = np.array([x, y, -direction*z])
+    ray.d = np.array([x, y, -direction*abs(z)])
 
     theta = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
 
@@ -2518,7 +2515,7 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
     x = np.cos(phis)*xy_magnitude
     y = np.sin(phis)*xy_magnitude
 
-    ray_ds = np.column_stack((x, y, z))
+    all_directions = np.column_stack((x, y, z))
 
     if phong_options[2]:
         # randomise the polarization
@@ -2528,7 +2525,7 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
     else:
         pols = np.vstack([np.tile(pols[i], (n_rays[i], 1)) for i in range(len(pols))])
 
-    return ray_ds, pols
+    return all_directions, pols
 
 def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
                         lookuptable=None):
