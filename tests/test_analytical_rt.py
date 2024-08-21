@@ -186,7 +186,7 @@ def test_phong_scattering():
     #
     # RAT = rtstr_text.calculate(options)
     #
-    # import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     # #
     # # plt.figure()
     # # plt.hist(RAT['thetas'][0], bins=50)
@@ -199,25 +199,33 @@ def test_phong_scattering():
     # # plt.figure()
     # # plt.hist(RAT['phis'][0] , bins=50)
     # # plt.show()
-    # alpha = 20
+    alpha = 1
+
+    rndn = np.random.uniform(0, 1.00001, 50000)
+    arccos_dist = rndn ** (1 / (alpha + 1))
+    phongs = np.arccos(arccos_dist)
+
     #
-    # rndn = np.random.rand(5000)
-    # arccos_dist = rndn ** (1 / (alpha + 1))
-    # phongs = np.arccos(arccos_dist)
-    #
-    #
+    plt.figure()
+    plt.hist(arccos_dist, bins=50)
+    plt.show()
     # plt.figure()
     # plt.hist(rndn, bins=50, density=True)
     # # Trueplt.plot(np.linspace(0, np.pi / 2), np.cos(np.linspace(0, np.pi / 2)) ** (1 + alpha))
     # plt.show()
     #
-    # x = np.linspace(0, np.pi/2, 200)
-    # pdf = (np.cos(x))**(1+alpha)
-    # int_pdf = np.trapz(pdf, x*180/np.pi)
+    x = np.linspace(0, np.pi/2, 200)
+    pdf = (np.cos(x))**(1+alpha)
+    int_pdf = np.trapz(pdf, x*180/np.pi)
     #
     # maxval = np.max(phongs)
     #
-    # plt.figure()
-    # plt.plot(x*180/np.pi, pdf/int_pdf)
-    # plt.hist(phongs*180/np.pi, bins=50, density=True)
-    # plt.show()
+    plt.figure()
+    plt.plot(x*180/np.pi, pdf/int_pdf)
+    plt.hist(phongs*180/np.pi, bins=50, density=True)
+    # plt.ylim(0, 1)
+    plt.show()
+
+    np.sum(phongs < 0.2)/len(rndn)
+
+

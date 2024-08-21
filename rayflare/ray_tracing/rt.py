@@ -22,6 +22,7 @@ from joblib import Parallel, delayed
 from copy import deepcopy
 from warnings import warn
 from solcore.state import State
+from scipy.spatial.transform import Rotation
 
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
 from rayflare.utilities import get_matrices_or_paths, get_savepath, get_wavelength, process_pol
@@ -1906,7 +1907,7 @@ class RTSurface:
             self.phong_options = kwargs["phong_options"]
 
         else:
-            self.phong_options = [0.15, True, True]
+            self.phong_options = [0.15, True]
 
         # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
         # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
@@ -2193,7 +2194,7 @@ def single_ray_stack(
 
             if surf.phong:
                 # do phong scattering
-                theta, phi = ray_update_phong(ray, direction, theta, phi, surf.phong_options)
+                theta, phi = ray_update_phong(ray, theta, phi, surf.phong_options)
 
 
         elif res == 1:  # transmission
@@ -2202,7 +2203,7 @@ def single_ray_stack(
 
             if surf.phong:
                 # do phong scattering
-                theta, phi = ray_update_phong(ray, direction, theta, phi, surf.phong_options)
+                theta, phi = ray_update_phong(ray, theta, phi, surf.phong_options)
 
         elif res == 2:  # absorption
             stop = True  # absorption in an interface (NOT a bulk layer!)
@@ -2445,34 +2446,118 @@ def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1,
 #
 #     return side, A
 
-def ray_update_phong(ray, direction, theta, phi, phong_options):
 
-    # TODO: alpha should be an option
+def ray_update_phong(ray, theta, phi, phong_options):
 
-    delta_theta = np.random.normal(0, phong_options[0]) # std dev in radians
+    def rotate_vector(delta_theta, delta_phi):
+        rot_to_d = Rotation.from_euler('yz', [theta,
+                                              phi])  # in coordinate system of d, generate a vector which has these angles:
 
-    phong_angle = np.real(theta) + delta_theta
+        xy_mag = np.sin(delta_theta)
+        p_d_coord = np.array((xy_mag * np.cos(delta_phi),
+                              xy_mag * np.sin(delta_phi),
+                              np.cos(delta_theta)))
 
-    z = np.cos(phong_angle)
-    xy_magnitude = np.sin(phong_angle)
+        rotate_to_xyz = rot_to_d.apply(p_d_coord)
 
-    if phong_options[1]:
-        # randomize the x and y directions (i.e., randomize phi
-        phi = 2*np.pi*np.random.rand()
+        return rotate_to_xyz
 
-    x = np.cos(phi)*xy_magnitude
-    y = np.sin(phi)*xy_magnitude
+    delta_theta = np.arccos(np.random.rand() ** (1 / (phong_options[0] + 1)))
+    delta_phi = 2 * np.pi * np.random.rand()
 
-    ray.d = np.array([x, y, -direction*abs(z)])
+    new_dir = rotate_vector(delta_theta, delta_phi)
+
+    if np.sign(ray.d[2]) != np.sign(new_dir[2]):
+        new_dir = rotate_vector(delta_theta, -delta_phi)
+
+    ray.d = new_dir
 
     theta = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+    phi = np.real(atan2(ray.d[1], ray.d[0]))
 
-    if phong_options[2]:
+
+    if phong_options[1]:
         # randomise the polarization
         ray.pol = np.random.rand(2)
         ray.pol = ray.pol / np.sum(ray.pol)
 
     return theta, phi
+
+    # rotate p_d_coord to be in the same coordinate system as ray.d
+    from scipy.spatial.transform import Rotation as R
+
+    # delta_theta_target = np.zeros(1000)
+    # delta_theta_actual = np.zeros(1000)
+    #
+    # for i in range(1000):
+    #     delta_theta = np.arccos(np.random.rand()**(1/(phong_options[0]+1)))
+    #     delta_theta_target[i] = np.cos(delta_theta)
+    #     # print(np.cos(delta_theta))
+    #     delta_phi = 2*np.pi*np.random.rand()
+    #
+    #     K1 = np.cos(delta_theta)
+    #     K2 = np.sin(delta_theta)*np.cos(delta_phi)
+    #     K3 = np.sin(delta_theta)*np.sin(delta_phi)
+    #
+    #     b = 2*(ray.d[1]*K3 - ray.d[0]*K2)
+    #
+    #     c = (np.sin(delta_theta))**2 - ray.d[2]**2
+    #
+    #     discr = b**2 - 4*c
+    #
+    #     if discr < 0:
+    #         print('negative discr')
+    #
+    #     pz = (-b - np.sqrt(discr))/2
+    #     px = (K2 - ray.d[0]*pz)/(-ray.d[2])
+    #     py = (K3 + ray.d[1]*pz)/(-ray.d[2])
+    #
+    #     p = np.array([px, py, pz])
+    #
+    #     # print(np.dot(p, ray.d))
+    #     delta_theta_actual[i] = np.dot(p, ray.d)
+    #
+    #     if np.sign(ray.d[2]) != np.sign(pz):
+    #         print("wrong dir")
+    #
+    # plt.plot(delta_theta_target, delta_theta_actual, 'o')
+    # plt.show()
+    # # in this coordinate system, the ray direction d corresponds to 0 = 0. Rotate around
+    # # this by delta_theta
+    # ab_c = ray.d[0]*ray.d[1]/ray.d[2]
+    #
+    # mat_soln = np.array([[ray.d[0], (-ray.d[1]**2 + ray.d[2]**2)/ray.d[2], -ab_c],
+    #                      [ray.d[1], ab_c, (ray.d[0]**2 + ray.d[2])/ray.d[2]**2],
+    #                      [ray.d[2], ray.d[0], -ray.d[1]]])
+    #
+    # p_new = np.matmul(mat_soln, np.array([K1, K2, K3])
+
+    # rotation matrix for rotation around axis K = (K1, K2, K3) by angle delta_theta
+
+    # delta_theta = np.random.normal(0, phong_options[0]) # std dev in radians
+    #
+    # phong_angle = np.real(theta) + delta_theta
+    #
+    # z = np.cos(phong_angle)
+    # xy_magnitude = np.sin(phong_angle)
+    #
+    # if phong_options[1]:
+    #     # randomize the x and y directions (i.e., randomize phi
+    #     phi = 2*np.pi*np.random.rand()
+    #
+    # x = np.cos(phi)*xy_magnitude
+    # y = np.sin(phi)*xy_magnitude
+    #
+    # ray.d = np.array([x, y, -direction*abs(z)])
+    #
+    # theta = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+    #
+    # if phong_options[2]:
+    #     # randomise the polarization
+    #     ray.pol = np.random.rand(2)
+    #     ray.pol = ray.pol / np.sum(ray.pol)
+    #
+    # return theta, phi
 
 def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
 
