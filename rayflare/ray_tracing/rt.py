@@ -2651,7 +2651,7 @@ def single_interface_check(
             divide="ignore", invalid="ignore"
         ):  # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
             # result = check_intersect(ray.r_a, ray.d, tri)
-            result = check_intersect_jit(ray.r_a, ray.d, tri.size, tri.crossP, tri.P_0s,
+            result = check_intersect(ray.r_a, ray.d, tri.size, tri.crossP, tri.P_0s,
                                          tri.P_2s, tri.P_1s, tri.N)
         # print('result (intersn, theta, N)', result)
 
@@ -2827,7 +2827,8 @@ def single_cell_check(
         with np.errstate(
             divide="ignore", invalid="ignore"
         ):  # there will be divide by 0/multiply by inf - this is fine but gives lots of warnings
-            result = check_intersect(ray.r_a, ray.d, tri)
+            result = check_intersect(ray.r_a, ray.d, tri.size, tri.crossP, tri.P_0s,
+                                         tri.P_2s, tri.P_1s, tri.N)
 
         if result is False:
 
@@ -2902,39 +2903,6 @@ def single_cell_check(
                 )
 
 
-def check_intersect(r_a, d, tri):
-    # all the stuff which is only surface-dependent (and not dependent on incoming direction) is
-    # in the surface object tri.
-    D = np.tile(-d, (tri.size, 1))
-    pref = 1 / np.sum(D * tri.crossP, axis=1)
-    corner = r_a - tri.P_0s
-    t = pref * np.sum(tri.crossP * corner, axis=1)
-    u = pref * np.sum(np.cross(tri.P_2s - tri.P_0s, D) * corner, axis=1)
-    v = pref * np.sum(np.cross(D, tri.P_1s - tri.P_0s) * corner, axis=1)
-
-    which_intersect = (
-        (u + v <= 1) & (np.all(np.vstack((u, v)) >= -1e-10, axis=0)) & (t > 0)
-    )
-    # get errors if set exactly to zero.
-    if sum(which_intersect) > 0: # sum is faster than np.sum for some reason?
-
-        t = t[which_intersect]
-        ind = np.argmin(t)
-        t = min(t)
-
-        intersn = r_a + t * d
-
-        N = tri.N[which_intersect][ind]
-
-        theta = atan(
-            np.linalg.norm(np.cross(N, -d)) / np.dot(N, -d)
-        )  # in radians, angle relative to plane
-
-        return [intersn, theta, N]
-    else:
-        return False
-
-
 @jit(nopython=True)
 def calculate_tuv(d, tri_size, tri_crossP, r_a, tri_P_0s, tri_P_2s, tri_P_1s):
 
@@ -2948,7 +2916,11 @@ def calculate_tuv(d, tri_size, tri_crossP, r_a, tri_P_0s, tri_P_2s, tri_P_1s):
 
     return t, u, v
 
-def check_intersect_jit(r_a, d, tri_size, tri_crossP, tri_P_0s, tri_P_2s, tri_P_1s, tri_N):
+@jit(nopython=True)
+def calc_local_theta(N, d):
+    return atan(np.linalg.norm(np.cross(N, -d)) / np.dot(N, -d))
+
+def check_intersect(r_a, d, tri_size, tri_crossP, tri_P_0s, tri_P_2s, tri_P_1s, tri_N):
     # all the stuff which is only surface-dependent (and not dependent on incoming direction) is
     # in the surface object tri.
 
@@ -2968,9 +2940,10 @@ def check_intersect_jit(r_a, d, tri_size, tri_crossP, tri_P_0s, tri_P_2s, tri_P_
 
         N = tri_N[which_intersect][ind]
 
-        theta = atan(
-            np.linalg.norm(np.cross(N, -d)) / np.dot(N, -d)
-        )  # in radians, angle relative to plane
+        # theta = atan(
+        #     np.linalg.norm(np.cross(N, -d)) / np.dot(N, -d)
+        # )  # in radians, angle relative to plane
+        theta = calc_local_theta(N, d)
 
         return [intersn, theta, N]
     else:

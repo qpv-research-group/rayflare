@@ -16,7 +16,7 @@ d_bulk = 0
 r = 0.8  # radius of hyperhemisphere
 h = 0.242  # height shift of hyperhemisphere
 
-n_thetas = 20  # 100 used for paper data
+n_thetas = 10  # 100 used for paper data
 exp_points = 13  # 2**exp_points on surface of WHOLE sphere. exp_points = 15 used for paper data
 nxs = 30  # 70 points used for paper data
 thetas = np.linspace(0, np.pi / 2 - 0.05, n_thetas)  # 100 angles used for paper data
