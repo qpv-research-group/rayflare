@@ -15,6 +15,7 @@ from time import time
 
 # setting up some colours for plotting
 pal = sns.color_palette("husl", 4)
+sns.set_style("whitegrid")
 
 d = 100e-6
 # setting up Solcore materials
@@ -30,13 +31,13 @@ nxy = 30
 
 # setting options
 options = default_options()
-options.wavelength = np.linspace(900, 1180, 20) * 1e-9
+options.wavelength = np.linspace(900, 1180, 10) * 1e-9
 options.nx = nxy
 options.ny = nxy
 options.n_rays = 2 * nxy**2
 options.depth_spacing = si("0.1um")
-options.parallel = True
-options.analytical_ray_tracing = 3
+options.parallel = False
+options.analytical_ray_tracing = 0
 options.I_thresh = 0.005
 options.randomize_surface = True
 
@@ -78,54 +79,44 @@ rtstr_same_tri = rt_structure(
 result_list_phong = []
 
 start = time()
+#
+# for alpha in alpha_values:
+#     flat_phong[0].phong_options[0] = alpha
+#     rtstr_phong = rt_structure(
+#         textures=[triangle_surf, flat_phong],
+#         **args_same
+#     )
+#     result_list_phong.append(rtstr_phong.calculate(options))
 
-for alpha in alpha_values:
-    flat_phong[0].phong_options[0] = alpha
-    rtstr_phong = rt_structure(
-        textures=[triangle_surf, flat_phong],
-        **args_same
-    )
-    result_list_phong.append(rtstr_phong.calculate(options))
-
-result_planar = rtstr_planar.calculate(options)
+# result_planar = rtstr_planar.calculate(options)
 
 result_flat_tri = rtstr_flat_tri.calculate(options)
-
-result_same_tri = rtstr_same_tri.calculate(options)
-
+#
+# result_same_tri = rtstr_same_tri.calculate(options)
+#
 print("total time:", time() - start)
-
-R0 = result_planar['R0']
-A_lambertian = (1-R0)*4*Si.n(options.wavelength)**2*Si.alpha(options.wavelength)*d/(1+4*Si.n(options.wavelength)**2*Si.alpha(options.wavelength)*d)
-
-# plot the results
-plt.figure()
-# plt.plot(options.wavelength * 1e9, result_planar["R"], '-.k',  label="R")
-# plt.plot(options.wavelength * 1e9, result_flat_tri["R"], '--k')
-# plt.plot(options.wavelength * 1e9, result_same_tri["R"], '-k')
-# plt.plot(options.wavelength*1e9, result_phong["R"], '-r')
-
-plt.plot(options.wavelength * 1e9, result_planar["A_per_layer"], '-.k')
-plt.plot(options.wavelength * 1e9, result_flat_tri["A_per_layer"], '-k')
-plt.plot(options.wavelength * 1e9, result_same_tri["A_per_layer"], '--k')
-
-for i1, alpha in enumerate(alpha_values):
-    plt.plot(options.wavelength*1e9, result_list_phong[i1]["A_per_layer"], '-', color=pal[i1],
-             label="alpha = " + str(alpha))
-
-# plt.plot(options.wavelength * 1e9, result_planar["T"], '-b', label="T")
-# plt.plot(options.wavelength * 1e9, result_flat_tri["T"], '--b')
-# plt.plot(options.wavelength * 1e9, result_flat_tri["R"], '--k')
-# plt.plot(options.wavelength*1e9, result_phong["T"], '-.b')
-
-plt.plot(0, 0, '-.k', label="planar")
-plt.plot(0, 0, '-k', label="15 degree pyramid")
-plt.plot(0, 0, '--k', label="same angle pyramid")
-plt.plot(0, 0, '-r', label="phong")
-
-# plt.plot(options.wavelength * 1e9, A_lambertian, '-g', label="A lambertian")
-
-plt.ylim(0, 1)
-plt.xlim(np.min(options.wavelength * 1e9), np.max(options.wavelength * 1e9))
-plt.legend()
-plt.show()
+#
+# R0 = result_planar['R0']
+# A_lambertian = (1-R0)*4*Si.n(options.wavelength)**2*Si.alpha(options.wavelength)*d/(1+4*Si.n(options.wavelength)**2*Si.alpha(options.wavelength)*d)
+#
+#
+# plt.figure()
+#
+# for i1, alpha in enumerate(alpha_values):
+#     plt.plot(options.wavelength*1e9, result_list_phong[i1]["A_per_layer"], '-', color=pal[i1],
+#              label=r"phong, $\alpha$ = " + str(alpha))
+#
+#
+# plt.plot(options.wavelength * 1e9, result_planar["A_per_layer"], '-.k',
+#          label="planar", alpha=0.6)
+# plt.plot(options.wavelength * 1e9, result_flat_tri["A_per_layer"], '-k',
+#          label="15 degree pyramid", alpha=0.6)
+# plt.plot(options.wavelength * 1e9, result_same_tri["A_per_layer"], '--k',
+#          label="same angle pyramid", alpha=0.6)
+#
+# plt.ylim(0, 1)
+# plt.xlim(np.min(options.wavelength * 1e9), np.max(options.wavelength * 1e9))
+# plt.legend(title='Rear surface:')
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Absorption")
+# plt.show()
