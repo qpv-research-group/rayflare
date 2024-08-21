@@ -2446,35 +2446,39 @@ def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1,
 #
 #     return side, A
 
+def rotate_vector(rot_obj, delta_theta, delta_phi):
+ # in coordinate system of d, generate a vector which has these angles:
+
+    xy_mag = np.sin(delta_theta)
+    p_d_coord = np.array((xy_mag * np.cos(delta_phi),
+                          xy_mag * np.sin(delta_phi),
+                          np.cos(delta_theta))).T
+
+    rotate_to_xyz = rot_obj.apply(p_d_coord)
+
+    return rotate_to_xyz
 
 def ray_update_phong(ray, theta, phi, phong_options):
 
-    def rotate_vector(delta_theta, delta_phi):
-        rot_to_d = Rotation.from_euler('yz', [theta,
-                                              phi])  # in coordinate system of d, generate a vector which has these angles:
-
-        xy_mag = np.sin(delta_theta)
-        p_d_coord = np.array((xy_mag * np.cos(delta_phi),
-                              xy_mag * np.sin(delta_phi),
-                              np.cos(delta_theta)))
-
-        rotate_to_xyz = rot_to_d.apply(p_d_coord)
-
-        return rotate_to_xyz
-
     delta_theta = np.arccos(np.random.rand() ** (1 / (phong_options[0] + 1)))
+    # delta_theta = np.random.normal(0, phong_options[0])
     delta_phi = 2 * np.pi * np.random.rand()
 
-    new_dir = rotate_vector(delta_theta, delta_phi)
+    rot_to_d = Rotation.from_euler('yz', [theta,
+                                          phi])
+
+    new_dir = rotate_vector(rot_to_d, delta_theta, delta_phi)
 
     if np.sign(ray.d[2]) != np.sign(new_dir[2]):
-        new_dir = rotate_vector(delta_theta, -delta_phi)
+        new_dir = rotate_vector(rot_to_d, delta_theta, delta_phi - np.pi)
 
     ray.d = new_dir
 
-    theta = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+    theta = np.real(acos(ray.d[2]))
     phi = np.real(atan2(ray.d[1], ray.d[0]))
 
+    if np.sign(ray.d[2]) != np.sign(new_dir[2]):
+        raise ValueError("Direction not flipped correctly")
 
     if phong_options[1]:
         # randomise the polarization
@@ -2483,134 +2487,93 @@ def ray_update_phong(ray, theta, phi, phong_options):
 
     return theta, phi
 
-    # rotate p_d_coord to be in the same coordinate system as ray.d
-    from scipy.spatial.transform import Rotation as R
 
-    # delta_theta_target = np.zeros(1000)
-    # delta_theta_actual = np.zeros(1000)
-    #
-    # for i in range(1000):
-    #     delta_theta = np.arccos(np.random.rand()**(1/(phong_options[0]+1)))
-    #     delta_theta_target[i] = np.cos(delta_theta)
-    #     # print(np.cos(delta_theta))
-    #     delta_phi = 2*np.pi*np.random.rand()
-    #
-    #     K1 = np.cos(delta_theta)
-    #     K2 = np.sin(delta_theta)*np.cos(delta_phi)
-    #     K3 = np.sin(delta_theta)*np.sin(delta_phi)
-    #
-    #     b = 2*(ray.d[1]*K3 - ray.d[0]*K2)
-    #
-    #     c = (np.sin(delta_theta))**2 - ray.d[2]**2
-    #
-    #     discr = b**2 - 4*c
-    #
-    #     if discr < 0:
-    #         print('negative discr')
-    #
-    #     pz = (-b - np.sqrt(discr))/2
-    #     px = (K2 - ray.d[0]*pz)/(-ray.d[2])
-    #     py = (K3 + ray.d[1]*pz)/(-ray.d[2])
-    #
-    #     p = np.array([px, py, pz])
-    #
-    #     # print(np.dot(p, ray.d))
-    #     delta_theta_actual[i] = np.dot(p, ray.d)
-    #
-    #     if np.sign(ray.d[2]) != np.sign(pz):
-    #         print("wrong dir")
-    #
-    # plt.plot(delta_theta_target, delta_theta_actual, 'o')
-    # plt.show()
-    # # in this coordinate system, the ray direction d corresponds to 0 = 0. Rotate around
-    # # this by delta_theta
-    # ab_c = ray.d[0]*ray.d[1]/ray.d[2]
-    #
-    # mat_soln = np.array([[ray.d[0], (-ray.d[1]**2 + ray.d[2]**2)/ray.d[2], -ab_c],
-    #                      [ray.d[1], ab_c, (ray.d[0]**2 + ray.d[2])/ray.d[2]**2],
-    #                      [ray.d[2], ray.d[0], -ray.d[1]]])
-    #
-    # p_new = np.matmul(mat_soln, np.array([K1, K2, K3])
+def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
 
-    # rotation matrix for rotation around axis K = (K1, K2, K3) by angle delta_theta
+    total_rays = np.sum(n_rays)
 
-    # delta_theta = np.random.normal(0, phong_options[0]) # std dev in radians
+    delta_theta = np.arccos(np.random.rand(total_rays) ** (1 / (phong_options[0] + 1)))
+    delta_phi = 2 * np.pi * np.random.rand(total_rays)
+
+    total_ind = 0
+    all_dirs = np.empty((total_rays, 3))
+
+    for i1, ray_d in enumerate(ray_ds):
+        theta = np.arccos(ray_d[2])
+        phi = atan2(ray_d[1], ray_d[0])
+        rot_to_d = Rotation.from_euler('yz', [theta,
+                                              phi])
+
+        #new_dir = rotate_vector(rot_to_d, delta_theta, -delta_phi)
+        new_dirs = rotate_vector(rot_to_d, delta_theta[total_ind:total_ind + n_rays[i1]],
+                                 delta_phi[total_ind:total_ind + n_rays[i1]])
+
+
+        wrong_direction = np.sign(ray_d[2]) != np.sign(new_dirs[:,2])
+        new_dirs[wrong_direction] = rotate_vector(rot_to_d, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
+                                                  delta_phi[total_ind:total_ind + n_rays[i1]][wrong_direction] - np.pi)
+        all_dirs[total_ind:total_ind + n_rays[i1]] = new_dirs
+
+        if np.any(np.sign(new_dirs[:,2]) != np.sign(ray_d[2])):
+            raise ValueError("Direction not flipped correctly")
+        total_ind += n_rays[i1]
+
+    if phong_options[1]:
+        # randomise the polarization
+        all_pols = np.random.rand(total_rays, 2)
+        all_pols = all_pols / np.sum(all_pols, 1)[:, None]
+
+    else:
+        all_pols = np.vstack([np.tile(pols[i], (n_rays[i], 1)) for i in range(len(pols))])
+
+    return all_dirs, all_pols
+
+    # delta_theta[delta_theta > np.pi] = delta_theta[delta_theta > np.pi] - 2*np.pi
+    # delta_theta[delta_theta < -np.pi] = delta_theta[delta_theta < -np.pi] + 2*np.pi
+
+    # thetas = np.arccos(ray_ds[:, 2])
+    # # repeat each thetas as many times as n_rays index says:
+    # dir_sign = np.sign(ray_ds[:, 2])
+    # phis = np.arctan2(ray_ds[:, 1], ray_ds[:, 0])
+    # thetas = np.repeat(thetas, n_rays)
+    # phis = np.repeat(phis, n_rays)
+    # dir_sign = np.repeat(dir_sign, n_rays)
     #
-    # phong_angle = np.real(theta) + delta_theta
+    # phong_angle = thetas + delta_theta
+    #
+    # quadrant = np.sign(np.cos(phong_angle))
+    #
+    # flipped_direction = dir_sign != quadrant
+    #
+    # phong_angle[flipped_direction] = thetas[flipped_direction] - delta_theta[flipped_direction] # go in other direction
+    # # make sure this is in range (0, np.pi):
+    # phis[phong_angle < 0] = (phis[phong_angle < 0] + np.pi) % (2*np.pi)
+    # phong_angle[phong_angle < 0] = -phong_angle[phong_angle < 0]
+    #
+    # phis[phong_angle > np.pi] = (phis[phong_angle > np.pi] + np.pi) % (2*np.pi)
+    # phong_angle[phong_angle > np.pi] = 2*np.pi - phong_angle[phong_angle > np.pi]
     #
     # z = np.cos(phong_angle)
     # xy_magnitude = np.sin(phong_angle)
     #
     # if phong_options[1]:
     #     # randomize the x and y directions (i.e., randomize phi
-    #     phi = 2*np.pi*np.random.rand()
+    #     phis = 2*np.pi*np.random.rand(total_rays)
     #
-    # x = np.cos(phi)*xy_magnitude
-    # y = np.sin(phi)*xy_magnitude
+    # x = np.cos(phis)*xy_magnitude
+    # y = np.sin(phis)*xy_magnitude
     #
-    # ray.d = np.array([x, y, -direction*abs(z)])
-    #
-    # theta = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+    # all_directions = np.column_stack((x, y, z))
     #
     # if phong_options[2]:
     #     # randomise the polarization
-    #     ray.pol = np.random.rand(2)
-    #     ray.pol = ray.pol / np.sum(ray.pol)
+    #     pols = np.random.rand(total_rays, 2)
+    #     pols = pols / np.sum(pols, 1)[:, None]
     #
-    # return theta, phi
-
-def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
-
-    total_rays = np.sum(n_rays)
-    # TODO: alpha should be an option
-    delta_theta = np.random.normal(0, phong_options[0], total_rays) # std dev in radians
-
-    delta_theta[delta_theta > np.pi] = delta_theta[delta_theta > np.pi] - 2*np.pi
-    delta_theta[delta_theta < -np.pi] = delta_theta[delta_theta < -np.pi] + 2*np.pi
-
-    thetas = np.arccos(ray_ds[:, 2])
-    # repeat each thetas as many times as n_rays index says:
-    dir_sign = np.sign(ray_ds[:, 2])
-    phis = np.arctan2(ray_ds[:, 1], ray_ds[:, 0])
-    thetas = np.repeat(thetas, n_rays)
-    phis = np.repeat(phis, n_rays)
-    dir_sign = np.repeat(dir_sign, n_rays)
-
-    phong_angle = thetas + delta_theta
-
-    quadrant = np.sign(np.cos(phong_angle))
-
-    flipped_direction = dir_sign != quadrant
-
-    phong_angle[flipped_direction] = thetas[flipped_direction] - delta_theta[flipped_direction] # go in other direction
-    # make sure this is in range (0, np.pi):
-    phis[phong_angle < 0] = (phis[phong_angle < 0] + np.pi) % (2*np.pi)
-    phong_angle[phong_angle < 0] = -phong_angle[phong_angle < 0]
-
-    phis[phong_angle > np.pi] = (phis[phong_angle > np.pi] + np.pi) % (2*np.pi)
-    phong_angle[phong_angle > np.pi] = 2*np.pi - phong_angle[phong_angle > np.pi]
-
-    z = np.cos(phong_angle)
-    xy_magnitude = np.sin(phong_angle)
-
-    if phong_options[1]:
-        # randomize the x and y directions (i.e., randomize phi
-        phis = 2*np.pi*np.random.rand(total_rays)
-
-    x = np.cos(phis)*xy_magnitude
-    y = np.sin(phis)*xy_magnitude
-
-    all_directions = np.column_stack((x, y, z))
-
-    if phong_options[2]:
-        # randomise the polarization
-        pols = np.random.rand(total_rays, 2)
-        pols = pols / np.sum(pols, 1)[:, None]
-
-    else:
-        pols = np.vstack([np.tile(pols[i], (n_rays[i], 1)) for i in range(len(pols))])
-
-    return all_directions, pols
+    # else:
+    #     pols = np.vstack([np.tile(pols[i], (n_rays[i], 1)) for i in range(len(pols))])
+    #
+    # return all_directions, pols
 
 def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
                         lookuptable=None):
