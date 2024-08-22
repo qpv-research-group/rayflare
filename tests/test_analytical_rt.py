@@ -56,6 +56,8 @@ def test_total_RAT_TMM():
     from solcore import material
     from rayflare.options import default_options
     from solcore.structure import Layer
+    import numpy as np
+    from pytest import approx
 
     Si = material("Si")()
     Air = material("Air")()
@@ -64,19 +66,20 @@ def test_total_RAT_TMM():
     Ge = material("Ge")()
 
     options = default_options()
-    options.wavelength = np.linspace(300, 1400, 10)
+    options.wavelength = np.linspace(300, 1400, 5) * 1e-9
     options.nx = 10
     options.ny = 10
     options.n_rays = 1 * options.nx ** 2
     options.pol = 's'
     options.analytical_ray_tracing = 2
     options.project_name = 'test_analytical'
-    options.theta_in = 7*np.pi/180
+    options.theta_in = 7 * np.pi / 180
+    options.parallel = False
 
     interface_layers = [Layer(70e-9, MgF2), Layer(500e-9, GaAs)]
 
     pyramids = regular_pyramids(50, True, interface_layers=interface_layers)
-    planar = planar_surface(interface_layers=[Layer(200e-9, Ge)])
+    planar = planar_surface()
     planar_2 = planar_surface()
 
     rtstr = rt_structure(

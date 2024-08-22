@@ -313,6 +313,7 @@ class rt_structure:
                 initial_mat,
                 initial_dir,
                 periodic,
+                (np.pi/2)/options.lookuptable_angles,
                 lambertian_approximation,
                 tmm_args + [wavelengths[i1]],
                 prop_rays.isel(wl=i1),
@@ -676,6 +677,7 @@ def parallel_inner(
     initial_mat,
     initial_dir,
     periodic,
+    d_theta,
     lambertian_approximation=0,
     tmm_args=None,
     existing_rays=None,
@@ -876,6 +878,7 @@ def parallel_inner(
                     depth_indices,
                     I_thresh,
                     pols[overall_i],
+                    d_theta,
                     randomize,
                     i_mats[overall_i],
                     i_dirs[overall_i],
@@ -1173,6 +1176,7 @@ def single_ray_stack(
     depth_indices,
     I_thresh,
     pol,
+    d_theta,
     randomize=False,
     mat_i=0,
     direction=1,
@@ -1184,8 +1188,6 @@ def single_ray_stack(
     I_in=1,
 ):
 
-    if pol is None:
-        pol = [0.5, 0.5]
     single_surface = {0: single_cell_check, 1: single_interface_check}
     # use single_cell_check if not periodic, single_interface_check if is periodic
 
@@ -1267,10 +1269,10 @@ def single_ray_stack(
             surf.Ly,
             direction,
             surf.zcov,
+            d_theta,
             n_interactions,
             **tmm_kwargs_list[surf_index]
         )
-
 
         if res == 0:  # reflection
             direction = -direction  # changing direction due to reflection

@@ -10,7 +10,7 @@ from cmath import sqrt, acos, atan
 from math import atan2
 from random import random
 from copy import deepcopy
-from numba import jit
+from numba import jit, njit
 from scipy.spatial import Delaunay
 
 unit_cell_N = np.array(
@@ -203,6 +203,16 @@ def calculate_tuv(d, tri_size, tri_crossP, r_a, tri_P_0s, tri_P_2s, tri_P_1s):
 
     return t, u, v
 
+
+@jit(nopython=True, error_model="numpy")
+def normalize(x):
+    return x / norm(x)
+
+@jit(nopython=True)
+def norm(x):
+    s = x[0]**2 + x[1]**2 + x[2]**2
+    return np.sqrt(s)
+
 @jit(nopython=True, error_model="numpy")
 def calc_intersection_properties(t, which_intersect, r_a, d, tri_N):
     t = t[which_intersect]
@@ -213,34 +223,32 @@ def calc_intersection_properties(t, which_intersect, r_a, d, tri_N):
 
     N = tri_N[which_intersect][ind]
 
-    theta = atan(np.linalg.norm(np.cross(N, -d)) / np.dot(N, -d))
+    Nxd = np.cross(N, -d)
+
+    theta = atan(norm(Nxd) / np.dot(N, -d))
 
     return intersn, theta, N
 
 def check_intersect(r_a, d, tri_size, tri_crossP, tri_P_0s, tri_P_2s, tri_P_1s, tri_N):
-    # all the stuff which is only surface-dependent (and not dependent on incoming direction) is
-    # in the surface object tri.
 
     t, u, v = calculate_tuv(d, tri_size, tri_crossP, r_a, tri_P_0s, tri_P_2s, tri_P_1s)
 
+    # for some reason numba doesn't like this bit:
     which_intersect = (
         (u + v <= 1) & (np.all(np.vstack((u, v)) >= -1e-10, axis=0)) & (t > 0)
-    ) # get errors if set lower limit exactly to zero.
+    )
+    # get errors if set lower limit exactly to zero, hence 1e-10
 
     if sum(which_intersect) > 0:
-
-        # intersn, theta, N = calc_intersection_properties(t, which_intersect, r_a, d, tri_N)
-
         return calc_intersection_properties(t, which_intersect, r_a, d, tri_N)
-
 
     else:
         return False
 
 def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side):
     # TODO: is it necessary to normalize here or will it already be normalized?
-    if np.abs(np.linalg.norm(ray.d) - 1) > 1e-2:
-        raise ValueError(f"Ray direction not normalized {np.linalg.norm(ray.d)}")
+    if np.abs(norm(ray.d) - 1) > 1e-2:
+        raise ValueError(f"Ray direction not normalized {norm(ray.d)}")
 
     if rnd <= R:  # REFLECTION
         ray.d = np.real(ray.d - 2 * np.dot(ray.d, N) * N)
@@ -251,7 +259,7 @@ def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1,
         # transmission, refraction
         # tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
         tr_par = (n0 / n1) * (ray.d - np.dot(ray.d, N) * N)
-        tr_perp = -sqrt(1 - np.linalg.norm(tr_par) ** 2) * N
+        tr_perp = -sqrt(1 - norm(tr_par) ** 2) * N
 
         side = -side
         ray.d = np.real(tr_par + tr_perp)
@@ -262,14 +270,14 @@ def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1,
         # absorption
         A = A_per_layer
 
-    ray.d = ray.d / np.linalg.norm(ray.d)
+    ray.d = normalize(ray.d)
     ray.pol = ray.pol / np.sum(
         ray.pol)  # must always sum to 1, these are weights not intensities
 
     return side, A
 
 def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
-                        lookuptable=None):
+                        lookuptable=None, d_theta=None):
 
     ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
 
@@ -286,18 +294,22 @@ def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
 
     return side, None  # never absorbed, A = False
 
+@jit(nopython=True)
+def get_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
+    angle_ind = round(abs(theta)/d_theta)
+    [Rs, Rp] = R_data[:, angle_ind]*pol
+    [Ts, Tp] = T_data[:, angle_ind]*pol
+    A_per_layer = np.sum(Alayer_data[:, angle_ind].T * pol, 1)
 
-def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable):
+    return Rs, Rp, Ts, Tp, A_per_layer
 
-    data_sp = lookuptable.loc[dict(side=side)].sel(
-        angle=abs(theta), method="nearest",
-    ) # why do I have to do this in two steps?
+def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
 
-    # multiply along the pol dimension by ray.pol:
-    [Rs, Rp] = data_sp.R.data*ray.pol
-    [Ts, Tp] = data_sp.T.data*ray.pol
-    A_per_layer = np.sum(data_sp.Alayer.data.T * ray.pol, 1)
+    data_s = lookuptable.loc[dict(side=side)]
 
+    Rs, Rp, Ts, Tp, A_per_layer = get_data(theta, d_theta,
+                                      data_s.R.data, data_s.T.data, data_s.Alayer.data,
+                                           ray.pol)
     R = Rs + Rp
     T = Ts + Tp
     R_plus_T = R + T
@@ -358,6 +370,7 @@ def single_cell_check(
     Ly,
     side,
     z_cov,
+    d_theta,
     n_interactions=0,
     wl=None,
     Fr_or_TMM=0,
@@ -386,7 +399,7 @@ def single_cell_check(
 
             n_misses += 1
 
-            o_t = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+            o_t = np.real(acos(ray.d[2] / norm(ray.d)))
             o_p = np.real(atan2(ray.d[1], ray.d[0]))
 
             if np.sign(d0[2]) == np.sign(ray.d[2]):
@@ -431,7 +444,7 @@ def single_cell_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable
+                ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta
             )
 
             ray.r_a = np.real(
@@ -476,6 +489,7 @@ def single_interface_check(
     Ly,
     side,
     z_cov,
+    d_theta,
     n_interactions=0,
     wl=None,
     Fr_or_TMM=0,
@@ -540,7 +554,7 @@ def single_interface_check(
                     # assume it is reflected back into layer it came from
                     ray.d[2] = -ray.d[2]
 
-                    o_t = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+                    o_t = np.real(acos(ray.d[2] / norm(ray.d)))
                     o_p = np.real(atan2(ray.d[1], ray.d[0]))
                     return 0, o_t, o_p, 0, n_interactions, side
 
@@ -569,7 +583,7 @@ def single_interface_check(
 
             else:
 
-                o_t = np.real(acos(ray.d[2] / np.linalg.norm(ray.d)))
+                o_t = np.real(acos(ray.d[2] / norm(ray.d)))
                 o_p = np.real(atan2(ray.d[1], ray.d[0]))
 
                 if np.sign(d0[2]) == np.sign(ray.d[2]):
@@ -622,7 +636,7 @@ def single_interface_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable
+                ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta,
             )
 
             ray.r_a = np.real(

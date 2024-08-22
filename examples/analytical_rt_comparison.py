@@ -13,8 +13,8 @@ wl = np.linspace(300, 1000, 30) * 1e-9
 
 options.wavelength = wl
 
-options.nx = 50
-options.ny = 50
+options.nx = 100
+options.ny = 100
 options.n_rays = 1 * options.nx ** 2
 # options.x_limits = [2.5, 7.5]
 # options.y_limits = [2.5, 7.5]
@@ -51,7 +51,7 @@ rtstr_text = rt_structure(
     overwrite=True,
 )
 
-angle_in = np.linspace(0, 70, 10)
+angle_in = np.linspace(0, 70, 2)
 
 n_int_R_a = np.zeros((len(angle_in), len(wl)))
 n_int_T_a = np.zeros((len(angle_in), len(wl)))
