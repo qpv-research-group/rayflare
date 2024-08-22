@@ -43,7 +43,8 @@ jobs:
     - name: Install python dependencies
       run: |
         python -m pip install uv
-        uv pip install --system .
+        uv pip install numpy wheel
+        uv pip install --system . 
 
     - name: Install S4 in Linux
       if: matrix.os == 'ubuntu-latest'
