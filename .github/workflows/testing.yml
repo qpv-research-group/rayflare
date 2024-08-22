@@ -44,7 +44,7 @@ jobs:
       run: |
         python -m pip install uv
         uv pip install --system . 
-        uv pip install --system numpy wheel
+        uv pip install --system numpy wheel setuptools
 
     - name: Install S4 in Linux
       if: matrix.os == 'ubuntu-latest'
