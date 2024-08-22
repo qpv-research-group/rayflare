@@ -1311,7 +1311,7 @@ def single_ray_stack(
         if not stop:
             I_b = ray.I
 
-            ray.I, DA, intgr, stop, theta = traverse(
+            ray.I, DA, stop, theta = traverse(
                 ray.I,
                 widths[mat_i],
                 theta,
@@ -1374,7 +1374,7 @@ def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):
 
     DA = (ray_I - I_back) * DA_u / intgr
 
-    return I_back, DA, intgr, stop, theta
+    return I_back, DA, stop, theta
 
 
 def rotate_vector(rot_obj, delta_theta, delta_phi):
