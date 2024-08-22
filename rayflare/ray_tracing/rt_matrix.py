@@ -226,6 +226,7 @@ def RT(
                 nks,
                 surfaces,
                 pol,
+                (np.pi / 2) / options.lookuptable_angles,
                 phi_sym,
                 theta_intv,
                 phi_intv,
@@ -282,6 +283,7 @@ def RT_wl(
     nks,
     surfaces,
     pol,
+    d_theta,
     phi_sym,
     theta_intv,
     phi_intv,
@@ -330,6 +332,7 @@ def RT_wl(
                 phi,
                 surfaces,
                 pol,
+                d_theta,
                 wl,
                 Fr_or_TMM,
                 lookuptable_wl_sp,
@@ -599,7 +602,7 @@ def make_profiles_wl(
 
 
 def single_ray_interface(
-    x, y, nks, r_a_0, theta, phi, surfaces, pol, wl, Fr_or_TMM, lookuptable
+    x, y, nks, r_a_0, theta, phi, surfaces, pol, d_theta, wl, Fr_or_TMM, lookuptable
 ):
     direction = 1  # start travelling downwards; 1 = down, -1 = up
     mat_index = 0  # start in first medium
@@ -635,6 +638,7 @@ def single_ray_interface(
             surf.Ly,
             direction,
             surf.zcov,
+            d_theta,
             0,
             wl,
             Fr_or_TMM,
