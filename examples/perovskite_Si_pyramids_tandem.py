@@ -9,7 +9,7 @@ from solcore.constants import q
 from rayflare.textures import regular_pyramids
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import calculate_RAT, process_structure
-from rayflare import get_savepath
+from rayflare.utilities import get_savepath
 from rayflare.options import default_options
 from rayflare.angles import theta_summary, make_angle_vector
 

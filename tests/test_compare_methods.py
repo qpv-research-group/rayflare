@@ -1150,7 +1150,7 @@ def test_rcwa_tmm_matrix_profiles(RCWA_method):
 @mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 @mark.parametrize("RCWA_method", ["S4", "Inkstone"])
 def test_profile_integration(RCWA_method):
-    from rayflare import get_savepath
+    from rayflare.utilities import get_savepath
     import os
     import xarray as xr
 

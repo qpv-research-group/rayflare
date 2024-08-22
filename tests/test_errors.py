@@ -3,7 +3,7 @@ from pytest import raises
 
 
 def test_pol_error():
-    from rayflare import process_pol
+    from rayflare.utilities import process_pol
 
     pol_test = ["s", "p", "u", (np.sqrt(2) / 2, np.sqrt(2) / 2)]
     pol_output = [

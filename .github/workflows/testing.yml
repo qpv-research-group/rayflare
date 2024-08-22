@@ -5,9 +5,9 @@ on:
 
   pull_request:
 
-  # everyday at 3 am UTC
-  #  schedule:
-  #   - cron:  '0 3 * * *'
+  # weekly
+  schedule:
+   - cron:  '3 7 * * 4'
 
 jobs:
   testing:

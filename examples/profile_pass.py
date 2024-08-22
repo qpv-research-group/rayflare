@@ -5,7 +5,7 @@ from rayflare.transfer_matrix_method import tmm_structure
 from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
 from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
-from rayflare import make_absorption_function
+from rayflare.utilities import make_absorption_function
 
 from solcore import material, si
 from solcore.solar_cell import SolarCell, Layer, Junction

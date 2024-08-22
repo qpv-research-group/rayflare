@@ -8,7 +8,7 @@ from solcore import si
 
 from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import process_structure, calculate_RAT
-from rayflare import get_savepath
+from rayflare.utilities import get_savepath
 from rayflare.transfer_matrix_method import tmm_structure
 from rayflare.angles import theta_summary, make_angle_vector
 from rayflare.textures import regular_pyramids
