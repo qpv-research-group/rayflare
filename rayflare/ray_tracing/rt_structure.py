@@ -1539,4 +1539,3 @@ def make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options):
     scale_I = np.concatenate([[scale_factor[i]]*rays_per_direction[i] for i in range(len(current_mat))])
 
     return ds, pols, i_mats, i_dirs, surf_inds, n_remaining, scale_I, n_inters, n_passes
-
