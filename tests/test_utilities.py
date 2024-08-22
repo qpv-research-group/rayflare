@@ -4,7 +4,7 @@ from .conftest import skip_s4_test
 
 @mark.skipif(skip_s4_test(), reason="Only works if S4 installed")
 def test_tmm_rcwa_profile():
-    from rayflare.utilities import make_absorption_function
+    from rayflare import make_absorption_function
     from rayflare.transfer_matrix_method import tmm_structure
     from rayflare.rigorous_coupled_wave_analysis import rcwa_structure
     from rayflare.options import default_options
@@ -163,7 +163,7 @@ def test_matrix_method_profile():
     from rayflare.matrix_formalism import calculate_RAT, process_structure
     from rayflare.options import default_options
     from rayflare.angles import make_angle_vector
-    from rayflare.utilities import make_absorption_function
+    from rayflare import make_absorption_function
 
     from solcore import material, si
     from solcore.solar_cell import Layer
@@ -277,7 +277,7 @@ def test_rt_tmm_profile():
     from rayflare.ray_tracing import rt_structure
 
     from solcore import material, si
-    from rayflare.utilities import make_absorption_function
+    from rayflare import make_absorption_function
 
     from solcore.solar_cell import SolarCell, Layer, Junction
     from solcore.solar_cell_solver import solar_cell_solver

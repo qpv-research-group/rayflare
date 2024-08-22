@@ -5,7 +5,7 @@ from rayflare.structure import Interface, BulkLayer, Structure
 from rayflare.matrix_formalism import calculate_RAT, process_structure
 from rayflare.options import default_options
 from rayflare.angles import make_angle_vector
-from rayflare.utilities import make_absorption_function
+from rayflare import make_absorption_function
 
 
 from solcore import material, si

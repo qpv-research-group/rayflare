@@ -1321,7 +1321,7 @@ def single_ray_stack(
                 direction,
             )
 
-            DA[intgr < 0] = 0
+            DA[np.isnan(DA)] = 0
 
             # traverse bulk layer. Possibility of absorption; in this case will return stop = True
             # and theta = None

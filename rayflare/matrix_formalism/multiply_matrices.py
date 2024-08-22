@@ -6,7 +6,7 @@
 # Contact: p.pearce@unsw.edu.au
 
 import numpy as np
-from sparse import load_npz, dot, COO, stack, einsum
+from sparse import load_npz, COO, stack, einsum
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr

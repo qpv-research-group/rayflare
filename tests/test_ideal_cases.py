@@ -11,8 +11,8 @@ def test_lambertian_scattering():
 
     R_ind = int(len(angle_vector) / 2)
 
-    assert np.sum(mat, 0).todense() == approx(1)
-    assert np.sum(mat, 1)[R_ind:].todense() == approx(0)
+    assert np.sum(mat, axis=0).todense() == approx(1)
+    assert np.sum(mat, axis=1)[R_ind:].todense() == approx(0)
 
 
 def test_perfect_mirror():
@@ -27,15 +27,15 @@ def test_perfect_mirror():
 
     mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, "test", options, "test", "front", False)
 
-    assert np.sum(mat, 0).todense() == approx(1)
-    assert np.sum(mat, 1)[:R_ind].todense() == approx(1)
-    assert np.sum(mat, 1)[R_ind:].todense() == approx(0)
+    assert np.sum(mat, axis=0).todense() == approx(1)
+    assert np.sum(mat, axis=1)[:R_ind].todense() == approx(1)
+    assert np.sum(mat, axis=1)[R_ind:].todense() == approx(0)
 
     mat, _ = mirror_matrix(angle_vector, theta_intv, phi_intv, "test", options, "test", "rear", False)
 
-    assert np.sum(mat, 0).todense() == approx(1)
-    assert np.sum(mat, 1)[:R_ind].todense() == approx(0)
-    assert np.sum(mat, 1)[R_ind:].todense() == approx(1)
+    assert np.sum(mat, axis=0).todense() == approx(1)
+    assert np.sum(mat, axis=1)[:R_ind].todense() == approx(0)
+    assert np.sum(mat, axis=1)[R_ind:].todense() == approx(1)
 
 
 def test_lambertian_process():
