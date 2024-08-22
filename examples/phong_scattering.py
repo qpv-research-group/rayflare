@@ -1,6 +1,6 @@
 import numpy as np
 
-from rayflare.ray_tracing.rt import rt_structure
+from rayflare.ray_tracing import rt_structure
 from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
 
@@ -14,7 +14,6 @@ from time import time
 
 # setting up some colours for plotting
 pal = sns.color_palette("husl", 4)
-
 
 # setting up Solcore materials
 Air = material("Air")()
@@ -146,15 +145,17 @@ mean_theta_bin = np.mean([bins[0:-1], bins[1:]], 0)
 scaled_intensity = n/np.sin(mean_theta_bin)
 
 fig, ax1 = plt.subplots()
-plt.plot(mean_theta_bin, scaled_intensity/np.max(scaled_intensity))
-plt.plot(x, power_law)
+plt.bar(mean_theta_bin*180/np.pi, scaled_intensity/np.max(scaled_intensity), width=180*np.diff(bins)[0]/np.pi,
+        alpha=0.5, label='probability density/area')
+plt.plot(x*180/np.pi, power_law, '-k', label=r'cos$^\alpha(\theta)$')
+plt.legend()
 plt.show()
 
-fig, ax1 = plt.subplots()
-n, _, _ = ax1.hist(thetas, color=pal[2], alpha=0.5, label="Phong 100 % transmission",
-         bins=70, density=True)
-plt.plot((x+1), power_law)
-plt.show()
+# fig, ax1 = plt.subplots()
+# n, _, _ = ax1.hist(thetas, color=pal[2], alpha=0.5, label="Phong 100 % transmission",
+#          bins=70, density=True)
+# plt.plot((x+1), power_law)
+# plt.show()
 
 x2 = np.linspace(0, 1, 100)
 

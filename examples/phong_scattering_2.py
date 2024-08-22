@@ -1,6 +1,6 @@
 import numpy as np
 
-from rayflare.ray_tracing.rt import rt_structure
+from rayflare.ray_tracing import rt_structure
 from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.options import default_options
 

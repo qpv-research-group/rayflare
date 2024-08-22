@@ -57,6 +57,7 @@ install_requires = [
     "joblib",
     "seaborn",
     "inkstone",
+    "numba",
 ]
 
 

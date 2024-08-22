@@ -73,7 +73,7 @@ def test_V_grooves():
 
 def test_xyz_texture():
     from rayflare.textures import xyz_texture
-    from rayflare.ray_tracing.rt import RTSurface
+    from rayflare.ray_tracing.rt_common import RTSurface
 
     x = np.array([0, 0, 1, 1, 0.5, 0.5])
     y = np.array([0, 1, 0, 1, 0, 1])
@@ -88,7 +88,7 @@ def test_xyz_texture():
 
 def test_heights_texture():
     from rayflare.textures import heights_texture
-    from rayflare.ray_tracing.rt import RTSurface
+    from rayflare.ray_tracing.rt_common import RTSurface
     import os
 
     cur_path = os.path.dirname(os.path.abspath(__file__))
