@@ -454,6 +454,8 @@ def RT_wl(
     A_mat[np.isnan(A_mat)] = 0
 
     if np.any(out_mat < 0):
+        print(out_mat)
+        print('min in outmat:', np.min(out_mat))
         raise ValueError("Negative values in out_mat")
 
     out_mat = COO.from_numpy(out_mat)  # sparse matrix
