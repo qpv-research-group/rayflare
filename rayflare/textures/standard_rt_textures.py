@@ -5,7 +5,7 @@
 #
 # Contact: p.pearce@unsw.edu.au
 
-from rayflare.ray_tracing.rt import RTSurface
+from rayflare.ray_tracing.rt_common import RTSurface
 from rayflare.textures.define_textures import xyz_texture
 from scipy.spatial import ConvexHull
 from copy import deepcopy

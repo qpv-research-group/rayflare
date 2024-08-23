@@ -9,3 +9,4 @@ scipy==1.11.2
 solcore==5.10.0
 nbsphinx==0.9.3
 inkstone==0.3.12
+numba==0.58.1

@@ -1,6 +1,5 @@
 from pytest import approx, mark
 import numpy as np
-import sys
 import itertools
 from .conftest import skip_s4_test
 

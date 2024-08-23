@@ -6,7 +6,7 @@
 # Contact: p.pearce@unsw.edu.au
 
 import numpy as np
-from sparse import load_npz, dot, COO, stack, einsum
+from sparse import load_npz, COO, stack, einsum
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
@@ -161,18 +161,20 @@ def make_D(alphas, thick, thetas):
 # faster than the previous for loop implementation. Thanks to Johnson Wong
 # (GitHub: arsonwong)
 def dot_wl(mat, vec):
-
+    # note: sometimes get nans here in result, even when there are no nans
+    # in mat or vec.
     if len(mat.shape) == 3:
-        result = einsum('ijk,ik->ij', mat, vec).todense()
+        result = einsum('ijk,ik->ij', mat, COO(vec)).todense()
 
     if len(mat.shape) == 2:
-        result = einsum('jk,ik->ij', mat, vec).todense()
+        result = einsum('jk,ik->ij', mat, COO(vec)).todense()
 
     return result
 
 
 def dot_wl_u2d(mat, vec):
-    result = einsum('jk,ik->ij', mat, vec).todense()
+
+    result = einsum('jk,ik->ij', mat, COO(vec)).todense()
     return result
 
 
