@@ -169,7 +169,12 @@ def dot_wl(mat, vec):
         result = einsum('jk,ik->ij', mat, COO(vec)).todense()
 
     if np.any(np.isnan(result)):
+        print("mat", mat.todense())
+        print("vec", vec)
+        print("number of nans in mat:", np.sum(np.isnan(mat.todense())))
+        print("number of nans in vec:", np.sum(np.isnan(vec)))
         raise ValueError("NaNs in dot_wl result")
+
 
     return result
 
