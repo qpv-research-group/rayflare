@@ -645,6 +645,14 @@ def single_ray_interface(
             lookuptable,
         )
 
+        if np.any(np.isnan([res, theta, phi, theta_loc])):
+            print("results:", res, theta, phi, theta_loc)
+            print("info:", ray.r_a, ray.d, mat_index,
+                  surf_index, surf.Lx, surf.Ly,
+                  direction, surf.zcov,
+                  d_theta, 0, wl, Fr_or_TMM, lookuptable)
+            raise ValueError("NaN value encountered in single_interface_check")
+
         if res == 0:  # reflection
             direction = -direction  # changing direction due to reflection
 
