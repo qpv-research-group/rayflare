@@ -453,8 +453,11 @@ def RT_wl(
     out_mat[np.isnan(out_mat)] = 0
     A_mat[np.isnan(A_mat)] = 0
 
-    if np.any(out_mat < 0):
-        raise ValueError("Negative values in out_mat")
+    # for some reason, sometimes get really small -ve values like -1e-300 instead of 0.
+    # this causes issues and produces nans in the matrix multiplication (dot_wl) later, although
+    # only on Ubuntu for some reason?
+    out_mat[out_mat < 0] = 0
+    A_mat[A_mat < 0] = 0
 
     out_mat = COO.from_numpy(out_mat)  # sparse matrix
     A_mat = COO.from_numpy(A_mat)
@@ -655,29 +658,6 @@ def single_ray_interface(
             Fr_or_TMM,
             lookuptable,
         )
-
-        if np.any(np.isnan(res)):
-            print(res)
-            print(ray.d, ray.r_a, mat_index, direction)
-            raise ValueError("NaNs in res")
-
-        if np.any(np.isnan(theta)):
-            print(theta)
-            print(ray.d, ray.r_a, mat_index, direction)
-            raise ValueError("NaNs in theta")
-
-        if np.any(np.isnan(phi)):
-            print(phi)
-            print(ray.d, ray.r_a, mat_index, direction)
-            raise ValueError("NaNs in phi")
-
-        if np.any(np.isnan(theta_loc)):
-            print(theta_loc)
-            print(ray.d, ray.r_a, mat_index, direction)
-            raise ValueError("NaNs in theta_loc")
-
-
-
 
         if res == 0:  # reflection
             direction = -direction  # changing direction due to reflection
