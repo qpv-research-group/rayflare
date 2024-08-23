@@ -161,7 +161,8 @@ def make_D(alphas, thick, thetas):
 # faster than the previous for loop implementation. Thanks to Johnson Wong
 # (GitHub: arsonwong)
 def dot_wl(mat, vec):
-
+    # note: sometimes get nans here in result, even when there are no nans
+    # in mat or vec.
     if len(mat.shape) == 3:
         result = einsum('ijk,ik->ij', mat, COO(vec)).todense()
 

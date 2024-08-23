@@ -36,6 +36,7 @@ def RT(
     widths=None,
     save=True,
     overwrite=False,
+    analytical=False,
 ):
     """Calculates the reflection/transmission and absorption redistribution matrices for an interface using
     either a previously calculated TMM lookup table or the Fresnel equations.
@@ -210,39 +211,44 @@ def RT(
             xs = np.linspace(x_limits[0], x_limits[1], nx)
             ys = np.linspace(y_limits[0], y_limits[1], ny)
 
-        allres = Parallel(n_jobs=n_jobs)(
-            delayed(RT_wl)(
-                i1,
-                wavelengths[i1],
-                n_angles,
-                nx,
-                ny,
-                widths,
-                thetas_in,
-                phis_in,
-                h,
-                xs,
-                ys,
-                nks,
-                surfaces,
-                pol,
-                (np.pi / 2) / options.lookuptable_angles,
-                phi_sym,
-                theta_intv,
-                phi_intv,
-                angle_vector,
-                Fr_or_TMM,
-                n_absorbing_layers,
-                lookuptable,
-                calc_profile,
-                depth_spacing,
-                side,
-            )
-            for i1 in range(len(wavelengths))
-        )
+        if analytical:
+            pass
 
-        allArrays = stack([item[0] for item in allres])
-        absArrays = stack([item[1] for item in allres])
+        else:
+
+            allres = Parallel(n_jobs=n_jobs)(
+                delayed(RT_wl)(
+                    i1,
+                    wavelengths[i1],
+                    n_angles,
+                    nx,
+                    ny,
+                    widths,
+                    thetas_in,
+                    phis_in,
+                    h,
+                    xs,
+                    ys,
+                    nks,
+                    surfaces,
+                    pol,
+                    (np.pi / 2) / options.lookuptable_angles,
+                    phi_sym,
+                    theta_intv,
+                    phi_intv,
+                    angle_vector,
+                    Fr_or_TMM,
+                    n_absorbing_layers,
+                    lookuptable,
+                    calc_profile,
+                    depth_spacing,
+                    side,
+                )
+                for i1 in range(len(wavelengths))
+            )
+
+            allArrays = stack([item[0] for item in allres])
+            absArrays = stack([item[1] for item in allres])
 
         if save:
             save_npz(path_or_mats[0], allArrays)
@@ -447,8 +453,13 @@ def RT_wl(
     out_mat[np.isnan(out_mat)] = 0
     A_mat[np.isnan(A_mat)] = 0
 
+    if np.any(out_mat < 0):
+        raise ValueError("Negative values in out_mat")
+
     out_mat = COO.from_numpy(out_mat)  # sparse matrix
     A_mat = COO.from_numpy(A_mat)
+
+    # out_mat[out_mat < 0] = 0
 
     if Fr_or_TMM > 0:
         local_angle_mat = np.divide(
