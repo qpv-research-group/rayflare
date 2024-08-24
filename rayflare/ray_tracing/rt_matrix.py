@@ -15,8 +15,8 @@ from joblib import Parallel, delayed
 from warnings import warn
 
 from rayflare.angles import fold_phi, make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths, process_pol
-from .rt_common import Ray, single_interface_check
+from rayflare.utilities import get_matrices_or_paths
+from .rt_common import Ray, single_interface_check, make_pol_vectors
 
 from rayflare import logger
 
@@ -85,8 +85,7 @@ def RT(
         n_theta_bins = options.n_theta_bins
         c_az = options.c_azimuth
 
-        pol = process_pol(options.pol)
-        pol = np.array(pol)/np.sum(pol)
+        pol, initial_pol_vectors = make_pol_vectors(options.pol, theta, phi)
 
         if not (pol[0] == 1 or pol[1] == 1):
             logger.warning("Warning: you have specificied unpolarized/partially polarized light. "
@@ -232,6 +231,7 @@ def RT(
                     nks,
                     surfaces,
                     pol,
+                    initial_pol_vectors,
                     (np.pi / 2) / options.lookuptable_angles,
                     phi_sym,
                     theta_intv,
@@ -289,6 +289,7 @@ def RT_wl(
     nks,
     surfaces,
     pol,
+    pol_vectors,
     d_theta,
     phi_sym,
     theta_intv,
@@ -338,6 +339,7 @@ def RT_wl(
                 phi,
                 surfaces,
                 pol,
+                pol_vectors,
                 d_theta,
                 wl,
                 Fr_or_TMM,
@@ -616,7 +618,7 @@ def make_profiles_wl(
 
 
 def single_ray_interface(
-    x, y, nks, r_a_0, theta, phi, surfaces, pol, d_theta, wl, Fr_or_TMM, lookuptable
+    x, y, nks, r_a_0, theta, phi, surfaces, pol, pol_vec, d_theta, wl, Fr_or_TMM, lookuptable
 ):
     direction = 1  # start travelling downwards; 1 = down, -1 = up
     mat_index = 0  # start in first medium
@@ -630,7 +632,7 @@ def single_ray_interface(
     )  # set r_a and r_b so that ray has correct angle & intersects with first surface
     d = (r_b - r_a) / np.linalg.norm(r_b - r_a)  # direction (unit vector) of ray
 
-    ray = Ray(1, d, r_a, pol)
+    ray = Ray(1, d, r_a, pol_vec[0], pol_vec[1], pol)
 
     while not stop:
 

@@ -12,6 +12,7 @@ from random import random
 from copy import deepcopy
 from numba import jit
 from scipy.spatial import Delaunay
+from rayflare.utilities import process_pol
 
 from pytest import approx
 
@@ -197,6 +198,19 @@ class RTSurface:
             self.z_min = min(self.Points[:, 2])
             self.z_max = max(self.Points[:, 2])
 
+def make_pol_vectors(pol_string, theta, phi):
+    pol = process_pol(pol_string)
+    pol = np.array(pol) / np.sum(pol)
+
+    initial_p_dir = np.array([np.cos(theta) * np.cos(phi),
+                              np.cos(theta) * np.sin(phi),
+                              -np.sin(theta)])
+
+    initial_s_dir = np.array([-np.sin(phi), np.cos(phi), 0])
+
+    initial_pol_vectors = np.array([initial_s_dir, initial_p_dir])
+
+    return pol, initial_pol_vectors
 
 @jit(nopython=True, error_model="numpy")
 def calculate_tuv(d, tri_size, tri_crossP, r_a, tri_P_0s, tri_P_2s, tri_P_1s):
@@ -255,22 +269,22 @@ def check_intersect(r_a, d, tri_size, tri_crossP, tri_P_0s, tri_P_2s, tri_P_1s, 
 
 def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side,
                      ray_plane_s_direction, s_comp_sq):
+
     # TODO: is it necessary to normalize here or will it already be normalized?
+    # comment out to make faster if not necessary
     if np.abs(norm(ray.d) - 1) > 1e-2:
         raise ValueError(f"Ray direction not normalized {norm(ray.d)}")
 
-    # print('R + T', R + T)
-
     if rnd <= R:  # REFLECTION
         ray.d = np.real(ray.d - 2 * np.dot(ray.d, N) * N)
-        # print("weight:", Rs*norm(ray.s_vector), Rp*norm(ray.p_vector))
-        # this should be scaled by the existing?
+
         ray.s_vector = ray_plane_s_direction
         ray.p_vector = normalize(np.cross(ray.d, ray.s_vector))
+
+        # the relative s/p weighting of the reflected ray needs to be weighted by
+        # Rs and Rp:
         ray.pol = [Rs / R, Rp / R]
-        # print('pol', ray.pol)
-        # these stay normalised so that |s|^2 + |p|^2 = 1; ray.I tracks intensity
-        # print("R")
+
         A = None
 
     elif (rnd > R) & (rnd <= (R + T)):  # TRANSMISSION
@@ -282,113 +296,107 @@ def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, sid
         side = -side
         ray.d = np.real(tr_par + tr_perp)
         ray.s_vector = ray_plane_s_direction
-        # if s-vector is zeros, next step can't work!
+
         ray.p_vector = normalize(np.cross(ray.d, ray.s_vector))
+
+        # the relative s/p weighting of the transmitted ray needs to be weighted by
+        # Rs and Rp:
         ray.pol = [Ts / T, Tp / T]
-        # print("pol", ray.pol)
-        # ray.pol = [Ts * ray.pol[0], Tp * ray.pol[1]]
-        # print("T")
+
         A = None
 
     else:
         # absorption
-        # print("A")
         ray.pol = [s_comp_sq, 1 - s_comp_sq]
         A = A_per_layer
 
     ray.d = normalize(ray.d)
-    # ray.pol = ray.pol / np.sum(
-    #     ray.pol)  # must always sum to 1, these are weights not intensities
 
     return side, A
 
 def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
                         lookuptable=None, d_theta=None):
 
+    s_component_sq, p_component_sq, ray_plane_s_direction = (
+        get_pol_component_direction(theta, ray.d, N, ray.s_vector, ray.p_vector, ray.pol))
+
     ratio = np.clip(np.real(n1) / np.real(n0), -1, 1)
 
     if abs(theta) > np.arcsin(ratio):
         Rs, Rp = 1, 1
     else:
-        Rs, Rp = calc_R(n0, n1, abs(theta), ray)
+        Rs, Rp = calc_R(n0, n1, theta, ray.pol)
 
-    R = ray.pol[0]*Rs + ray.pol[1]*Rp
+    Rs = Rs * s_component_sq
+    Rp = Rp * p_component_sq
+
+    # R = ray.pol[0]*Rs + ray.pol[1]*Rp
+    R = Rs + Rp
     R_plus_T = 1
 
     side, _ = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, 1-Rs, 1-Rp, 0,
-                              n0, n1, N, side)
+                              n0, n1, N, side, ray_plane_s_direction, s_component_sq    )
 
     return side, None  # never absorbed, A = False
 
-@jit(nopython=True)
-def get_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
-    angle_ind = round(abs(theta)/d_theta)
-    [Rs, Rp] = R_data[:, angle_ind]*pol
-    [Ts, Tp] = T_data[:, angle_ind]*pol
-    A_per_layer = np.sum(Alayer_data[:, angle_ind].T * pol, 1)
-
-    return Rs, Rp, Ts, Tp, A_per_layer
 
 def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
-    # print("pol", ray.pol)
-    # print('I before', ray.I)
 
-    # don't think this works if ray.d and N are parallel, but then there is
-    # no intersection anyway
-    if abs(np.dot(ray.d, N)) < 0.99:
-        ray_plane_s_direction = normalize(np.cross(ray.d, N))
-        s_component = np.array([np.dot(ray.s_vector, ray_plane_s_direction),
-                                np.dot(ray.p_vector, ray_plane_s_direction)])
-        s_component_sq = (ray.pol[0] * s_component[0] ** 2 + ray.pol[1] * s_component[1] ** 2)
+    s_component_sq, p_component_sq, ray_plane_s_direction = (
+        get_pol_component_direction(theta, ray.d, N, ray.s_vector, ray.p_vector, ray.pol))
 
-        # p_component = np.array([np.dot(ray.s_vector, ray_plane_p_direction),
-        #                         np.dot(ray.p_vector, ray_plane_p_direction)])
-        # p_component_sq = (ray.pol[0]*p_component[0] ** 2 + ray.pol[1]*p_component[1] ** 2)
-        p_component_sq = 1 - s_component_sq
-
-    else:
-        s_component_sq = 1 # doesn't matter if incident perpendicualr to surface
-        p_component_sq = 0
-        ray_plane_s_direction = ray.s_vector
-    # component of the polarization which is in the s-direction for the new ray/plane
-    # system:
-
-
-    # print("s component", s_component_sq, N)
-    # print("p component", p_component_sq, N)
-    # if 1 - s_component_sq is not approx(1 - p_component_sq, abs=0.001):
-    #     print('sp sum', s_component_sq + p_component_sq)
-
+    # s and p
     data_s = lookuptable.loc[dict(side=side)]
 
-    Rs, Rp, Ts, Tp, A_per_layer = get_data(theta, d_theta,
+    Rs, Rp, Ts, Tp, A_per_layer = get_RT_data(theta, d_theta,
                                       data_s.R.data, data_s.T.data, data_s.Alayer.data,
                                            np.array([s_component_sq, p_component_sq]))
 
-    R = Rs + Rp # overall probability this ray will reflect
-    T = Ts + Tp # overall probability this ray will transmit
+    R = Rs + Rp # overall probability this ray will reflect. Rs and Rp are already scaled (in
+    # get_RT_data) by the incoming s and p component
 
-    # if np.any(np.isnan([Rs, Rp, Ts, Tp])):
-    #     print('nans')
-    # # print("R, T", R, T)# R_plus_T = R + T
+    T = Ts + Tp # overall probability this ray will transmit
 
     side, A = update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp,
                            A_per_layer,
                               n0, n1, N, side, ray_plane_s_direction,
                                s_component_sq)
 
-    # if norm(ray.s_vector) is not approx(1, abs=0.1):
-    #     print('s norm, ', norm(ray.s_vector))
-
-    # if norm(ray.p_vector) is not approx(1, abs=0.1):
-    #     print('p norm, ', norm(ray.p_vector))
-    # print('I after', np.sqrt(np.linalg.norm(ray.s_vector)**2 + np.linalg.norm(ray.p_vector)**2))
-    # print("I remaining", ray.I)
     return side, A
 
-def calc_R(n1, n2, theta, ray):
+@jit(nopython=True)
+def get_RT_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
+    # theta HAS to be positive here!
+    angle_ind = round(theta/d_theta)
+    [Rs, Rp] = R_data[:, angle_ind]*pol
+    [Ts, Tp] = T_data[:, angle_ind]*pol
+    A_per_layer = np.sum(Alayer_data[:, angle_ind].T * pol, 1)
+
+    return Rs, Rp, Ts, Tp, A_per_layer
+
+@jit(nopython=True)
+def get_pol_component_direction(theta, d, N, current_s_vector, current_p_vector, ray_pol):
+    if theta > 1e-4:  # non-normal incidence only, otherwise cannot take cross product between ray.d and N
+        ray_plane_s_direction = normalize(np.cross(d, N))
+        s_component = np.array([np.dot(current_s_vector, ray_plane_s_direction),
+                                np.dot(current_p_vector, ray_plane_s_direction)])
+        s_component_sq = (ray_pol[0] * s_component[0] ** 2 + ray_pol[1] * s_component[1] ** 2)
+
+        # by definition:
+        p_component_sq = 1 - s_component_sq
+
+    else:
+        s_component_sq = 1  # doesn't matter if incident perpendicular to surface, R/T probabilities
+        # are the same for s and p
+        p_component_sq = 0
+        ray_plane_s_direction = current_s_vector
+
+    return s_component_sq, p_component_sq, ray_plane_s_direction
+
+@jit(nopython=True)
+def calc_R(n1, n2, theta, ray_pol):
     theta_t = np.arcsin((n1 / n2) * np.sin(theta))
-    if ray.pol[0] == 1: # 100% s-polarized. Only need to calculate Rs, do not need to update ray.pol
+    if ray_pol[0] == 1: # 100% s-polarized. Only need to calculate Rs, do not need to update ray.pol
         Rs = (
                 np.abs(
                     (n1 * np.cos(theta) - n2 * np.cos(theta_t))
@@ -398,7 +406,7 @@ def calc_R(n1, n2, theta, ray):
         )
         return Rs, 0
 
-    elif ray.pol[1] == 1: # 100% p-polarized. Only need to calculate Rp, do not need to update ray.pol
+    elif ray_pol[1] == 1: # 100% p-polarized. Only need to calculate Rp, do not need to update ray.pol
         Rp = (
                 np.abs(
                     (n1 * np.cos(theta_t) - n2 * np.cos(theta))
@@ -511,7 +519,7 @@ def single_cell_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta
+                ray, n0, n1, abs(theta), N, side, rnd, lookuptable, d_theta
             )
 
             ray.r_a = np.real(
@@ -703,7 +711,7 @@ def single_interface_check(
             rnd = random()
 
             side, A = decide[Fr_or_TMM](
-                ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta,
+                ray, n0, n1, abs(theta), N, side, rnd, lookuptable, d_theta,
             )
 
             ray.r_a = np.real(

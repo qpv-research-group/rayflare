@@ -22,7 +22,7 @@ from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare import logger
 from .analytical_rt import (lambertian_scattering, calculate_lambertian_profile,
                             analytical_start, dummy_prop_rays)
-from .rt_common import Ray, single_cell_check, single_interface_check, normalize, norm
+from .rt_common import Ray, single_cell_check, single_interface_check, normalize, make_pol_vectors
 
 
 class rt_structure:
@@ -242,22 +242,7 @@ class rt_structure:
         # how many times we need to repeat
         n_reps = int(np.ceil(options.n_rays / (nx * ny)))
 
-        pol = process_pol(options.pol)
-        pol = np.array(pol)/np.sum(pol)
-
-        d = -normalize(r_a_0)
-
-        initial_p_dir = np.array([np.cos(theta)*np.cos(phi),
-                                  np.cos(theta)*np.sin(phi),
-                                  -np.sin(theta)])
-
-        initial_s_dir = np.array([-np.sin(phi), np.cos(phi), 0])
-
-        initial_pol_vectors = np.array([initial_s_dir, initial_p_dir])
-
-        print('p dot s', np.dot(initial_p_dir, initial_s_dir))
-        print('p dot d', np.dot(initial_p_dir, d))
-        print('s dot d', np.dot(initial_s_dir, d))
+        pol, initial_pol_vectors = make_pol_vectors(options.pol, theta, phi)
 
         # at normal incidence, d points in -z direction, p =  [1, 0, 0] and s = [0, 1, 0].
         # Changing phi rotates the s vector around the z axis (i.e. in the x-y plane)
