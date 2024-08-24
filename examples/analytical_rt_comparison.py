@@ -21,9 +21,9 @@ options.n_rays = 1 * options.nx ** 2
 options.project_name = 'surface_comparison'
 options.lambertian_approximation = 0
 options.randomize_surface = True
-options.phi_in = 0 * np.pi / 180
+options.phi_in = 20 * np.pi / 180
 options.I_thresh = 0.0002
-options.parallel = True
+options.parallel = False
 options.pol = 'u'
 
 SiOx = material("SiO2")()
@@ -51,7 +51,7 @@ rtstr_text = rt_structure(
     overwrite=True,
 )
 
-angle_in = np.linspace(0, 70, 6)
+angle_in = np.linspace(10, 70, 6)
 
 n_int_R_a = np.zeros((len(angle_in), len(wl)))
 n_int_T_a = np.zeros((len(angle_in), len(wl)))

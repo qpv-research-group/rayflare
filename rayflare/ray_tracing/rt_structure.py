@@ -22,7 +22,7 @@ from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare import logger
 from .analytical_rt import (lambertian_scattering, calculate_lambertian_profile,
                             analytical_start, dummy_prop_rays)
-from .rt_common import Ray, single_cell_check, single_interface_check
+from .rt_common import Ray, single_cell_check, single_interface_check, normalize, norm
 
 
 class rt_structure:
@@ -245,6 +245,14 @@ class rt_structure:
         pol = process_pol(options.pol)
         pol = np.array(pol)/np.sum(pol)
 
+        r_a_0_norm = normalize(r_a_0)
+
+        rot_90 = Rotation.from_euler('y', np.pi/2)
+        initial_p_dir = rot_90.apply(r_a_0_norm)
+        initial_s_dir = np.cross(r_a_0_norm, initial_p_dir)
+
+        initial_pol_vectors = [initial_s_dir, initial_p_dir]
+
         randomize = options.randomize_surface
 
         initial_mat = (
@@ -290,7 +298,6 @@ class rt_structure:
             prop_rays = dummy_prop_rays()
             A_interface_to_add = None
 
-
         allres = Parallel(n_jobs=n_jobs)(
             delayed(parallel_inner)(
                 nks[:, i1],
@@ -304,6 +311,7 @@ class rt_structure:
                 depth_indices,
                 I_thresh,
                 pol,
+                initial_pol_vectors,
                 nx,
                 ny,
                 n_reps,
@@ -668,6 +676,7 @@ def parallel_inner(
     depth_indices,
     I_thresh,
     pol,
+    initial_pol_vec,
     nx,
     ny,
     n_reps,
@@ -753,7 +762,7 @@ def parallel_inner(
             surf_index = initial_mat - 1
             z_offset = -cum_width[initial_mat] + 1e-8
 
-        d = -r_a_0 / np.linalg.norm(r_a_0)
+        d = -normalize(r_a_0)
 
         if initial_dir != 1: # upwards initial direction
             d[2] = -d[2]
@@ -816,12 +825,10 @@ def parallel_inner(
             phong_params = np.array([x.phong for x in surfaces])
             phong_options = [x.phong_options for x in surfaces]
             # TODO: pol will also change if already interacted with a surface!
+            # And polarization directions
             ds, pols, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = (
                 make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options))
             stop_before = int(np.ceil(n_remaining/(nx*ny)))
-
-            x_y_combs = np.zeros((nx*ny, 2))
-
             # r_as need to be set so that z is somewhere within the current surface:
             z_offs = -cum_width[i_mats - 1] - 1e-8
             r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
@@ -831,6 +838,7 @@ def parallel_inner(
             # print('remaining', n_remaining)
 
         else:
+
             ds = np.array([d for _ in range(n_reps * nx * ny)])
             pols = np.array([pol for _ in range(n_reps * nx * ny)])
             i_mats = np.array([initial_mat for _ in range(n_reps * nx * ny)])
@@ -878,6 +886,7 @@ def parallel_inner(
                     depth_indices,
                     I_thresh,
                     pols[overall_i],
+                    initial_pol_vec,
                     d_theta,
                     randomize,
                     i_mats[overall_i],
@@ -901,7 +910,7 @@ def parallel_inner(
                 n_passes[c + offset] = n_pass
                 n_interactions[c + offset] = n_interact
                 local_thetas[A_interface_index].append(np.real(th_local))
-                local_pols[A_interface_index].append(ray.pol)
+                # local_pols[A_interface_index].append(ray.pol)
                 directions[A_interface_index].append(direction)
 
         A_interfaces = A_interfaces[1:]
@@ -1176,6 +1185,7 @@ def single_ray_stack(
     depth_indices,
     I_thresh,
     pol,
+    pol_vec,
     d_theta,
     randomize=False,
     mat_i=0,
@@ -1191,7 +1201,7 @@ def single_ray_stack(
     single_surface = {0: single_cell_check, 1: single_interface_check}
     # use single_cell_check if not periodic, single_interface_check if is periodic
 
-    ray = Ray(I_in, d, r_a, pol)
+    ray = Ray(I_in, d, r_a, pol_vec[0], pol_vec[1], pol)
 
     # final_res = 0: reflection
     # final_res = 1: transmission
@@ -1342,6 +1352,7 @@ def single_ray_stack(
                 # stop right before next interaction with surface, but AFTER taking into account bulk
                 # absorption on this pass
 
+    # print("Ray ending with pol:", norm(ray.s_vector)**2, norm(ray.p_vector)**2)
     return (
         ray,
         profile,  # bulk profile only. Profile in interfaces gets calculated after ray-tracing is done.

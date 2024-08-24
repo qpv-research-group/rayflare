@@ -23,7 +23,9 @@ class Ray:
                  intensity,
                  direction,
                  current_location,
-                 polarization,
+                 s_vector,
+                 p_vector,
+                 pol,
                  ):
         """
         :param intensity: intensity of the ray (initial = 1)
@@ -34,9 +36,13 @@ class Ray:
         """
 
         self.d = direction
-        self.pol = polarization
         self.r_a = current_location
         self.I = intensity
+
+        self.s_vector = s_vector
+        self.p_vector = p_vector
+
+        self.pol = pol
 
 
 class RTSurface:
@@ -245,17 +251,25 @@ def check_intersect(r_a, d, tri_size, tri_crossP, tri_P_0s, tri_P_2s, tri_P_1s, 
     else:
         return False
 
-def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side):
+def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, side,
+                     ray_plane_s_direction, s_comp_sq):
     # TODO: is it necessary to normalize here or will it already be normalized?
     if np.abs(norm(ray.d) - 1) > 1e-2:
         raise ValueError(f"Ray direction not normalized {norm(ray.d)}")
 
     if rnd <= R:  # REFLECTION
         ray.d = np.real(ray.d - 2 * np.dot(ray.d, N) * N)
-        ray.pol = [Rs*ray.pol[0], Rp*ray.pol[1]]
+        # print("weight:", Rs*norm(ray.s_vector), Rp*norm(ray.p_vector))
+        # this should be scaled by the existing?
+        ray.s_vector = ray_plane_s_direction
+        ray.p_vector = normalize(np.cross(ray.d, ray.s_vector))
+        ray.pol = [Rs / R, Rp / R]
+        # print('pol', ray.pol)
+        # these stay normalised so that |s|^2 + |p|^2 = 1; ray.I tracks intensity
+        # print("R")
         A = None
 
-    elif (rnd > R) & (rnd <= (R_plus_T)):  # TRANSMISSION
+    elif (rnd > R) & (rnd <= (R + T)):  # TRANSMISSION
         # transmission, refraction
         # tr_par = (np.real(n0) / np.real(n1)) * (d - np.dot(d, N) * N)
         tr_par = (n0 / n1) * (ray.d - np.dot(ray.d, N) * N)
@@ -263,16 +277,23 @@ def update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1,
 
         side = -side
         ray.d = np.real(tr_par + tr_perp)
-        ray.pol = [Ts * ray.pol[0], Tp * ray.pol[1]]
+        ray.s_vector = ray_plane_s_direction
+        # if s-vector is zeros, next step can't work!
+        ray.p_vector = normalize(np.cross(ray.d, ray.s_vector))
+        ray.pol = [Ts / T, Tp / T]
+        # print("pol", ray.pol)
+        # ray.pol = [Ts * ray.pol[0], Tp * ray.pol[1]]
+        # print("T")
         A = None
 
     else:
         # absorption
+        # print("A")
         A = A_per_layer
 
     ray.d = normalize(ray.d)
-    ray.pol = ray.pol / np.sum(
-        ray.pol)  # must always sum to 1, these are weights not intensities
+    # ray.pol = ray.pol / np.sum(
+    #     ray.pol)  # must always sum to 1, these are weights not intensities
 
     return side, A
 
@@ -304,19 +325,42 @@ def get_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
     return Rs, Rp, Ts, Tp, A_per_layer
 
 def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
+    # print("pol", ray.pol)
+    # print('I before', ray.I)
+    ray_plane_s_direction = normalize(np.cross(ray.d, N))
+    ray_plane_p_direction = normalize(np.cross(ray.d, ray_plane_s_direction))
+
+    # component of the polarization which is in the s-direction for the new ray/plane
+    # system:
+    s_component = np.array([np.dot(ray.s_vector, ray_plane_s_direction),
+                            np.dot(ray.p_vector, ray_plane_s_direction)])
+    s_component_sq = (ray.pol[0]*s_component[0] ** 2 + ray.pol[1]*s_component[1] ** 2)
+
+    p_component = np.array([np.dot(ray.s_vector, ray_plane_p_direction),
+                            np.dot(ray.p_vector, ray_plane_p_direction)])
+    p_component_sq = (ray.pol[0]*p_component[0] ** 2 + ray.pol[1]*p_component[1] ** 2)
+    # p_component_sq = 1 - s_component_sq
+
+    # print("s component", s_component_sq, N)
+    # print("p component", p_component_sq, N)
 
     data_s = lookuptable.loc[dict(side=side)]
 
     Rs, Rp, Ts, Tp, A_per_layer = get_data(theta, d_theta,
                                       data_s.R.data, data_s.T.data, data_s.Alayer.data,
-                                           ray.pol)
-    R = Rs + Rp
-    T = Ts + Tp
-    R_plus_T = R + T
+                                           np.array([s_component_sq, p_component_sq]))
 
-    side, A = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, A_per_layer,
-                              n0, n1, N, side)
+    R = Rs + Rp # overall probability this ray will reflect
+    T = Ts + Tp # overall probability this ray will transmit
+    # print("R, T", R, T)# R_plus_T = R + T
 
+    side, A = update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp,
+                           A_per_layer,
+                              n0, n1, N, side, ray_plane_s_direction,
+                               s_component_sq)
+
+    # print('I after', np.sqrt(np.linalg.norm(ray.s_vector)**2 + np.linalg.norm(ray.p_vector)**2))
+    # print("I remaining", ray.I)
     return side, A
 
 def calc_R(n1, n2, theta, ray):
