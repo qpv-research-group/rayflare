@@ -245,13 +245,22 @@ class rt_structure:
         pol = process_pol(options.pol)
         pol = np.array(pol)/np.sum(pol)
 
-        r_a_0_norm = normalize(r_a_0)
+        d = -normalize(r_a_0)
 
-        rot_90 = Rotation.from_euler('y', np.pi/2)
-        initial_p_dir = rot_90.apply(r_a_0_norm)
-        initial_s_dir = np.cross(r_a_0_norm, initial_p_dir)
+        initial_p_dir = np.array([np.cos(theta)*np.cos(phi),
+                                  np.cos(theta)*np.sin(phi),
+                                  -np.sin(theta)])
 
-        initial_pol_vectors = [initial_s_dir, initial_p_dir]
+        initial_s_dir = np.array([-np.sin(phi), np.cos(phi), 0])
+
+        initial_pol_vectors = np.array([initial_s_dir, initial_p_dir])
+
+        print('p dot s', np.dot(initial_p_dir, initial_s_dir))
+        print('p dot d', np.dot(initial_p_dir, d))
+        print('s dot d', np.dot(initial_s_dir, d))
+
+        # at normal incidence, d points in -z direction, p =  [1, 0, 0] and s = [0, 1, 0].
+        # Changing phi rotates the s vector around the z axis (i.e. in the x-y plane)
 
         randomize = options.randomize_surface
 
