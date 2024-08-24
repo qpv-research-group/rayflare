@@ -335,19 +335,24 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
 
     # don't think this works if ray.d and N are parallel, but then there is
     # no intersection anyway
-    ray_plane_s_direction = normalize(np.cross(ray.d, N))
-    ray_plane_p_direction = normalize(np.cross(ray.d, ray_plane_s_direction))
+    if abs(np.dot(ray.d, N)) < 0.99:
+        ray_plane_s_direction = normalize(np.cross(ray.d, N))
+        s_component = np.array([np.dot(ray.s_vector, ray_plane_s_direction),
+                                np.dot(ray.p_vector, ray_plane_s_direction)])
+        s_component_sq = (ray.pol[0] * s_component[0] ** 2 + ray.pol[1] * s_component[1] ** 2)
 
+        # p_component = np.array([np.dot(ray.s_vector, ray_plane_p_direction),
+        #                         np.dot(ray.p_vector, ray_plane_p_direction)])
+        # p_component_sq = (ray.pol[0]*p_component[0] ** 2 + ray.pol[1]*p_component[1] ** 2)
+        p_component_sq = 1 - s_component_sq
+
+    else:
+        s_component_sq = 1 # doesn't matter if incident perpendicualr to surface
+        p_component_sq = 0
+        ray_plane_s_direction = ray.s_vector
     # component of the polarization which is in the s-direction for the new ray/plane
     # system:
-    s_component = np.array([np.dot(ray.s_vector, ray_plane_s_direction),
-                            np.dot(ray.p_vector, ray_plane_s_direction)])
-    s_component_sq = (ray.pol[0]*s_component[0] ** 2 + ray.pol[1]*s_component[1] ** 2)
 
-    # p_component = np.array([np.dot(ray.s_vector, ray_plane_p_direction),
-    #                         np.dot(ray.p_vector, ray_plane_p_direction)])
-    # p_component_sq = (ray.pol[0]*p_component[0] ** 2 + ray.pol[1]*p_component[1] ** 2)
-    p_component_sq = 1 - s_component_sq
 
     # print("s component", s_component_sq, N)
     # print("p component", p_component_sq, N)
