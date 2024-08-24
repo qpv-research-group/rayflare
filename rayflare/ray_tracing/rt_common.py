@@ -10,8 +10,10 @@ from cmath import sqrt, acos, atan
 from math import atan2
 from random import random
 from copy import deepcopy
-from numba import jit, njit
+from numba import jit
 from scipy.spatial import Delaunay
+
+from pytest import approx
 
 unit_cell_N = np.array(
     [[0, -1, 0], [-1, 0, 0], [0, 1, 0], [1, 0, 0]]
@@ -257,6 +259,8 @@ def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, sid
     if np.abs(norm(ray.d) - 1) > 1e-2:
         raise ValueError(f"Ray direction not normalized {norm(ray.d)}")
 
+    # print('R + T', R + T)
+
     if rnd <= R:  # REFLECTION
         ray.d = np.real(ray.d - 2 * np.dot(ray.d, N) * N)
         # print("weight:", Rs*norm(ray.s_vector), Rp*norm(ray.p_vector))
@@ -289,6 +293,7 @@ def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, sid
     else:
         # absorption
         # print("A")
+        ray.pol = [s_comp_sq, 1 - s_comp_sq]
         A = A_per_layer
 
     ray.d = normalize(ray.d)
@@ -327,6 +332,9 @@ def get_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
 def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
     # print("pol", ray.pol)
     # print('I before', ray.I)
+
+    # don't think this works if ray.d and N are parallel, but then there is
+    # no intersection anyway
     ray_plane_s_direction = normalize(np.cross(ray.d, N))
     ray_plane_p_direction = normalize(np.cross(ray.d, ray_plane_s_direction))
 
@@ -336,13 +344,15 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
                             np.dot(ray.p_vector, ray_plane_s_direction)])
     s_component_sq = (ray.pol[0]*s_component[0] ** 2 + ray.pol[1]*s_component[1] ** 2)
 
-    p_component = np.array([np.dot(ray.s_vector, ray_plane_p_direction),
-                            np.dot(ray.p_vector, ray_plane_p_direction)])
-    p_component_sq = (ray.pol[0]*p_component[0] ** 2 + ray.pol[1]*p_component[1] ** 2)
-    # p_component_sq = 1 - s_component_sq
+    # p_component = np.array([np.dot(ray.s_vector, ray_plane_p_direction),
+    #                         np.dot(ray.p_vector, ray_plane_p_direction)])
+    # p_component_sq = (ray.pol[0]*p_component[0] ** 2 + ray.pol[1]*p_component[1] ** 2)
+    p_component_sq = 1 - s_component_sq
 
     # print("s component", s_component_sq, N)
     # print("p component", p_component_sq, N)
+    # if 1 - s_component_sq is not approx(1 - p_component_sq, abs=0.001):
+    #     print('sp sum', s_component_sq + p_component_sq)
 
     data_s = lookuptable.loc[dict(side=side)]
 
@@ -352,13 +362,21 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
 
     R = Rs + Rp # overall probability this ray will reflect
     T = Ts + Tp # overall probability this ray will transmit
-    # print("R, T", R, T)# R_plus_T = R + T
+
+    # if np.any(np.isnan([Rs, Rp, Ts, Tp])):
+    #     print('nans')
+    # # print("R, T", R, T)# R_plus_T = R + T
 
     side, A = update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp,
                            A_per_layer,
                               n0, n1, N, side, ray_plane_s_direction,
                                s_component_sq)
 
+    # if norm(ray.s_vector) is not approx(1, abs=0.1):
+    #     print('s norm, ', norm(ray.s_vector))
+
+    # if norm(ray.p_vector) is not approx(1, abs=0.1):
+    #     print('p norm, ', norm(ray.p_vector))
     # print('I after', np.sqrt(np.linalg.norm(ray.s_vector)**2 + np.linalg.norm(ray.p_vector)**2))
     # print("I remaining", ray.I)
     return side, A

@@ -910,7 +910,7 @@ def parallel_inner(
                 n_passes[c + offset] = n_pass
                 n_interactions[c + offset] = n_interact
                 local_thetas[A_interface_index].append(np.real(th_local))
-                # local_pols[A_interface_index].append(ray.pol)
+                local_pols[A_interface_index].append(ray.pol)
                 directions[A_interface_index].append(direction)
 
         A_interfaces = A_interfaces[1:]
