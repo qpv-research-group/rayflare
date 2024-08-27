@@ -1413,18 +1413,40 @@ def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):
 
     return I_back, DA, stop, theta
 
-
-def rotate_vector(rot_obj, delta_theta, delta_phi):
+# @jit(nopython=True)
+def rotate_vector(rot_mat, delta_theta, delta_phi):
  # in coordinate system of d, generate a vector which has these angles:
 
     xy_mag = np.sin(delta_theta)
-    p_d_coord = np.array((xy_mag * np.cos(delta_phi),
+    p_d_coord = np.array([xy_mag * np.cos(delta_phi),
                           xy_mag * np.sin(delta_phi),
-                          np.cos(delta_theta))).T
+                          np.cos(delta_theta)])
 
-    rotate_to_xyz = rot_obj.apply(p_d_coord)
+    s_coord = np.array([np.sin(delta_phi), -np.cos(delta_phi), np.zeros_like(delta_phi)])
+    p_coord = np.array([-np.cos(delta_phi) * np.cos(delta_theta), -np.sin(delta_phi) * np.cos(delta_theta),
+                        np.sin(delta_theta)])
 
-    return rotate_to_xyz
+    d_rotated = np.matmul(rot_mat, p_d_coord)
+    s_rotated = np.matmul(rot_mat, s_coord)
+    p_rotated = np.matmul(rot_mat, p_coord)
+
+
+    return d_rotated.T, s_rotated.T, p_rotated.T
+
+@jit(nopython=True)
+def rotation_matrix(theta, phi):
+    c_phi = np.cos(phi)
+    c_th = np.cos(theta)
+
+    s_phi = np.sin(phi)
+    s_th = np.sin(theta)
+    rot_mat = np.array([
+        [c_phi*c_th, -s_phi, c_phi*s_th],
+        [s_phi*c_th, c_phi, s_phi*s_th],
+        [-s_th, 0, c_th]
+                        ])
+
+    return rot_mat
 
 def ray_update_phong(ray, theta, phi, phong_options):
 
@@ -1432,15 +1454,17 @@ def ray_update_phong(ray, theta, phi, phong_options):
     # delta_theta = np.random.normal(0, phong_options[0])
     delta_phi = 2 * np.pi * np.random.rand()
 
-    rot_to_d = Rotation.from_euler('yz', [theta,
-                                          phi])
+    rot_mat = rotation_matrix(theta, phi)
 
-    new_dir = rotate_vector(rot_to_d, delta_theta, delta_phi)
+    new_dir, new_s, new_p = rotate_vector(rot_mat, delta_theta, delta_phi)
 
     if np.sign(ray.d[2]) != np.sign(new_dir[2]):
-        new_dir = rotate_vector(rot_to_d, delta_theta, delta_phi - np.pi)
+        delta_phi = delta_phi - np.pi
+        new_dir, new_s, new_p  = rotate_vector(rot_mat, delta_theta, delta_phi)
 
     ray.d = new_dir
+    ray.s_vector = new_s
+    ray.p_vector = new_p
 
     theta = np.real(acos(ray.d[2]))
     phi = np.real(atan2(ray.d[1], ray.d[0]))
@@ -1469,16 +1493,15 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
     for i1, ray_d in enumerate(ray_ds):
         theta = np.arccos(ray_d[2])
         phi = atan2(ray_d[1], ray_d[0])
-        rot_to_d = Rotation.from_euler('yz', [theta,
-                                              phi])
+        rot_mat = rotation_matrix(theta, phi)
 
         #new_dir = rotate_vector(rot_to_d, delta_theta, -delta_phi)
-        new_dirs = rotate_vector(rot_to_d, delta_theta[total_ind:total_ind + n_rays[i1]],
+        new_dirs = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]],
                                  delta_phi[total_ind:total_ind + n_rays[i1]])
 
 
         wrong_direction = np.sign(ray_d[2]) != np.sign(new_dirs[:,2])
-        new_dirs[wrong_direction] = rotate_vector(rot_to_d, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
+        new_dirs[wrong_direction] = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
                                                   delta_phi[total_ind:total_ind + n_rays[i1]][wrong_direction] - np.pi)
         all_dirs[total_ind:total_ind + n_rays[i1]] = new_dirs
 
