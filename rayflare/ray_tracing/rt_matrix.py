@@ -85,12 +85,12 @@ def RT(
         n_theta_bins = options.n_theta_bins
         c_az = options.c_azimuth
 
-        pol, initial_pol_vectors = make_pol_vectors(options.pol, theta, phi)
+        pol = options.pol
 
-        if not (pol[0] == 1 or pol[1] == 1):
-            logger.warning("Warning: you have specificied unpolarized/partially polarized light. "
-                           "The ARRM RT class does not currently take into account polarization "
-                           "changes at interfaces.")
+        # if not (pol[0] == 1 or pol[1] == 1):
+        #     logger.warning("Warning: you have specificied unpolarized/partially polarized light. "
+        #                    "The ARRM RT class does not currently take into account polarization "
+        #                    "changes at interfaces.")
 
         if not options.parallel:
             n_jobs = 1
@@ -231,7 +231,6 @@ def RT(
                     nks,
                     surfaces,
                     pol,
-                    initial_pol_vectors,
                     (np.pi / 2) / options.lookuptable_angles,
                     phi_sym,
                     theta_intv,
@@ -289,7 +288,6 @@ def RT_wl(
     nks,
     surfaces,
     pol,
-    pol_vectors,
     d_theta,
     phi_sym,
     theta_intv,
@@ -329,6 +327,8 @@ def RT_wl(
                 [r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)]
             )
         )
+        pol, pol_vectors = make_pol_vectors(pol, theta, phi)
+
         for c, vals in enumerate(product(xs, ys)):
             ray, th_o, phi_o, surface_A = single_ray_interface(
                 vals[0],

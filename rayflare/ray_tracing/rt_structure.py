@@ -820,7 +820,7 @@ def parallel_inner(
             phong_options = [x.phong_options for x in surfaces]
             # TODO: pol will also change if already interacted with a surface!
             # And polarization directions
-            ds, pols, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = (
+            ds, pols, pol_vectors, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = (
                 make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options))
             stop_before = int(np.ceil(n_remaining/(nx*ny)))
             # r_as need to be set so that z is somewhere within the current surface:
@@ -838,6 +838,7 @@ def parallel_inner(
             i_mats = np.array([initial_mat for _ in range(n_reps * nx * ny)])
             i_dirs = np.array([initial_dir for _ in range(n_reps * nx * ny)])
             surf_inds = np.array([surf_index for _ in range(n_reps * nx * ny)])
+            pol_vectors = np.array([initial_pol_vec for _ in range(n_reps * nx * ny)])
 
             x_y_combs = np.array(list(product(xs, ys)))
 
@@ -880,7 +881,7 @@ def parallel_inner(
                     depth_indices,
                     I_thresh,
                     pols[overall_i],
-                    initial_pol_vec,
+                    pol_vectors[overall_i],
                     d_theta,
                     randomize,
                     i_mats[overall_i],
@@ -1528,6 +1529,15 @@ def make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options):
         ds = np.vstack([np.tile(dirs[i], (rays_per_direction[i], 1)) for i in range(len(dirs))])
         pols = np.vstack([np.tile(pols[i], (rays_per_direction[i], 1)) for i in range(len(pols))])
 
+    thetas = np.arccos(ds[:,2])
+    phis = np.arctan2(ds[:,1], ds[:,0])
+
+    _, pol_vectors = make_pol_vectors('s', thetas, phis)
+    # rearrange indices of pol_vectors (sp, xyz, wl) to (wl, sp, xyz):
+    # ascontiguousarray is for numba performance later
+    pol_vectors = np.ascontiguousarray(np.moveaxis(pol_vectors, 2, 0))
+    # pols = np.ascontiguousarray(pols)
+
     i_mats = np.concatenate([[current_mat[i]]*rays_per_direction[i] for i in range(len(current_mat))])
     i_dirs = np.ones_like(i_mats)
     i_dirs[ds[:,2] > 0] = -1
@@ -1543,4 +1553,4 @@ def make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options):
 
     scale_I = np.concatenate([[scale_factor[i]]*rays_per_direction[i] for i in range(len(current_mat))])
 
-    return ds, pols, i_mats, i_dirs, surf_inds, n_remaining, scale_I, n_inters, n_passes
+    return ds, pols, pol_vectors, i_mats, i_dirs, surf_inds, n_remaining, scale_I, n_inters, n_passes

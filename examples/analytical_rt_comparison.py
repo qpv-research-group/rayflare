@@ -23,7 +23,7 @@ options.lambertian_approximation = 0
 options.randomize_surface = True
 options.phi_in = 20 * np.pi / 180
 options.I_thresh = 0.0002
-options.parallel = False
+options.parallel = True
 options.pol = 'u'
 
 SiOx = material("SiO2")()

@@ -206,7 +206,7 @@ def make_pol_vectors(pol_string, theta, phi):
                               np.cos(theta) * np.sin(phi),
                               -np.sin(theta)])
 
-    initial_s_dir = np.array([-np.sin(phi), np.cos(phi), 0])
+    initial_s_dir = np.array([-np.sin(phi), np.cos(phi), np.zeros_like(theta)])
 
     initial_pol_vectors = np.array([initial_s_dir, initial_p_dir])
 
@@ -283,7 +283,7 @@ def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, sid
 
         # the relative s/p weighting of the reflected ray needs to be weighted by
         # Rs and Rp:
-        ray.pol = [Rs / R, Rp / R]
+        ray.pol = np.array([Rs / R, Rp / R])
 
         A = None
 
@@ -301,13 +301,13 @@ def update_ray_d_pol(ray, rnd, R, T, Rs, Rp, Ts, Tp, A_per_layer, n0, n1, N, sid
 
         # the relative s/p weighting of the transmitted ray needs to be weighted by
         # Rs and Rp:
-        ray.pol = [Ts / T, Tp / T]
+        ray.pol = np.array([Ts / T, Tp / T])
 
         A = None
 
     else:
         # absorption
-        ray.pol = [s_comp_sq, 1 - s_comp_sq]
+        ray.pol = np.array([s_comp_sq, 1 - s_comp_sq])
         A = A_per_layer
 
     ray.d = normalize(ray.d)
@@ -335,7 +335,7 @@ def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
     R_plus_T = 1
 
     side, _ = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, 1-Rs, 1-Rp, 0,
-                              n0, n1, N, side, ray_plane_s_direction, s_component_sq    )
+                              n0, n1, N, side, ray_plane_s_direction, s_component_sq)
 
     return side, None  # never absorbed, A = False
 
@@ -344,7 +344,7 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
 
     s_component_sq, p_component_sq, ray_plane_s_direction = (
         get_pol_component_direction(theta, ray.d, N, ray.s_vector, ray.p_vector, ray.pol))
-
+    # print('s/p', s_component_sq, 1-s_component_sq)
     # s and p
     data_s = lookuptable.loc[dict(side=side)]
 
@@ -584,6 +584,8 @@ def single_interface_check(
     n_misses = 0
     i1 = 0
 
+    tri.refresh()
+
     while intersect:
         i1 = i1 + 1
         with np.errstate(
@@ -669,14 +671,15 @@ def single_interface_check(
                     intersect = False
                     final_res = 0
 
-                if ray.r_a[0] > Lx or ray.r_a[0] < 0:
-                    ray.r_a[0] = (
-                        ray.r_a[0] % Lx
-                    )  # translate back into until cell before next ray
-                if ray.r_a[1] > Ly or ray.r_a[1] < 0:
-                    ray.r_a[1] = (
-                        ray.r_a[1] % Ly
-                    )  # translate back into until cell before next ray
+                # # TODO: is this necessary?
+                # if ray.r_a[0] > Lx or ray.r_a[0] < 0:
+                #     ray.r_a[0] = (
+                #         ray.r_a[0] % Lx
+                #     )  # translate back into until cell before next ray
+                # if ray.r_a[1] > Ly or ray.r_a[1] < 0:
+                #     ray.r_a[1] = (
+                #         ray.r_a[1] % Ly
+                #     )  # translate back into until cell before next ray
 
                 return (
                     final_res,

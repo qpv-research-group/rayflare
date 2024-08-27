@@ -26,6 +26,7 @@ options.project_name = 'polarization_comparison'
 options.randomize_surface = True
 options.I_thresh = 0.0002
 options.parallel = True
+options.analytical_ray_tracing = 2
 
 Si = material("Si")()
 GaAs = material("GaAs")()
@@ -54,7 +55,6 @@ for opening_angle in surface_angles:
         save_location="current",
         overwrite=True,
     )
-
 
     for theta in incidence_angles:
         options.theta_in = theta * np.pi / 180
