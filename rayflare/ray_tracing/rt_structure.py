@@ -292,8 +292,8 @@ class rt_structure:
             prop_rays = dummy_prop_rays()
             A_interface_to_add = None
 
-        allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_inner)(
+        allres = [
+            parallel_inner(
                 nks[:, i1],
                 alphas[:, i1],
                 r_a_0,
@@ -319,8 +319,10 @@ class rt_structure:
                 lambertian_approximation,
                 tmm_args + [wavelengths[i1]],
                 prop_rays.isel(wl=i1),
+                n_jobs,
             )
-            for i1 in range(len(wavelengths)))
+
+            for i1 in range(len(wavelengths))]
 
         # pr.disable()
 
@@ -684,6 +686,7 @@ def parallel_inner(
     lambertian_approximation=0,
     tmm_args=None,
     existing_rays=None,
+    n_jobs=-1,
 ):
 
     # analytical front surface ray-tracing should take place outside the loop,
@@ -722,6 +725,7 @@ def parallel_inner(
     if existing_rays is None:
         continue_wl = True
         prop_rays_analytical = False
+        n_remaining = n_reps * nx * ny
 
     else:
         continue_wl = np.sum(existing_rays.I) > I_thresh
@@ -733,10 +737,6 @@ def parallel_inner(
             A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
         else:
             A_in_interfaces = 0
-
-        # need to populate the arrays with results from the rays which were already
-        # absorbed:
-
 
 
     # print('continue_wl', continue_wl)
@@ -811,9 +811,6 @@ def parallel_inner(
         # - direction: the x/y/z directions of the rays
         # - mat_i: the index of the material the ray has just traversed.
 
-
-        end_ind = nx*ny*np.ones(n_reps, dtype=int)
-
         if prop_rays_analytical:
 
             phong_params = np.array([x.phong for x in surfaces])
@@ -827,9 +824,7 @@ def parallel_inner(
             z_offs = -cum_width[i_mats - 1] - 1e-8
             r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
             # will probably need to end somewhere halfway through the x/y loop:
-            end_ind[stop_before:] = 0
-            end_ind[stop_before - 1] = n_remaining - (stop_before - 1)*nx*ny
-            # print('remaining', n_remaining)
+
 
         else:
 
@@ -851,62 +846,96 @@ def parallel_inner(
             n_inter_in = np.zeros(n_reps * nx * ny)
             n_remaining = n_reps*nx*ny
 
-        overall_i = 0
-        for j1 in range(n_reps):
-            offset = j1 * nx * ny
+        results = Parallel(n_jobs=n_jobs)(delayed(single_ray_stack)(
+            nks,
+            alphas,
+            r_as[j1],
+            ds[j1],
+            surfaces,
+            additional_tmm_args,
+            widths,
+            z_pos,
+            depths,
+            depth_indices,
+            I_thresh,
+            pols[j1],
+            pol_vectors[j1],
+            d_theta,
+            randomize,
+            i_mats[j1],
+            i_dirs[j1],
+            surf_inds[j1],
+            periodic,
+            lambertian_approximation,
+            n_passes_in[j1],
+            n_inter_in[j1],
+            I_in[j1],
+        ) for j1 in range(n_remaining))
 
-            for c in range(end_ind[j1]):
-                (
-                    ray,
-                    profile,
-                    A_per_layer,
-                    th_o,
-                    phi_o,
-                    n_pass,
-                    n_interact,
-                    A_interface_array,
-                    A_interface_index,
-                    th_local,
-                    direction,
-                ) = single_ray_stack(
-                    nks,
-                    alphas,
-                    r_as[overall_i],
-                    ds[overall_i],
-                    surfaces,
-                    additional_tmm_args,
-                    widths,
-                    z_pos,
-                    depths,
-                    depth_indices,
-                    I_thresh,
-                    pols[overall_i],
-                    pol_vectors[overall_i],
-                    d_theta,
-                    randomize,
-                    i_mats[overall_i],
-                    i_dirs[overall_i],
-                    surf_inds[overall_i],
-                    periodic,
-                    lambertian_approximation,
-                    n_passes_in[overall_i],
-                    n_inter_in[overall_i],
-                    I_in[overall_i],
-                )
+        for j1, (ray, profile, A_per_layer, th_o, phi_o, n_pass, n_interact, A_interface_array,
+                 A_interface_index, th_local, direction) in enumerate(results):
+            A_interfaces[A_interface_index].append(A_interface_array)
+            profiles += profile / (n_reps * nx * ny)
+            thetas[j1] = th_o
+            phis[j1] = phi_o
+            Is[j1] = np.real(ray.I)
+            A_layer += A_per_layer / (n_reps * nx * ny)
+            n_passes[j1] = n_pass
+            n_interactions[j1] = n_interact
+            local_thetas[A_interface_index].append(np.real(th_local))
+            local_pols[A_interface_index].append(ray.pol)
+            directions[A_interface_index].append(direction)
 
-                overall_i += 1
-
-                A_interfaces[A_interface_index].append(A_interface_array)
-                profiles += profile / (n_reps * nx * ny)
-                thetas[c + offset] = th_o
-                phis[c + offset] = phi_o
-                Is[c + offset] = np.real(ray.I)
-                A_layer += A_per_layer / (n_reps * nx * ny)
-                n_passes[c + offset] = n_pass
-                n_interactions[c + offset] = n_interact
-                local_thetas[A_interface_index].append(np.real(th_local))
-                local_pols[A_interface_index].append(ray.pol)
-                directions[A_interface_index].append(direction)
+        # for j1 in range(n_remaining):
+        #     (
+        #         ray,
+        #         profile,
+        #         A_per_layer,
+        #         th_o,
+        #         phi_o,
+        #         n_pass,
+        #         n_interact,
+        #         A_interface_array,
+        #         A_interface_index,
+        #         th_local,
+        #         direction,
+        #     ) = single_ray_stack(
+        #         nks,
+        #         alphas,
+        #         r_as[j1],
+        #         ds[j1],
+        #         surfaces,
+        #         additional_tmm_args,
+        #         widths,
+        #         z_pos,
+        #         depths,
+        #         depth_indices,
+        #         I_thresh,
+        #         pols[j1],
+        #         pol_vectors[j1],
+        #         d_theta,
+        #         randomize,
+        #         i_mats[j1],
+        #         i_dirs[j1],
+        #         surf_inds[j1],
+        #         periodic,
+        #         lambertian_approximation,
+        #         n_passes_in[j1],
+        #         n_inter_in[j1],
+        #         I_in[j1],
+        #     )
+        #
+        #     A_interfaces[A_interface_index].append(A_interface_array)
+        #     profiles += profile / (n_reps * nx * ny)
+        #     thetas[j1] = th_o
+        #     phis[j1] = phi_o
+        #     Is[j1] = np.real(ray.I)
+        #     A_layer += A_per_layer / (n_reps * nx * ny)
+        #     n_passes[j1] = n_pass
+        #     n_interactions[j1] = n_interact
+        #     local_thetas[A_interface_index].append(np.real(th_local))
+        #     local_pols[A_interface_index].append(ray.pol)
+        #     directions[A_interface_index].append(direction)
 
         A_interfaces = A_interfaces[1:]
         # index 0 are all entries for non-interface-absorption events.
