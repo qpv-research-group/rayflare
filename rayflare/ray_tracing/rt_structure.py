@@ -145,6 +145,8 @@ class rt_structure:
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
+        print('check')
+
         if isinstance(options, dict):
             options = State(options)
 

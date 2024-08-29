@@ -10,19 +10,23 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
+from time import time
+
 from cycler import cycler
 
 wavelengths = np.linspace(300, 1200, 40) * 1e-9
 
 options = default_options()
 options.wavelength = wavelengths
-options.nx = 5
+options.nx = 30
 options.ny = options.nx
 options.n_rays = 4 * options.nx**2
 options.depth_spacing = 1e-9
 options.pol = "u"
 options.I_thresh = 1e-3
 options.randomize_surface = True
+options.analytical_ray_tracing = 0
+options.pol = 'u'
 # mimic random pyramids; do not want correlation between incident position on
 # front and rear pyramids
 
@@ -32,43 +36,43 @@ options.n_jobs = -1  # use all cores; to use all but one, change to -2 etc.
 from solcore.material_system import create_new_material
 
 cur_path = cur_path = os.path.dirname(os.path.abspath(__file__))
-create_new_material(
-    "Perovskite_CsBr_1p6eV",
-    os.path.join(cur_path, "../../solcore-education/solcore-workshop/notebooks/data/CsBr10p_1to2_n_shifted.txt"),
-    os.path.join(cur_path, "../../solcore-education/solcore-workshop/notebooks/data/CsBr10p_1to2_k_shifted.txt"),
-)
-create_new_material(
-    "ITO_lowdoping",
-    os.path.join(cur_path, "data/model_back_ito_n.txt"),
-    os.path.join(cur_path, "data/model_back_ito_k.txt"),
-)
-create_new_material(
-    "Ag_Jiang", os.path.join(cur_path, "data/Ag_UNSW_n.txt"), os.path.join(cur_path, "data/Ag_UNSW_k.txt")
-)
-create_new_material(
-    "aSi_i",
-    os.path.join(cur_path, "data/model_i_a_silicon_n.txt"),
-    os.path.join(cur_path, "data/model_i_a_silicon_k.txt"),
-)
-create_new_material(
-    "aSi_p",
-    os.path.join(cur_path, "data/model_p_a_silicon_n.txt"),
-    os.path.join(cur_path, "data/model_p_a_silicon_k.txt"),
-)
-create_new_material(
-    "aSi_n",
-    os.path.join(cur_path, "data/model_n_a_silicon_n.txt"),
-    os.path.join(cur_path, "data/model_n_a_silicon_k.txt"),
-)
-create_new_material(
-    "MgF2_RdeM", os.path.join(cur_path, "data/MgF2_RdeM_n.txt"), os.path.join(cur_path, "data/MgF2_RdeM_k.txt")
-)
-create_new_material("C60", os.path.join(cur_path, "data/C60_Ren_n.txt"), os.path.join(cur_path, "data/C60_Ren_k.txt"))
-create_new_material(
-    "IZO",
-    os.path.join(cur_path, "data/IZO_Ballif_rO2_10pcnt_n.txt"),
-    os.path.join(cur_path, "data/IZO_Ballif_rO2_10pcnt_k.txt"),
-)
+# create_new_material(
+#     "Perovskite_CsBr_1p6eV",
+#     os.path.join(cur_path, "../../solcore-education/solcore-workshop/notebooks/data/CsBr10p_1to2_n_shifted.txt"),
+#     os.path.join(cur_path, "../../solcore-education/solcore-workshop/notebooks/data/CsBr10p_1to2_k_shifted.txt"),
+# )
+# create_new_material(
+#     "ITO_lowdoping",
+#     os.path.join(cur_path, "data/model_back_ito_n.txt"),
+#     os.path.join(cur_path, "data/model_back_ito_k.txt"),
+# )
+# create_new_material(
+#     "Ag_Jiang", os.path.join(cur_path, "data/Ag_UNSW_n.txt"), os.path.join(cur_path, "data/Ag_UNSW_k.txt")
+# )
+# create_new_material(
+#     "aSi_i",
+#     os.path.join(cur_path, "data/model_i_a_silicon_n.txt"),
+#     os.path.join(cur_path, "data/model_i_a_silicon_k.txt"),
+# )
+# create_new_material(
+#     "aSi_p",
+#     os.path.join(cur_path, "data/model_p_a_silicon_n.txt"),
+#     os.path.join(cur_path, "data/model_p_a_silicon_k.txt"),
+# )
+# create_new_material(
+#     "aSi_n",
+#     os.path.join(cur_path, "data/model_n_a_silicon_n.txt"),
+#     os.path.join(cur_path, "data/model_n_a_silicon_k.txt"),
+# )
+# create_new_material(
+#     "MgF2_RdeM", os.path.join(cur_path, "data/MgF2_RdeM_n.txt"), os.path.join(cur_path, "data/MgF2_RdeM_k.txt")
+# )
+# create_new_material("C60", os.path.join(cur_path, "data/C60_Ren_n.txt"), os.path.join(cur_path, "data/C60_Ren_k.txt"))
+# create_new_material(
+#     "IZO",
+#     os.path.join(cur_path, "data/IZO_Ballif_rO2_10pcnt_n.txt"),
+#     os.path.join(cur_path, "data/IZO_Ballif_rO2_10pcnt_k.txt"),
+# )
 # Only run once until here, then can comment out
 
 Si = material("Si")()
@@ -118,7 +122,9 @@ rtstr_coh = rt_structure(
     save_location="current",
 )
 
+start = time()
 result_coh = rtstr_coh.calculate(options)
+print("Time taken (coherent): ", time() - start)
 
 triangle_surf = regular_pyramids(
     elevation_angle=55,
@@ -150,7 +156,9 @@ rtstr_inc = rt_structure(
     save_location="current",
 )
 
+start = time()
 result_inc = rtstr_inc.calculate(options)
+print("Time taken (incoherent): ", time() - start)
 
 pal = sns.color_palette("husl", n_colors=len(front_materials) + len(back_materials) + 2)
 
