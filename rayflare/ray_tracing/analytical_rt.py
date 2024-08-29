@@ -209,12 +209,12 @@ def analytical_start(nks,
 
     current_pol = np.tile(pol, (n_wl, 1)) # "length"**2 of E-field vectors in s and p directions.
     # sum is 1.
+
     _, current_pol_vectors = make_pol_vectors(pol, theta, phi)
 
     # want the dimensions for current_pol_vectors to be: (pol, xyz, wl), need to repeat n_wl times
     # along new axis which will be the final index:
     current_pol_vectors = np.repeat(current_pol_vectors[:, :, None], n_wl, axis=2)
-
 
     mat_i = initial_mat
 

@@ -37,7 +37,7 @@ layers = [Layer(70e-9, SiN), Layer(400e-9, GaAs)]
 # layers = [Layer(70e-9, SiN)]
 # textured front, absorbing layer: A int 0 looks the same, but R is too high
 
-Si_front_text = regular_pyramids(50, True, interface_layers=layers)
+Si_front_text = regular_pyramids(45.001, True, interface_layers=layers)
 
 back_text = planar_surface()
 

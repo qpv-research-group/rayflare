@@ -1146,7 +1146,7 @@ def calculate_interface_profiles(
 
     profile = profile_front + profile_back
 
-    if np.sum(profile.data) > 0:
+    if np.sum(profile) > 0:
         integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
 
         A_corr = np.sum(A_in_prof_layers)
@@ -1249,6 +1249,7 @@ def single_ray_stack(
             ray.r_a[0] = ray.r_a[0] - surf.Lx * (
                 (ray.r_a[0] + ray.d[0] * (surf.zcov - ray.r_a[2]) / ray.d[2]) // surf.Lx
             )
+            # print(ray.d)
             ray.r_a[1] = ray.r_a[1] - surf.Ly * (
                 (ray.r_a[1] + ray.d[1] * (surf.zcov - ray.r_a[2]) / ray.d[2]) // surf.Ly
             )
@@ -1280,6 +1281,7 @@ def single_ray_stack(
         )
 
         if res == 0:  # reflection
+
             direction = -direction  # changing direction due to reflection
 
             # staying in the same material, so mat_i does not change, but surf_index does
