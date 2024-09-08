@@ -3,7 +3,7 @@ from pytest import approx, mark
 import itertools
 
 @mark.parametrize("upright", [True, False])
-def test_regular_pryramids(upright):
+def test_regular_pyramids(upright):
     from rayflare.textures import regular_pyramids
 
     if upright:
@@ -337,8 +337,8 @@ def test_rough_hemisphere_size():
 def test_hemisphere_cap_surface():
     from rayflare.textures import hemisphere_surface
 
-    Lx = np.random.uniform(3, 5, 1)
-    offset = np.random.uniform(0, 1, 1)
+    Lx = np.random.uniform(3, 5, 1)[0]
+    offset = np.random.uniform(0, 1, 1)[0]
 
     front, _ = hemisphere_surface(Lx, 101, Lx / 3, offset, 0, 1)
 

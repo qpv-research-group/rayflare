@@ -112,6 +112,7 @@ rtstr = rt_structure(
     options=options,
     save_location="current",
 )
+
 result = rtstr.calculate(options)
 
 options.project_name = "inc"

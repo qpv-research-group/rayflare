@@ -145,8 +145,6 @@ class rt_structure:
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
-        print('check')
-
         if isinstance(options, dict):
             options = State(options)
 
@@ -160,7 +158,12 @@ class rt_structure:
             options.depth_spacing * 1e9 if "depth_spacing" in options else 1
         )
         lambertian_approximation = options.lambertian_approximation
-        analytical_rt = options.analytical_ray_tracing
+
+        analytical_rt = self.surfaces[0].analytical
+
+        if analytical_rt:
+            max_interactions = [self.surfaces[i].n_analytical_interactions for i in range(len(self.surfaces))]
+        # for now, can only do analytical here if the first surface allows it
 
         if not options.parallel:
             n_jobs = 1
@@ -285,7 +288,7 @@ class rt_structure:
                 initial_mat,
                 initial_dir,
                 tmm_args,
-                options.analytical_ray_tracing,
+                max_interactions,
                 wavelengths*1e9
             )
             A_interface_to_add = result_per_wl["A_per_interface"]

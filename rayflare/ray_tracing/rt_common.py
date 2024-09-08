@@ -51,7 +51,10 @@ class Ray:
 class RTSurface:
     """Class which is used to store information about the surface which is used for ray-tracing."""
 
-    def __init__(self, Points, interface_layers=None, **kwargs):
+    def __init__(self, Points, interface_layers=None,
+                 phong=False,
+                 analytical=False,
+                 **kwargs):
         """Initializes the surface.
         Parameters:
 
@@ -94,17 +97,21 @@ class RTSurface:
         self.z_min = min(Points[:, 2])
         self.z_max = max(Points[:, 2])
 
-        if "phong" in kwargs:
-            self.phong = kwargs["phong"]
-
-        else:
-            self.phong = False
+        self.phong = phong
 
         if "phong_options" in kwargs:
             self.phong_options = kwargs["phong_options"]
 
         else:
             self.phong_options = [0.15, True]
+
+        self.analytical = analytical
+
+        if "n_analytical_interactions" in kwargs:
+            self.n_analytical_interactions = kwargs["n_analytical_interactions"]
+
+        else:
+            self.n_analytical_interactions = 3
 
         # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
         # cell at this height and be sure that it will hit the surface. The method below works well for regular textures

@@ -282,7 +282,7 @@ def analytical_start(nks,
                                       initial_dir,
                                       current_pol,
                                       current_pol_vectors,
-                                      max_interactions,
+                                      max_interactions[surf_index],
                                       )
 
         # Note: the polarization vector direction will not be updated here. In current
