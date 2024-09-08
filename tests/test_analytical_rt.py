@@ -111,7 +111,6 @@ def test_total_RAT_TMM():
     assert total_int == approx(1, abs=options.I_thresh)
 
 def test_compare_Fresnel():
-    # calculate same structure with TMM and Fresnel
 
     from rayflare.ray_tracing import rt_structure
     from rayflare.textures import regular_pyramids, planar_surface
@@ -120,67 +119,141 @@ def test_compare_Fresnel():
 
     Si = material("Si")()
     Air = material("Air")()
-    MgF2 = material("coverglass_JJ")()
+    MgF2 = material("MgF2")()
 
     options = default_options()
 
-    options.wavelength = np.linspace(300, 1150, 80) * 1e-9
+    options.wavelength = np.linspace(300, 1100, 6) * 1e-9
 
-    options.nx = 10
-    options.ny = 10
-    options.n_rays = 2000
-    options.project_name = 'fdsf'
+    options.nx = 20
+    options.ny = 20
+    options.n_rays = 1000
+    options.randomize_surface = True
+    options.depth_spacing_bulk = 10e-9
 
     options.pol = 's'
 
-    planar_surf = planar_surface()
-    pyramids = regular_pyramids(46, True)
+    top_angle = 50
+
+    planar_surf = planar_surface(analytical=True)
+    pyramids = regular_pyramids(top_angle, True, analytical=True)
     pyramids_rear = regular_pyramids(20, True)
 
-    rt_strt = rt_structure(
-        textures=[planar_surf, pyramids, pyramids_rear],
+    all_args = dict(
         materials=[MgF2, Si],
-        widths=[10e-6, 50e-6],
+        widths=[1e-6, 20e-6],
         incidence=Air, transmission=Air,
         use_TMM=False,
     )
 
-    RAT_Fresnel_f = rt_strt.calculate(options)
-
-    planar_surf = planar_surface(analytical=True)
-    pyramids = regular_pyramids(46, True, analytical=True)
-    pyramids_rear = regular_pyramids(20, True)
-
     rt_strt = rt_structure(
         textures=[planar_surf, pyramids, pyramids_rear],
-        materials=[MgF2, Si],
-        widths=[10e-6, 50e-6],
-        incidence=Air, transmission=Air,
-        use_TMM=False,
+        **all_args,
     )
 
     RAT_Fresnel_a = rt_strt.calculate(options)
 
-    import matplotlib.pyplot as plt
+    planar_surf = planar_surface()
+    pyramids = regular_pyramids(top_angle, True)
+    pyramids_rear = regular_pyramids(20, True)
 
-    plt.figure()
-    plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['R'], '-k', label="R Fresnel")
-    plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['A_per_layer'], '-r', label="A Fresnel")
-    plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['T'], '-b', label="T Fresnel")
-    plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['R'], '--k', label="R Fresnel")
-    plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['A_per_layer'], '--r', label="A Fresnel")
-    plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['T'], '--b', label="T Fresnel")
+    rt_strt = rt_structure(
+        textures=[planar_surf, pyramids, pyramids_rear],
+        **all_args,
+    )
 
-    plt.show()
+    RAT_Fresnel_f = rt_strt.calculate(options)
+
+    assert RAT_Fresnel_a['R'] == approx(RAT_Fresnel_f['R'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['T'] == approx(RAT_Fresnel_f['T'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['A_per_layer'] == approx(RAT_Fresnel_f['A_per_layer'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['R0'] == approx(RAT_Fresnel_f['R0'], rel=0.05, abs=0.05)
+
+    anlt_profile = RAT_Fresnel_a['profile']
+    full_profile = RAT_Fresnel_f['profile']
+
+    full_profile = full_profile[anlt_profile > 1e-6]
+    anlt_profile = anlt_profile[anlt_profile > 1e-6]
+
+    assert full_profile == approx(anlt_profile, rel=0.05, abs=1e-5)
 
 def test_compare_TMM():
-    pass
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import regular_pyramids, planar_surface
+    from solcore import material
+    from solcore.structure import Layer
+    from rayflare.options import default_options
 
-def test_integrated_A_Fresnel():
-    pass
+    Si = material("Si")()
+    GaAs = material("GaAs")()
+    Air = material("Air")()
+    MgF2 = material("MgF2")()
+    SiN = material("Si3N4")()
 
-def test_integrated_A_TMM():
-    pass
+    options = default_options()
+
+    options.wavelength = np.linspace(300, 1100, 6) * 1e-9
+
+    options.nx = 20
+    options.ny = 20
+    options.n_rays = 1000
+    options.randomize_surface = True
+    options.depth_spacing_bulk = 10e-9
+    options.project_name = 'test_analytical'
+
+    options.pol = 's'
+
+    top_angle = 50
+
+    front_surf_layers = [Layer(70e-9, MgF2), Layer(500e-9, GaAs)]
+    int_surf_layers = [Layer(70e-9, SiN)]
+
+    planar_surf = planar_surface(analytical=True,
+                                 interface_layers=front_surf_layers)
+    pyramids = regular_pyramids(top_angle, True, analytical=True,
+                                interface_layers=int_surf_layers)
+    pyramids_rear = regular_pyramids(20, True)
+
+    all_args = dict(
+        materials=[GaAs, Si],
+        widths=[5e-6, 20e-6],
+        incidence=Air, transmission=Air,
+        use_TMM=True,
+        options=options,
+        overwrite=True,
+    )
+
+    rt_strt = rt_structure(
+        textures=[planar_surf, pyramids, pyramids_rear],
+        **all_args,
+    )
+
+    RAT_Fresnel_a = rt_strt.calculate(options)
+
+    planar_surf = planar_surface(interface_layers=front_surf_layers)
+    pyramids = regular_pyramids(top_angle, True,
+                                interface_layers=int_surf_layers)
+    pyramids_rear = regular_pyramids(20, True)
+
+    rt_strt = rt_structure(
+        textures=[planar_surf, pyramids, pyramids_rear],
+        **all_args,
+    )
+
+    RAT_Fresnel_f = rt_strt.calculate(options)
+
+    assert RAT_Fresnel_a['R'] == approx(RAT_Fresnel_f['R'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['T'] == approx(RAT_Fresnel_f['T'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['A_per_layer'] == approx(RAT_Fresnel_f['A_per_layer'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['R0'] == approx(RAT_Fresnel_f['R0'], rel=0.05, abs=0.05)
+
+    anlt_profile = RAT_Fresnel_a['profile']
+    full_profile = RAT_Fresnel_f['profile']
+
+    full_profile = full_profile[anlt_profile > 1e-5]
+    anlt_profile = anlt_profile[anlt_profile > 1e-5]
+
+    assert full_profile == approx(anlt_profile, rel=0.15, abs=1e-5)
 
 def test_lambertian_scattering():
     pass

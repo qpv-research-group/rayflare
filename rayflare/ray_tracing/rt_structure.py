@@ -816,6 +816,8 @@ def parallel_inner(
         # - direction: the x/y/z directions of the rays
         # - mat_i: the index of the material the ray has just traversed.
 
+        x_y_combs = np.array(list(product(xs, ys)))
+
         if prop_rays_analytical:
 
             phong_params = np.array([x.phong for x in surfaces])
@@ -826,10 +828,20 @@ def parallel_inner(
                 make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options))
             stop_before = int(np.ceil(n_remaining/(nx*ny)))
             # r_as need to be set so that z is somewhere within the current surface:
-            z_offs = -cum_width[i_mats - 1] - 1e-8
-            r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
-            # will probably need to end somewhere halfway through the x/y loop:
+            # z_offs = -cum_width[i_mats - 1] - 1e-8
+            z_min = np.array([surf.z_min for surf in surfaces])
+            z_max = np.array([surf.z_max for surf in surfaces])
 
+            Lx = np.array([surf.Lx for surf in surfaces])
+            Ly = np.array([surf.Ly for surf in surfaces])
+
+            # for rays travelling up (i_dir) = -1_, want to place just below z_min of surface above.
+            # for rays travelling down (i_dir) = 1, want to place just above z_max of surface below.
+            z_offs = np.where(i_dirs == 1, z_max[i_mats] + 1e-8, z_min[i_mats - 1] - 1e-8)
+
+            r_as = np.array((Lx[surf_inds]*np.random.rand(n_remaining),
+                                Ly[surf_inds]*np.random.rand(n_remaining),
+                              z_offs)).T
 
         else:
 
@@ -839,8 +851,6 @@ def parallel_inner(
             i_dirs = np.array([initial_dir for _ in range(n_reps * nx * ny)])
             surf_inds = np.array([surf_index for _ in range(n_reps * nx * ny)])
             pol_vectors = np.array([initial_pol_vec for _ in range(n_reps * nx * ny)])
-
-            x_y_combs = np.array(list(product(xs, ys)))
 
             r_as = np.array([[r_a_0[0] + vals[0], r_a_0[1] + vals[1], z_offset] for vals in x_y_combs]) # ?
             # stack this n_reps times:
@@ -1288,6 +1298,8 @@ def single_ray_stack(
                 (ray.r_a[1] + ray.d[1] * (surf.zcov - ray.r_a[2]) / ray.d[2]) // surf.Ly
             )
 
+        # note: ni and nj are assuming direction = 1. If direction = -1, then
+        # they will be flipped during R/T calculation later.
         if direction == 1:
             ni = nks[mat_i]
             nj = nks[mat_i + 1]

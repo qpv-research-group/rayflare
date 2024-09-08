@@ -331,17 +331,24 @@ def decide_RT_Fresnel(ray, n0, n1, theta, N, side, rnd,
 
     if abs(theta) > np.arcsin(ratio):
         Rs, Rp = 1, 1
+
     else:
-        Rs, Rp = calc_R(n0, n1, theta, ray.pol)
+        Rs, Rp = calc_R(n0, n1, theta, np.array([s_component_sq, p_component_sq]))
+
+    Ts = 1 - Rs
+    Tp = 1 - Rp
 
     Rs = Rs * s_component_sq
     Rp = Rp * p_component_sq
+
+    Ts = Ts * s_component_sq
+    Tp = Tp * p_component_sq
 
     # R = ray.pol[0]*Rs + ray.pol[1]*Rp
     R = Rs + Rp
     R_plus_T = 1
 
-    side, _ = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, 1-Rs, 1-Rp, 0,
+    side, _ = update_ray_d_pol(ray, rnd, R, R_plus_T, Rs, Rp, Ts, Tp, 0,
                               n0, n1, N, side, ray_plane_s_direction, s_component_sq)
 
     return side, None  # never absorbed, A = False
@@ -393,17 +400,15 @@ def get_pol_component_direction(theta, d, N, current_s_vector, current_p_vector,
         p_component_sq = 1 - s_component_sq
 
     else:
-        s_component_sq = 1  # doesn't matter if incident perpendicular to surface, R/T probabilities
-        # are the same for s and p
-        p_component_sq = 0
+        [s_component_sq, p_component_sq] = ray_pol
         ray_plane_s_direction = current_s_vector
 
     return s_component_sq, p_component_sq, ray_plane_s_direction
 
 @jit(nopython=True)
-def calc_R(n1, n2, theta, ray_pol):
+def calc_R(n1, n2, theta, pol_comps):
     theta_t = np.arcsin((n1 / n2) * np.sin(theta))
-    if ray_pol[0] == 1: # 100% s-polarized. Only need to calculate Rs, do not need to update ray.pol
+    if pol_comps[0] == 1: # 100% s-polarized. Only need to calculate Rs, do not need to update ray.pol
         Rs = (
                 np.abs(
                     (n1 * np.cos(theta) - n2 * np.cos(theta_t))
@@ -413,7 +418,7 @@ def calc_R(n1, n2, theta, ray_pol):
         )
         return Rs, 0
 
-    elif ray_pol[1] == 1: # 100% p-polarized. Only need to calculate Rp, do not need to update ray.pol
+    elif pol_comps[1] == 1: # 100% p-polarized. Only need to calculate Rp, do not need to update ray.pol
         Rp = (
                 np.abs(
                     (n1 * np.cos(theta_t) - n2 * np.cos(theta))
