@@ -347,10 +347,7 @@ def analytical_start(nks,
             I_out_per_direction_R = R_data.I.data * I_abs_R
             update_absorbed_details(a_details, I_out_per_direction_R, R_data.n_interactions, R_data.n_passes)
 
-            # absorption mismatch is happening here
             A_actual_R = np.sum(I_out_per_direction_R, axis=0)
-            print("A actual", A_actual_R)
-            # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
             DA_actual_R = np.sum(R_data.I.data.T * DA_R, axis=2)
 
             A_per_layer[mat_i] += np.real(A_actual_R)
@@ -386,10 +383,7 @@ def analytical_start(nks,
                                             T_data.n_passes)
         A_actual = np.sum(I_out_per_direction, axis=0)
 
-        # A_bulk_actual = np.sum(T_data.I.data - I_out_actual)
         DA_actual = np.sum(T_data.I.data.T*DA, axis=2)
-        # theta_out_T[stop] = np.nan
-        # phi_out_T[stop] = np.nan
 
         surf_index += initial_dir
         mat_i += initial_dir

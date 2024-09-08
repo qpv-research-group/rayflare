@@ -297,8 +297,8 @@ class rt_structure:
             prop_rays = dummy_prop_rays()
             A_interface_to_add = None
 
-        allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_inner)(
+        allres = [
+            parallel_inner(
                 nks[:, i1],
                 alphas[:, i1],
                 r_a_0,
@@ -324,8 +324,10 @@ class rt_structure:
                 lambertian_approximation,
                 tmm_args + [wavelengths[i1]],
                 prop_rays.isel(wl=i1),
+                n_jobs,
             )
-            for i1 in range(len(wavelengths)))
+
+            for i1 in range(len(wavelengths))]
 
         # pr.disable()
 
@@ -689,6 +691,7 @@ def parallel_inner(
     lambertian_approximation=0,
     tmm_args=None,
     existing_rays=None,
+    n_jobs=-1,
 ):
 
     # analytical front surface ray-tracing should take place outside the loop,
@@ -727,6 +730,7 @@ def parallel_inner(
     if existing_rays is None:
         continue_wl = True
         prop_rays_analytical = False
+        n_remaining = n_reps * nx * ny
 
     else:
         continue_wl = np.sum(existing_rays.I) > I_thresh
@@ -738,10 +742,6 @@ def parallel_inner(
             A_in_interfaces = [np.zeros(n_l) for n_l in tmm_args[4]]
         else:
             A_in_interfaces = 0
-
-        # need to populate the arrays with results from the rays which were already
-        # absorbed:
-
 
 
     # print('continue_wl', continue_wl)
@@ -816,9 +816,6 @@ def parallel_inner(
         # - direction: the x/y/z directions of the rays
         # - mat_i: the index of the material the ray has just traversed.
 
-
-        end_ind = nx*ny*np.ones(n_reps, dtype=int)
-
         if prop_rays_analytical:
 
             phong_params = np.array([x.phong for x in surfaces])
@@ -832,9 +829,7 @@ def parallel_inner(
             z_offs = -cum_width[i_mats - 1] - 1e-8
             r_as = np.hstack((np.zeros((n_remaining,2)), z_offs[:,None]))
             # will probably need to end somewhere halfway through the x/y loop:
-            end_ind[stop_before:] = 0
-            end_ind[stop_before - 1] = n_remaining - (stop_before - 1)*nx*ny
-            # print('remaining', n_remaining)
+
 
         else:
 
@@ -856,62 +851,96 @@ def parallel_inner(
             n_inter_in = np.zeros(n_reps * nx * ny)
             n_remaining = n_reps*nx*ny
 
-        overall_i = 0
-        for j1 in range(n_reps):
-            offset = j1 * nx * ny
+        results = Parallel(n_jobs=n_jobs)(delayed(single_ray_stack)(
+            nks,
+            alphas,
+            r_as[j1],
+            ds[j1],
+            surfaces,
+            additional_tmm_args,
+            widths,
+            z_pos,
+            depths,
+            depth_indices,
+            I_thresh,
+            pols[j1],
+            pol_vectors[j1],
+            d_theta,
+            randomize,
+            i_mats[j1],
+            i_dirs[j1],
+            surf_inds[j1],
+            periodic,
+            lambertian_approximation,
+            n_passes_in[j1],
+            n_inter_in[j1],
+            I_in[j1],
+        ) for j1 in range(n_remaining))
 
-            for c in range(end_ind[j1]):
-                (
-                    ray,
-                    profile,
-                    A_per_layer,
-                    th_o,
-                    phi_o,
-                    n_pass,
-                    n_interact,
-                    A_interface_array,
-                    A_interface_index,
-                    th_local,
-                    direction,
-                ) = single_ray_stack(
-                    nks,
-                    alphas,
-                    r_as[overall_i],
-                    ds[overall_i],
-                    surfaces,
-                    additional_tmm_args,
-                    widths,
-                    z_pos,
-                    depths,
-                    depth_indices,
-                    I_thresh,
-                    pols[overall_i],
-                    pol_vectors[overall_i],
-                    d_theta,
-                    randomize,
-                    i_mats[overall_i],
-                    i_dirs[overall_i],
-                    surf_inds[overall_i],
-                    periodic,
-                    lambertian_approximation,
-                    n_passes_in[overall_i],
-                    n_inter_in[overall_i],
-                    I_in[overall_i],
-                )
+        for j1, (ray, profile, A_per_layer, th_o, phi_o, n_pass, n_interact, A_interface_array,
+                 A_interface_index, th_local, direction) in enumerate(results):
+            A_interfaces[A_interface_index].append(A_interface_array)
+            profiles += profile / (n_reps * nx * ny)
+            thetas[j1] = th_o
+            phis[j1] = phi_o
+            Is[j1] = np.real(ray.I)
+            A_layer += A_per_layer / (n_reps * nx * ny)
+            n_passes[j1] = n_pass
+            n_interactions[j1] = n_interact
+            local_thetas[A_interface_index].append(np.real(th_local))
+            local_pols[A_interface_index].append(ray.pol)
+            directions[A_interface_index].append(direction)
 
-                overall_i += 1
-
-                A_interfaces[A_interface_index].append(A_interface_array)
-                profiles += profile / (n_reps * nx * ny)
-                thetas[c + offset] = th_o
-                phis[c + offset] = phi_o
-                Is[c + offset] = np.real(ray.I)
-                A_layer += A_per_layer / (n_reps * nx * ny)
-                n_passes[c + offset] = n_pass
-                n_interactions[c + offset] = n_interact
-                local_thetas[A_interface_index].append(np.real(th_local))
-                local_pols[A_interface_index].append(ray.pol)
-                directions[A_interface_index].append(direction)
+        # for j1 in range(n_remaining):
+        #     (
+        #         ray,
+        #         profile,
+        #         A_per_layer,
+        #         th_o,
+        #         phi_o,
+        #         n_pass,
+        #         n_interact,
+        #         A_interface_array,
+        #         A_interface_index,
+        #         th_local,
+        #         direction,
+        #     ) = single_ray_stack(
+        #         nks,
+        #         alphas,
+        #         r_as[j1],
+        #         ds[j1],
+        #         surfaces,
+        #         additional_tmm_args,
+        #         widths,
+        #         z_pos,
+        #         depths,
+        #         depth_indices,
+        #         I_thresh,
+        #         pols[j1],
+        #         pol_vectors[j1],
+        #         d_theta,
+        #         randomize,
+        #         i_mats[j1],
+        #         i_dirs[j1],
+        #         surf_inds[j1],
+        #         periodic,
+        #         lambertian_approximation,
+        #         n_passes_in[j1],
+        #         n_inter_in[j1],
+        #         I_in[j1],
+        #     )
+        #
+        #     A_interfaces[A_interface_index].append(A_interface_array)
+        #     profiles += profile / (n_reps * nx * ny)
+        #     thetas[j1] = th_o
+        #     phis[j1] = phi_o
+        #     Is[j1] = np.real(ray.I)
+        #     A_layer += A_per_layer / (n_reps * nx * ny)
+        #     n_passes[j1] = n_pass
+        #     n_interactions[j1] = n_interact
+        #     local_thetas[A_interface_index].append(np.real(th_local))
+        #     local_pols[A_interface_index].append(ray.pol)
+        #     directions[A_interface_index].append(direction)
 
         A_interfaces = A_interfaces[1:]
         # index 0 are all entries for non-interface-absorption events.
@@ -1391,18 +1420,40 @@ def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):
 
     return I_back, DA, stop, theta
 
-
-def rotate_vector(rot_obj, delta_theta, delta_phi):
+# @jit(nopython=True)
+def rotate_vector(rot_mat, delta_theta, delta_phi):
  # in coordinate system of d, generate a vector which has these angles:
 
     xy_mag = np.sin(delta_theta)
-    p_d_coord = np.array((xy_mag * np.cos(delta_phi),
+    p_d_coord = np.array([xy_mag * np.cos(delta_phi),
                           xy_mag * np.sin(delta_phi),
-                          np.cos(delta_theta))).T
+                          np.cos(delta_theta)])
 
-    rotate_to_xyz = rot_obj.apply(p_d_coord)
+    s_coord = np.array([np.sin(delta_phi), -np.cos(delta_phi), np.zeros_like(delta_phi)])
+    p_coord = np.array([-np.cos(delta_phi) * np.cos(delta_theta), -np.sin(delta_phi) * np.cos(delta_theta),
+                        np.sin(delta_theta)])
 
-    return rotate_to_xyz
+    d_rotated = np.matmul(rot_mat, p_d_coord)
+    s_rotated = np.matmul(rot_mat, s_coord)
+    p_rotated = np.matmul(rot_mat, p_coord)
+
+
+    return d_rotated.T, s_rotated.T, p_rotated.T
+
+@jit(nopython=True)
+def rotation_matrix(theta, phi):
+    c_phi = np.cos(phi)
+    c_th = np.cos(theta)
+
+    s_phi = np.sin(phi)
+    s_th = np.sin(theta)
+    rot_mat = np.array([
+        [c_phi*c_th, -s_phi, c_phi*s_th],
+        [s_phi*c_th, c_phi, s_phi*s_th],
+        [-s_th, 0, c_th]
+                        ])
+
+    return rot_mat
 
 def ray_update_phong(ray, theta, phi, phong_options):
 
@@ -1410,15 +1461,17 @@ def ray_update_phong(ray, theta, phi, phong_options):
     # delta_theta = np.random.normal(0, phong_options[0])
     delta_phi = 2 * np.pi * np.random.rand()
 
-    rot_to_d = Rotation.from_euler('yz', [theta,
-                                          phi])
+    rot_mat = rotation_matrix(theta, phi)
 
-    new_dir = rotate_vector(rot_to_d, delta_theta, delta_phi)
+    new_dir, new_s, new_p = rotate_vector(rot_mat, delta_theta, delta_phi)
 
     if np.sign(ray.d[2]) != np.sign(new_dir[2]):
-        new_dir = rotate_vector(rot_to_d, delta_theta, delta_phi - np.pi)
+        delta_phi = delta_phi - np.pi
+        new_dir, new_s, new_p  = rotate_vector(rot_mat, delta_theta, delta_phi)
 
     ray.d = new_dir
+    ray.s_vector = new_s
+    ray.p_vector = new_p
 
     theta = np.real(acos(ray.d[2]))
     phi = np.real(atan2(ray.d[1], ray.d[0]))
@@ -1447,16 +1500,15 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
     for i1, ray_d in enumerate(ray_ds):
         theta = np.arccos(ray_d[2])
         phi = atan2(ray_d[1], ray_d[0])
-        rot_to_d = Rotation.from_euler('yz', [theta,
-                                              phi])
+        rot_mat = rotation_matrix(theta, phi)
 
         #new_dir = rotate_vector(rot_to_d, delta_theta, -delta_phi)
-        new_dirs = rotate_vector(rot_to_d, delta_theta[total_ind:total_ind + n_rays[i1]],
+        new_dirs = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]],
                                  delta_phi[total_ind:total_ind + n_rays[i1]])
 
 
         wrong_direction = np.sign(ray_d[2]) != np.sign(new_dirs[:,2])
-        new_dirs[wrong_direction] = rotate_vector(rot_to_d, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
+        new_dirs[wrong_direction] = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
                                                   delta_phi[total_ind:total_ind + n_rays[i1]][wrong_direction] - np.pi)
         all_dirs[total_ind:total_ind + n_rays[i1]] = new_dirs
 

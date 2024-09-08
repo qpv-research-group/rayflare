@@ -161,6 +161,8 @@ def test_compare_Fresnel():
 
     RAT_Fresnel_a = rt_strt.calculate(options)
 
+    import matplotlib.pyplot as plt
+
     plt.figure()
     plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['R'], '-k', label="R Fresnel")
     plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['A_per_layer'], '-r', label="A Fresnel")
@@ -170,7 +172,6 @@ def test_compare_Fresnel():
     plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['T'], '--b', label="T Fresnel")
 
     plt.show()
-
 
 def test_compare_TMM():
     pass

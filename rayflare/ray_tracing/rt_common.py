@@ -103,7 +103,7 @@ class RTSurface:
             self.phong_options = kwargs["phong_options"]
 
         else:
-            self.phong_options = [0.15, True]
+            self.phong_options = [25, True]
 
         self.analytical = analytical
 
