@@ -260,20 +260,6 @@ def analytical_start(nks,
 
         I_rem_data = I_remaining.data[0]
 
-        # if np.all(np.abs(normals[:,2]) > 0.999) and d.ndim == 1:
-        #     # if the surface is planar, can just use TMM or Fresnel equations directly
-        #     # should already have a lookuptable, if necessary
-        #
-        #     R_data, T_data, T_pol, R_pol = analytical_planar(n0, n1, angles, phi, d, tmm_args,
-        #                                                      surf_index, initial_dir, current_pol,
-        #               I_rem_data, wls, A_per_interface, a_details, n_interactions, n_passes,
-        #               theta)
-        #
-        #     # TODO: change p vector direction for transmission
-
-        # if True:
-            # do analytical RT for non-planar surface with multiple faces
-
         R_data, A_data, T_data, R_pol, T_pol, A_int_detail = analytical_per_face(surfaces[surf_index],
                                       surf_index,
                                       d,
