@@ -321,3 +321,93 @@ def test_inverted():
     assert res_inverted["R"] == approx(res_upright["T"], rel=0.03)
     assert res_inverted["T"] == approx(res_upright["R"], rel=0.03)
     assert np.mean(res_inverted["n_interactions"]) == approx(np.mean(res_upright["n_interactions"]), rel=0.03)
+
+
+def test_phong():
+    # make a planar surface with phong scattering, and check if distribution of outgoing rays is as
+    # expected
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import planar_surface
+    from rayflare.options import default_options
+    from solcore import material
+
+    Air = material("Air")()
+
+    options = default_options()
+    options.n_rays = 1e4
+    options.pol = 'u'
+    options.wavelength = np.array([500e-9])
+
+    alpha = 100*np.random.rand()
+
+    surf = planar_surface(phong=True, phong_options=[alpha, False])
+
+    rtstr = rt_structure([surf], [], [], Air, Air)
+
+    res = rtstr.calculate(options)
+
+    thetas = np.pi - res["thetas"][0]
+
+    n, bins = np.histogram(thetas, bins=50, density=True)
+
+    mean_theta_bin = np.mean([bins[0:-1], bins[1:]], 0)
+    scaled_intensity = n / np.sin(mean_theta_bin)
+
+    cos_x = np.cos(mean_theta_bin)
+    power_law = cos_x ** (alpha)
+    # make it so that sum (area under curve) is the same:
+    scaled_intensity = np.sum(power_law) * scaled_intensity/np.sum(scaled_intensity)
+
+    # filter out low probabilities
+    mask = scaled_intensity > 0.05
+    scaled_intensity = scaled_intensity[mask]
+    power_law = power_law[mask]
+
+    assert scaled_intensity == approx(power_law, rel=0.2)
+
+
+def test_phong_reflectance():
+    # make a planar surface with phong scattering, and check if distribution of outgoing rays is as
+    # expected
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import planar_surface
+    from rayflare.options import default_options
+    from solcore import material
+
+    Air = material("Air")()
+    Ag = material("Ag")()
+
+    options = default_options()
+    options.n_rays = 1e4
+    options.pol = 'u'
+    options.wavelength = np.array([500e-9])
+
+    alpha = 100*np.random.rand()
+
+    surf = planar_surface(phong=True, phong_options=[alpha, False])
+
+    rtstr = rt_structure([surf], [], [], Air, Ag)
+
+    res = rtstr.calculate(options)
+
+    thetas = res["thetas"][0]
+    thetas = thetas[thetas < np.pi/2]
+
+    n, bins = np.histogram(thetas, bins=50, density=True)
+
+    mean_theta_bin = np.mean([bins[0:-1], bins[1:]], 0)
+    scaled_intensity = n / np.sin(mean_theta_bin)
+
+    cos_x = np.cos(mean_theta_bin)
+    power_law = cos_x ** (alpha)
+    # make it so that sum (area under curve) is the same:
+    scaled_intensity = np.sum(power_law) * scaled_intensity/np.sum(scaled_intensity)
+
+
+    # filter out low probabilities
+    mask = scaled_intensity > 0.05
+    scaled_intensity = scaled_intensity[mask]
+    power_law = power_law[mask]
+
+    assert scaled_intensity == approx(power_law, rel=0.2)
+

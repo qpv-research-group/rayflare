@@ -104,7 +104,7 @@ class RTSurface:
             self.phong_options = kwargs["phong_options"]
 
         else:
-            self.phong_options = [0.15, True]
+            self.phong_options = [25, True]
 
         # zcov is the height at which the surface covers the whole unit cell; i.e. it is safe to aim a ray at the unit
         # cell at this height and be sure that it will hit the surface. The method below works well for regular textures
@@ -542,15 +542,13 @@ def single_cell_check(
                     side,
                 )
 
-
+@jit(nopython=True)
 def exit_side(r_a, d, p_0):
     denom = np.sum(d * unit_cell_N, axis=1)
     denom[denom == 0] = 1e-12
     t = np.sum((p_0 - r_a) * unit_cell_N, axis=1) / denom  # r_intersect = r_a + t*d
     which_intersect = t > 0  # only want intersections of forward-travelling ray
-    t[~which_intersect] = float(
-        "inf"
-    )  # set others to inf to avoid finding when doing min
+    t[~which_intersect] = np.inf  # set others to inf to avoid finding when doing min
     which_side = np.argmin(t)  # find closest plane
 
     return which_side, t[which_side]

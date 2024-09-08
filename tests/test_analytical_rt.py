@@ -111,7 +111,67 @@ def test_total_RAT_TMM():
     assert total_int == approx(1, abs=options.I_thresh)
 
 def test_compare_Fresnel():
-    pass
+    # calculate same structure with TMM and Fresnel
+
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import regular_pyramids, planar_surface
+    from solcore import material
+    from rayflare.options import default_options
+
+    Si = material("Si")()
+    Air = material("Air")()
+    MgF2 = material("coverglass_JJ")()
+
+    options = default_options()
+
+    options.wavelength = np.linspace(300, 1150, 80) * 1e-9
+
+    options.nx = 10
+    options.ny = 10
+    options.n_rays = 2000
+    options.project_name = 'fdsf'
+
+    options.pol = 's'
+
+    planar_surf = planar_surface()
+    pyramids = regular_pyramids(46, True)
+    pyramids_rear = regular_pyramids(20, True)
+
+    rt_strt = rt_structure(
+        textures=[planar_surf, pyramids, pyramids_rear],
+        materials=[MgF2, Si],
+        widths=[10e-6, 50e-6],
+        incidence=Air, transmission=Air,
+        use_TMM=False,
+    )
+
+    RAT_Fresnel_f = rt_strt.calculate(options)
+
+    planar_surf = planar_surface(analytical=True)
+    pyramids = regular_pyramids(46, True, analytical=True)
+    pyramids_rear = regular_pyramids(20, True)
+
+    rt_strt = rt_structure(
+        textures=[planar_surf, pyramids, pyramids_rear],
+        materials=[MgF2, Si],
+        widths=[10e-6, 50e-6],
+        incidence=Air, transmission=Air,
+        use_TMM=False,
+    )
+
+    RAT_Fresnel_a = rt_strt.calculate(options)
+
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['R'], '-k', label="R Fresnel")
+    plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['A_per_layer'], '-r', label="A Fresnel")
+    plt.plot(options.wavelength * 1e9, RAT_Fresnel_f['T'], '-b', label="T Fresnel")
+    plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['R'], '--k', label="R Fresnel")
+    plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['A_per_layer'], '--r', label="A Fresnel")
+    plt.plot(options.wavelength * 1e9, RAT_Fresnel_a['T'], '--b', label="T Fresnel")
+
+    plt.show()
 
 def test_compare_TMM():
     pass
