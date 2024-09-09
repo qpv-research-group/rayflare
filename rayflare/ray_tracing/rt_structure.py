@@ -1556,14 +1556,14 @@ def make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options):
         ds = np.vstack([np.tile(dirs[i], (rays_per_direction[i], 1)) for i in range(len(dirs))])
         pols = np.vstack([np.tile(pols[i], (rays_per_direction[i], 1)) for i in range(len(pols))])
 
-    # thetas = np.arccos(ds[:,2])
-    # phis = np.arctan2(ds[:,1], ds[:,0])
-    #
-    # _, pol_vectors = make_pol_vectors('s', thetas, phis)
-    # # rearrange indices of pol_vectors (sp, xyz, wl) to (wl, sp, xyz):
-    # # ascontiguousarray is for numba performance later
-    # pol_vectors = np.ascontiguousarray(np.moveaxis(pol_vectors, 2, 0))
-    # pols = np.ascontiguousarray(pols)
+        thetas = np.arccos(ds[:,2])
+        phis = np.arctan2(ds[:,1], ds[:,0])
+
+        _, pol_vectors = make_pol_vectors('s', thetas, phis)
+        # rearrange indices of pol_vectors (sp, xyz, wl) to (wl, sp, xyz):
+        # ascontiguousarray is for numba performance later
+        pol_vectors = np.ascontiguousarray(np.moveaxis(pol_vectors, 2, 0))
+        pols = np.ascontiguousarray(pols)
 
     i_mats = np.concatenate([[current_mat[i]]*rays_per_direction[i] for i in range(len(current_mat))])
     i_dirs = np.ones_like(i_mats)

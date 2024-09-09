@@ -326,13 +326,4 @@ def test_phong_scattering():
         R_thetas_a = np.pi - R_thetas_a
         R_thetas_f = np.pi - R_thetas_f
 
-        plt.figure()
-        plt.hist(R_thetas_a, bins=x, alpha=0.5, label='anlt')
-        plt.hist(R_thetas_f, bins=x, alpha=0.5, label='full')
-        plt.show()
-
-    plt.figure()
-    plt.plot(options.wavelength*1e9, RAT_a['R'], '-k', label='R')
-    plt.plot(options.wavelength*1e9, RAT_f['R'], '--k')
-
-    plt.show()
+    # TODO: no actual tests!
