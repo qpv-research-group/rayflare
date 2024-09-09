@@ -264,5 +264,75 @@ def test_lambertian_scattering_integrated():
 # should have a test to check is Is, thetas calculate to correct R and T
 
 def test_phong_scattering():
-    pass
+    # phong scattering should give same result whether used with analytical or old ray-tracing.
+    # NOTE: currently, phong scattering is only applied when transferring to next surface! So need
+    # to do two surfaces to check.
 
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import regular_pyramids, planar_surface
+    from solcore import material
+    from rayflare.options import default_options
+
+    Si = material("Si")()
+    Air = material("Air")()
+
+    options = default_options()
+    options.wavelength = np.linspace(300, 1150, 25)*1e-9
+    options.pol = 's'
+
+    alpha = 50*np.random.rand()
+    x = np.linspace(0, np.pi/2, 30)
+    # analytical power law:
+    power_law = np.cos(x)**alpha
+
+    x = x[power_law > 5e-3]
+
+    options.nx = 10
+    options.ny = 10
+    options.n_rays = 2000
+
+    planar_surf = planar_surface(phong=True, phong_options=[alpha, True], analytical=True)
+
+    rt_strt_anlt = rt_structure(
+        textures=[planar_surf, planar_surf],
+        materials=[Si],
+        widths=[10e-6],
+        incidence=Air, transmission=Air,
+        use_TMM=False,
+        options=options,
+    )
+
+    RAT_a = rt_strt_anlt.calculate(options)
+
+    planar_surf = planar_surface(phong=True, phong_options=[alpha, True], analytical=False)
+
+    rt_strt_full = rt_structure(
+        textures=[planar_surf, planar_surf],
+        materials=[Si],
+        widths=[10e-6],
+        incidence=Air, transmission=Air,
+        use_TMM=False,
+        options=options,
+    )
+
+    RAT_f = rt_strt_full.calculate(options)
+
+    # if there is transmission:
+    for i in np.where(RAT_a['T'] > 0.4)[0]:
+
+        R_thetas_a = RAT_a['thetas'][i][RAT_a['thetas'][i] > np.pi/2]
+        R_thetas_f = RAT_f['thetas'][i][RAT_f['thetas'][i] > np.pi/2]
+
+        R_thetas_a = np.pi - R_thetas_a
+        R_thetas_f = np.pi - R_thetas_f
+
+        plt.figure()
+        plt.hist(R_thetas_a, bins=x, alpha=0.5, label='anlt')
+        plt.hist(R_thetas_f, bins=x, alpha=0.5, label='full')
+        plt.show()
+
+    plt.figure()
+    plt.plot(options.wavelength*1e9, RAT_a['R'], '-k', label='R')
+    plt.plot(options.wavelength*1e9, RAT_f['R'], '--k')
+
+    plt.show()

@@ -237,20 +237,6 @@ def test_interface_absorption():
         assert prof_int_front == approx(np.sum(rt_res["A_per_interface"][0], 1), abs=0.01)
         assert prof_int_back == approx(np.sum(rt_res["A_per_interface"][2], 1), abs=0.01)
 
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.plot(opts.wavelength*1e9, total_A)
-        plt.legend(["Si", "Ge", "MGF2", "Ta2O5", "GaAs", "ITO", "Ag", "R", "T"])
-        plt.show()
-
-        plt.figure()
-        plt.plot(rt_res["interface_profiles"][0].T)
-        plt.show()
-
-        plt.figure()
-        plt.plot(rt_res["interface_profiles"][2].T)
-        plt.show()
-
         assert np.sum(total_A, 1) == approx(1, abs=opts.I_thresh)
 
 
@@ -384,6 +370,7 @@ def test_phong_reflectance():
     options.n_rays = 1e4
     options.pol = 'u'
     options.wavelength = np.array([500e-9])
+    options.parallel = False
 
     alpha = 100*np.random.rand()
 

@@ -1398,7 +1398,6 @@ def rotate_vector(rot_mat, delta_theta, delta_phi):
     s_rotated = np.matmul(rot_mat, s_coord)
     p_rotated = np.matmul(rot_mat, p_coord)
 
-
     return d_rotated.T, s_rotated.T, p_rotated.T
 
 @jit(nopython=True)
@@ -1457,6 +1456,7 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
 
     total_ind = 0
     all_dirs = np.empty((total_rays, 3))
+    pol_vectors = np.empty((total_rays, 2, 3))
 
     for i1, ray_d in enumerate(ray_ds):
         theta = np.arccos(ray_d[2])
@@ -1464,17 +1464,24 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
         rot_mat = rotation_matrix(theta, phi)
 
         #new_dir = rotate_vector(rot_to_d, delta_theta, -delta_phi)
-        new_dirs = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]],
+        new_dirs, new_s_dirs, new_p_dirs = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]],
                                  delta_phi[total_ind:total_ind + n_rays[i1]])
 
 
         wrong_direction = np.sign(ray_d[2]) != np.sign(new_dirs[:,2])
-        new_dirs[wrong_direction] = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
+        if np.any(wrong_direction):
+            new_dirs_flip, new_s_dirs_flip, new_p_dirs_flip = rotate_vector(rot_mat, delta_theta[total_ind:total_ind + n_rays[i1]][wrong_direction],
                                                   delta_phi[total_ind:total_ind + n_rays[i1]][wrong_direction] - np.pi)
-        all_dirs[total_ind:total_ind + n_rays[i1]] = new_dirs
+            new_dirs[wrong_direction] = new_dirs_flip
+            new_s_dirs[wrong_direction] = new_s_dirs_flip
+            new_p_dirs[wrong_direction] = new_p_dirs_flip
 
-        if np.any(np.sign(new_dirs[:,2]) != np.sign(ray_d[2])):
-            raise ValueError("Direction not flipped correctly")
+        all_dirs[total_ind:total_ind + n_rays[i1]] = new_dirs
+        pol_vectors[total_ind:total_ind + n_rays[i1], 0] = new_s_dirs
+        pol_vectors[total_ind:total_ind + n_rays[i1], 1] = new_p_dirs
+
+        # if np.any(np.sign(new_dirs[:,2]) != np.sign(ray_d[2])):
+        #     raise ValueError("Direction not flipped correctly")
         total_ind += n_rays[i1]
 
     if phong_options[1]:
@@ -1485,7 +1492,7 @@ def ray_update_phong_vec(ray_ds, pols, phong_options, n_rays):
     else:
         all_pols = np.vstack([np.tile(pols[i], (n_rays[i], 1)) for i in range(len(pols))])
 
-    return all_dirs, all_pols
+    return all_dirs, all_pols, pol_vectors
 
 def make_tmm_args(arg_list):
     # print("TMM lookup tables used for interfaces: {}".format([i1 for i1, x in enumerate(arg_list[1]) if x == 1]))
@@ -1542,20 +1549,20 @@ def make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options):
 
     if phong_params[previous_surface]:
 
-        ds, pols = ray_update_phong_vec(dirs, pols, phong_options[previous_surface], rays_per_direction)
+        ds, pols, pol_vectors = ray_update_phong_vec(dirs, pols, phong_options[previous_surface], rays_per_direction)
 
     else:
 
         ds = np.vstack([np.tile(dirs[i], (rays_per_direction[i], 1)) for i in range(len(dirs))])
         pols = np.vstack([np.tile(pols[i], (rays_per_direction[i], 1)) for i in range(len(pols))])
 
-    thetas = np.arccos(ds[:,2])
-    phis = np.arctan2(ds[:,1], ds[:,0])
-
-    _, pol_vectors = make_pol_vectors('s', thetas, phis)
-    # rearrange indices of pol_vectors (sp, xyz, wl) to (wl, sp, xyz):
-    # ascontiguousarray is for numba performance later
-    pol_vectors = np.ascontiguousarray(np.moveaxis(pol_vectors, 2, 0))
+    # thetas = np.arccos(ds[:,2])
+    # phis = np.arctan2(ds[:,1], ds[:,0])
+    #
+    # _, pol_vectors = make_pol_vectors('s', thetas, phis)
+    # # rearrange indices of pol_vectors (sp, xyz, wl) to (wl, sp, xyz):
+    # # ascontiguousarray is for numba performance later
+    # pol_vectors = np.ascontiguousarray(np.moveaxis(pol_vectors, 2, 0))
     # pols = np.ascontiguousarray(pols)
 
     i_mats = np.concatenate([[current_mat[i]]*rays_per_direction[i] for i in range(len(current_mat))])
