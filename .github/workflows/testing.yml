@@ -65,23 +65,15 @@ jobs:
         cd ..
         rm -rf S4
 
-#    - name: Install on Linux and MacOS
-#      if: matrix.os != 'windows-latest'
-#      run: pip install .
-
-#    - name: Install on Windows
-#      if: matrix.os == 'windows-latest'
-#      run: |
-#        pip install .
-#      shell: powershell
-
     - name: Test with pytest
+      env:
+        NUMBA_DISABLE_JIT: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' && '1' || '0' }}
       run: |
         uv pip install --system pytest-cov pytest-rerunfailures
         pytest --cov-report= --cov=rayflare tests/ --reruns 5
 
     - name: Codecov
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |

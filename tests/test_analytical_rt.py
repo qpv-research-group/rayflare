@@ -281,7 +281,7 @@ def test_phong_scattering():
     options.pol = 's'
 
     alpha = 50*np.random.rand()
-    x = np.linspace(0, np.pi/2, 30)
+    x = np.linspace(0, np.pi/2, 20)
     # analytical power law:
     power_law = np.cos(x)**alpha
 
@@ -326,4 +326,11 @@ def test_phong_scattering():
         R_thetas_a = np.pi - R_thetas_a
         R_thetas_f = np.pi - R_thetas_f
 
-    # TODO: no actual tests!
+        binned_a = np.histogram(R_thetas_a, bins=x)[0]
+        binned_f = np.histogram(R_thetas_f, bins=x)[0]
+
+        assert binned_a == approx(binned_f, rel=0.3)
+
+    assert RAT_a['R'] == approx(RAT_f['R'], rel=0.05, abs=0.05)
+    assert RAT_a['T'] == approx(RAT_f['T'], rel=0.05, abs=0.05)
+    assert RAT_a['A_per_layer'] == approx(RAT_f['A_per_layer'], rel=0.05, abs=0.05)
