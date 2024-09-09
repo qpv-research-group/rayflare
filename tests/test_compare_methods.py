@@ -1289,7 +1289,7 @@ def compare_rt_integrated_tmm():
 
     opts.coherent = False
     opts.coherency_list = coherency_list_TMM
-    opts.wavelengths = np.linspace(300, 1200, 5) * 1e-9
+    opts.wavelength = np.linspace(300, 1200, 5) * 1e-9
 
     rtstr = rt_structure([front_surf, back_surf], [Si], [d_Si], Air, Air, opts, use_TMM=True)
     tmmstr = tmm_structure(front_layers + [Layer(d_Si, Si)] + back_layers, Air, Air)
@@ -1350,7 +1350,7 @@ def compare_rt_integrated_tmm_profile():
 
     opts.coherent = False
     opts.coherency_list = coherency_list_TMM
-    opts.wavelengths = np.linspace(300, 1100, 5) * 1e-9
+    opts.wavelength = np.linspace(300, 1100, 5) * 1e-9
     opts.depth_spacing = 1e-9
     opts.depth_spacing_bulk = 1e-9
     opts.parallel = True

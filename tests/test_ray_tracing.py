@@ -201,12 +201,14 @@ def test_interface_absorption():
     back_surf = planar_surface(interface_layers=back_layers, prof_layers=[1, 2])  # pyramid size in microns
     middle_surf = planar_surface()
 
-    opts.wavelengths = np.linspace(300, 1900, 5) * 1e-9
+    opts.wavelength = np.linspace(300, 1900, 5) * 1e-9
     opts.depth_spacing = 1e-9
     opts.depth_spacing_bulk = 1e-8
     # opts.parallel = False
 
-    rtstr = rt_structure([front_surf, middle_surf, back_surf], [Si, Ge], [d_Si, d_Ge], Air, Air, opts, use_TMM=True)
+    rtstr = rt_structure([front_surf, middle_surf, back_surf],
+                         [Si, Ge], [d_Si, d_Ge], Air, Air, opts, use_TMM=True,
+                         overwrite=True)
     # import matplotlib.pyplot as plt
 
     for angle_pol in itertools.product(thetas_in, pol_in):
@@ -235,18 +237,19 @@ def test_interface_absorption():
         assert prof_int_front == approx(np.sum(rt_res["A_per_interface"][0], 1), abs=0.01)
         assert prof_int_back == approx(np.sum(rt_res["A_per_interface"][2], 1), abs=0.01)
 
-        # plt.figure()
-        # plt.plot(opts.wavelengths*1e9, total_A)
-        # plt.legend(["Si", "Ge", "MGF2", "Ta2O5", "GaAs", "ITO", "Ag", "R", "T"])
-        # plt.show()
-        #
-        # plt.figure()
-        # plt.plot(rt_res["interface_profiles"][0].T)
-        # plt.show()
-        #
-        # plt.figure()
-        # plt.plot(rt_res["interface_profiles"][2].T)
-        # plt.show()
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(opts.wavelength*1e9, total_A)
+        plt.legend(["Si", "Ge", "MGF2", "Ta2O5", "GaAs", "ITO", "Ag", "R", "T"])
+        plt.show()
+
+        plt.figure()
+        plt.plot(rt_res["interface_profiles"][0].T)
+        plt.show()
+
+        plt.figure()
+        plt.plot(rt_res["interface_profiles"][2].T)
+        plt.show()
 
         assert np.sum(total_A, 1) == approx(1, abs=opts.I_thresh)
 

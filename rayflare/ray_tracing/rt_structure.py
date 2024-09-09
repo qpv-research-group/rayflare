@@ -901,57 +901,6 @@ def parallel_inner(
             local_pols[A_interface_index].append(ray.pol)
             directions[A_interface_index].append(direction)
 
-        # for j1 in range(n_remaining):
-        #     (
-        #         ray,
-        #         profile,
-        #         A_per_layer,
-        #         th_o,
-        #         phi_o,
-        #         n_pass,
-        #         n_interact,
-        #         A_interface_array,
-        #         A_interface_index,
-        #         th_local,
-        #         direction,
-        #     ) = single_ray_stack(
-        #         nks,
-        #         alphas,
-        #         r_as[j1],
-        #         ds[j1],
-        #         surfaces,
-        #         additional_tmm_args,
-        #         widths,
-        #         z_pos,
-        #         depths,
-        #         depth_indices,
-        #         I_thresh,
-        #         pols[j1],
-        #         pol_vectors[j1],
-        #         d_theta,
-        #         randomize,
-        #         i_mats[j1],
-        #         i_dirs[j1],
-        #         surf_inds[j1],
-        #         periodic,
-        #         lambertian_approximation,
-        #         n_passes_in[j1],
-        #         n_inter_in[j1],
-        #         I_in[j1],
-        #     )
-        #
-        #     A_interfaces[A_interface_index].append(A_interface_array)
-        #     profiles += profile / (n_reps * nx * ny)
-        #     thetas[j1] = th_o
-        #     phis[j1] = phi_o
-        #     Is[j1] = np.real(ray.I)
-        #     A_layer += A_per_layer / (n_reps * nx * ny)
-        #     n_passes[j1] = n_pass
-        #     n_interactions[j1] = n_interact
-        #     local_thetas[A_interface_index].append(np.real(th_local))
-        #     local_pols[A_interface_index].append(ray.pol)
-        #     directions[A_interface_index].append(direction)
-
         A_interfaces = A_interfaces[1:]
         # index 0 are all entries for non-interface-absorption events.
         local_thetas = local_thetas[1:]
@@ -1209,7 +1158,7 @@ def calculate_interface_profiles(
         return interface_profile.data
 
     else:
-        return []
+        return np.zeros(np.sum([len(z_list[i - 1]) for i in prof_layer_list_i]))
 
 def single_ray_stack(
     nks,
