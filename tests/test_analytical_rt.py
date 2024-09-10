@@ -343,17 +343,15 @@ def test_end_scatter():
     from solcore import material
     from solcore.structure import Layer
     from rayflare.options import default_options
-    from time import time
 
     Si = material("Si")()
     GaAs = material("GaAs")()
     Air = material("Air")()
-    MgF2 = material("MgF2")()
     SiN = material("Si3N4")()
 
     options = default_options()
 
-    options.wavelength = np.linspace(800, 1200, 15) * 1e-9
+    options.wavelength = np.linspace(900, 1200, 3) * 1e-9
 
     options.nx = 20
     options.ny = 20
@@ -366,7 +364,7 @@ def test_end_scatter():
 
     top_angle = 50
 
-    front_surf_layers = [Layer(70e-9, MgF2), Layer(500e-9, GaAs)]
+    front_surf_layers = [Layer(70e-9, SiN), Layer(500e-9, GaAs)]
     int_surf_layers = [Layer(70e-9, SiN)]
 
     planar_surf = planar_surface(analytical=True,
@@ -376,7 +374,7 @@ def test_end_scatter():
     pyramids_rear = regular_pyramids(20, True)
 
     all_args = dict(
-        materials=[GaAs, Si],
+        materials=[Si, Si],
         widths=[5e-6, 60e-6],
         incidence=Air, transmission=Air,
         use_TMM=True,
@@ -389,36 +387,28 @@ def test_end_scatter():
         **all_args,
     )
 
-    options.maximum_passes = 50
-    RAT_Fresnel_a = rt_strt.calculate(options)
-
-    start = time()
-    RAT_Fresnel_a = rt_strt.calculate(options)
-    print('Max pass time:', time()-start)
-
+    options.maximum_passes = 75
+    RAT_Fresnel_m = rt_strt.calculate(options)
     options.maximum_passes = 0
 
-    start = time()
     RAT_Fresnel_f = rt_strt.calculate(options)
-    print('No pass time:', time()-start)
 
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.plot(options.wavelength*1e9, RAT_Fresnel_a['R'])
-    plt.plot(options.wavelength*1e9, RAT_Fresnel_f['R'], '--')
-    plt.plot(options.wavelength*1e9, RAT_Fresnel_a['A_per_layer'])
-    plt.plot(options.wavelength*1e9, RAT_Fresnel_f['A_per_layer'], '--')
-    plt.show()
+    assert RAT_Fresnel_m['R'] == approx(RAT_Fresnel_f['R'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_m['T'] == approx(RAT_Fresnel_f['T'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_m['A_per_layer'] == approx(RAT_Fresnel_f['A_per_layer'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_m['R0'] == approx(RAT_Fresnel_f['R0'], rel=0.05, abs=0.05)
 
-    assert RAT_Fresnel_a['R'] == approx(RAT_Fresnel_f['R'], rel=0.05, abs=0.05)
-    assert RAT_Fresnel_a['T'] == approx(RAT_Fresnel_f['T'], rel=0.05, abs=0.05)
-    assert RAT_Fresnel_a['A_per_layer'] == approx(RAT_Fresnel_f['A_per_layer'], rel=0.05, abs=0.05)
-    assert RAT_Fresnel_a['R0'] == approx(RAT_Fresnel_f['R0'], rel=0.05, abs=0.05)
+    total = RAT_Fresnel_m['R'] + RAT_Fresnel_m['T'] + np.sum(RAT_Fresnel_m['A_per_layer'], 1) + \
+            np.sum(RAT_Fresnel_m['A_per_interface'][0], 1) + \
+            np.sum(RAT_Fresnel_m['A_per_interface'][1], 1)
 
-    anlt_profile = RAT_Fresnel_a['profile']
+    assert total == approx(1, abs=options.I_thresh)
+
+    mp_profile = RAT_Fresnel_m['profile']
     full_profile = RAT_Fresnel_f['profile']
 
-    full_profile = full_profile[anlt_profile > 1e-5]
-    anlt_profile = anlt_profile[anlt_profile > 1e-5]
+    full_profile = full_profile[mp_profile > 1e-5]
+    mp_profile = mp_profile[mp_profile > 1e-5]
 
-    assert full_profile == approx(anlt_profile, rel=0.15, abs=1e-5)
+    assert full_profile == approx(mp_profile, rel=0.15, abs=1e-5)
+

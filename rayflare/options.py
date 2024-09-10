@@ -62,6 +62,6 @@ class default_options(State):
         self.analytical_threshold = 0.99
 
         # TMM options
-        self.lookuptable_angles = 100
+        self.lookuptable_angles = 200
         self.coherent = True
         self.coherency_list = None
