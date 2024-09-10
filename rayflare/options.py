@@ -57,7 +57,7 @@ class default_options(State):
         self.randomize_surface = False
         self.random_ray_angles = False
         self.n_rays = 10000
-        self.lambertian_approximation = 0
+        self.maximum_passes = 0
         self.analytical_ray_tracing = False
         self.analytical_threshold = 0.99
 

@@ -1205,7 +1205,6 @@ def test_profile_integration(RCWA_method):
 def test_compare_RT_TMM_Fresnel():
     from solcore.structure import Layer
     from solcore import material
-
     # rayflare imports
     from rayflare.textures import regular_pyramids, planar_surface
     from rayflare.structure import Interface, BulkLayer, Structure

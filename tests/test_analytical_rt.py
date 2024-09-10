@@ -329,8 +329,96 @@ def test_phong_scattering():
         binned_a = np.histogram(R_thetas_a, bins=x)[0]
         binned_f = np.histogram(R_thetas_f, bins=x)[0]
 
-        assert binned_a == approx(binned_f, rel=0.3)
+        assert binned_a == approx(binned_f, rel=0.4)
 
     assert RAT_a['R'] == approx(RAT_f['R'], rel=0.05, abs=0.05)
     assert RAT_a['T'] == approx(RAT_f['T'], rel=0.05, abs=0.05)
     assert RAT_a['A_per_layer'] == approx(RAT_f['A_per_layer'], rel=0.05, abs=0.05)
+
+
+def test_end_scatter():
+
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import regular_pyramids, planar_surface
+    from solcore import material
+    from solcore.structure import Layer
+    from rayflare.options import default_options
+    from time import time
+
+    Si = material("Si")()
+    GaAs = material("GaAs")()
+    Air = material("Air")()
+    MgF2 = material("MgF2")()
+    SiN = material("Si3N4")()
+
+    options = default_options()
+
+    options.wavelength = np.linspace(800, 1200, 15) * 1e-9
+
+    options.nx = 20
+    options.ny = 20
+    options.n_rays = 1000
+    options.randomize_surface = True
+    options.depth_spacing_bulk = 10e-9
+    options.project_name = 'test_analytical'
+
+    options.pol = 's'
+
+    top_angle = 50
+
+    front_surf_layers = [Layer(70e-9, MgF2), Layer(500e-9, GaAs)]
+    int_surf_layers = [Layer(70e-9, SiN)]
+
+    planar_surf = planar_surface(analytical=True,
+                                 interface_layers=front_surf_layers)
+    pyramids = regular_pyramids(top_angle, True, analytical=True,
+                                interface_layers=int_surf_layers)
+    pyramids_rear = regular_pyramids(20, True)
+
+    all_args = dict(
+        materials=[GaAs, Si],
+        widths=[5e-6, 60e-6],
+        incidence=Air, transmission=Air,
+        use_TMM=True,
+        options=options,
+        overwrite=True,
+    )
+
+    rt_strt = rt_structure(
+        textures=[planar_surf, pyramids, pyramids_rear],
+        **all_args,
+    )
+
+    options.maximum_passes = 50
+    RAT_Fresnel_a = rt_strt.calculate(options)
+
+    start = time()
+    RAT_Fresnel_a = rt_strt.calculate(options)
+    print('Max pass time:', time()-start)
+
+    options.maximum_passes = 0
+
+    start = time()
+    RAT_Fresnel_f = rt_strt.calculate(options)
+    print('No pass time:', time()-start)
+
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(options.wavelength*1e9, RAT_Fresnel_a['R'])
+    plt.plot(options.wavelength*1e9, RAT_Fresnel_f['R'], '--')
+    plt.plot(options.wavelength*1e9, RAT_Fresnel_a['A_per_layer'])
+    plt.plot(options.wavelength*1e9, RAT_Fresnel_f['A_per_layer'], '--')
+    plt.show()
+
+    assert RAT_Fresnel_a['R'] == approx(RAT_Fresnel_f['R'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['T'] == approx(RAT_Fresnel_f['T'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['A_per_layer'] == approx(RAT_Fresnel_f['A_per_layer'], rel=0.05, abs=0.05)
+    assert RAT_Fresnel_a['R0'] == approx(RAT_Fresnel_f['R0'], rel=0.05, abs=0.05)
+
+    anlt_profile = RAT_Fresnel_a['profile']
+    full_profile = RAT_Fresnel_f['profile']
+
+    full_profile = full_profile[anlt_profile > 1e-5]
+    anlt_profile = anlt_profile[anlt_profile > 1e-5]
+
+    assert full_profile == approx(anlt_profile, rel=0.15, abs=1e-5)

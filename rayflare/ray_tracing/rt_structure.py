@@ -20,8 +20,7 @@ from numba import jit
 from rayflare.utilities import get_savepath, get_wavelength, process_pol
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare import logger
-from .analytical_rt import (lambertian_scattering, calculate_lambertian_profile,
-                            analytical_start, dummy_prop_rays)
+from .analytical_rt import analytical_start, dummy_prop_rays
 from .rt_common import Ray, single_cell_check, single_interface_check, normalize, make_pol_vectors
 
 
@@ -113,10 +112,6 @@ class rt_structure:
         else:
             self.tmm_or_fresnel = [0] * len(textures)  # no lookuptables
 
-        self.lambertian_results = None
-        if hasattr(options, "lambertian_approximation"):
-            if options.lambertian_approximation:
-                self.lambertian_results = lambertian_scattering(self, save_location, options)
 
     def calculate(self, options):
         """Calculates the reflected, absorbed and transmitted intensity of the structure for the wavelengths and angles
@@ -128,7 +123,7 @@ class rt_structure:
            - theta_in: Polar angle (in radians) of the incident light.
            - phi_in: azimuthal angle (in radians) of the incident light.
            - I_thresh: once the intensity reaches this fraction of the incident light, the light is considered to be absorbed.
-           - lambertian_approximation: if 0 (default), keep following the ray until it is absorbed or escapes. Otherwise,
+           - maximum_passes: if 0 (default), keep following the ray until it is absorbed or escapes. Otherwise,
              assume the ray is Lambertian after this many traversals of the bulk.
            - pol: Polarisation of the light: 's', 'p' or 'u', or a list/tuple of length 2 with the fraction
                   of ['s', 'p'] polarized light.
@@ -157,7 +152,7 @@ class rt_structure:
         depth_spacing_interfaces = (
             options.depth_spacing * 1e9 if "depth_spacing" in options else 1
         )
-        lambertian_approximation = options.lambertian_approximation
+        maximum_passes = options.maximum_passes
 
         analytical_rt = self.surfaces[0].analytical
 
@@ -321,7 +316,7 @@ class rt_structure:
                 initial_dir,
                 periodic,
                 (np.pi/2)/options.lookuptable_angles,
-                lambertian_approximation,
+                maximum_passes,
                 tmm_args + [wavelengths[i1]],
                 prop_rays.isel(wl=i1),
                 n_jobs,
@@ -390,60 +385,6 @@ class rt_structure:
         T = np.sum(T, 0)
 
         absorption_profiles[absorption_profiles < 0] = 0
-
-        # process A_interfaces
-
-        if np.any(np.abs(thetas) >= 10):  # Lambertian scattering
-            # TODO: make this a separate function
-            # +ve if travelling down, about to hit rear surface.
-            # stop normal RT right before next interaction with surface, but AFTER taking into account bulk
-            # absorption on this pass
-
-            # per wavelength, find how many rays need to be accounted for with the Lambertian model:
-            # which direction it's travelling in, which material it is in,
-            # and the total intensity in those rays
-
-            # indexing: wavelengths, material, direction
-            I_transmitted = np.zeros(len(wavelengths))
-
-            for i1 in range(len(mats)-2):
-
-                direction_in_mat = np.sign(thetas[np.abs(thetas/10) == (i1+1)])[0]
-                I_per_mat = [np.sum(Is[l][np.all((np.abs(thetas[l]/10) == (i1+1), np.sign(thetas[l]) == direction_in_mat), axis=0)]) for l in range(len(wavelengths))]
-                I_lambertian = np.array(I_per_mat)/(n_reps*nx*ny) + I_transmitted
-
-                lambertian_RAT = self.lambertian_results[i1][0].sel(direction=direction_in_mat)
-                lambertian_A1 = self.lambertian_results[i1][1].sel(direction=direction_in_mat)
-                lambertian_A2 = self.lambertian_results[i1][2].sel(direction=direction_in_mat)
-
-                # where np.abs(thetas) == 10, want to divide remaining intensity in Is at the same location correctly between
-                # reflection, interface absorption, and transmission
-
-                I_RAT = lambertian_RAT * I_lambertian
-
-                R += I_RAT.sel(event='R').data
-
-                if i1 == len(mats) - 3: # final non-transmission bulk
-                    T += I_RAT.sel(event='T').data
-                else:
-                    I_transmitted = I_RAT.sel(event='T').data
-
-                A_layer[:, i1+1] += I_RAT.sel(event='A_bulk').data
-
-                add_profile = calculate_lambertian_profile(self, I_lambertian, options,
-                                                           direction_in_mat,
-                                                           self.lambertian_results[i1][3], alphas[i1+1],
-                                                           depths[i1+1],
-                                                           I_RAT.sel(event='A_bulk').data)
-
-                absorption_profiles[:, depth_indices[i1+1]] += add_profile
-
-                if sum(self.tmm_or_fresnel) > 0:
-                    add_frontsurf = (I_lambertian * lambertian_A1).data.T
-                    add_backsurf = (I_lambertian * lambertian_A2).data.T
-
-                    A_per_interface[i1] = A_per_interface[i1] + add_frontsurf
-                    A_per_interface[i1+1] = A_per_interface[i1+1] + add_backsurf
 
         # add results from analytical ray tracing:
         if analytical_rt > 0:
@@ -688,7 +629,7 @@ def parallel_inner(
     initial_dir,
     periodic,
     d_theta,
-    lambertian_approximation=0,
+    maximum_passes=0,
     tmm_args=None,
     existing_rays=None,
     n_jobs=-1,
@@ -881,7 +822,7 @@ def parallel_inner(
             i_dirs[j1],
             surf_inds[j1],
             periodic,
-            lambertian_approximation,
+            maximum_passes,
             n_passes_in[j1],
             n_inter_in[j1],
             I_in[j1],
@@ -1180,7 +1121,7 @@ def single_ray_stack(
     direction=1,
     surf_index=0,
     periodic=1,
-    lambertian_approximation=0,
+    maximum_passes=0,
     n_passes=0,
     n_interactions=0,
     I_in=1,
@@ -1297,6 +1238,8 @@ def single_ray_stack(
 
         elif res == 2:  # absorption
             stop = True  # absorption in an interface (NOT a bulk layer!)
+            if np.sum(theta) == 0:
+                print("?")
             A_interface_array = (
                 ray.I * theta[:] / np.sum(theta)
             )  # if absorbed, theta contains information about A_per_layer
@@ -1337,12 +1280,29 @@ def single_ray_stack(
 
             n_passes = n_passes + 1
 
-            if lambertian_approximation and n_passes >= lambertian_approximation:
+            if maximum_passes and n_passes >= maximum_passes:
                 # choose a direction randomly, with probability determined by Lambertian scattering
                 stop = True
-                theta = 10*direction*mat_i # +ve if travelling down, about to hit rear surface.
-                # stop right before next interaction with surface, but AFTER taking into account bulk
-                # absorption on this pass
+
+                abs_power = 1 - np.exp(-alphas*widths)
+
+                rnd = np.random.rand()
+
+                if rnd < np.sum(abs_power):
+
+                    weighted_abs_power = abs_power / np.sum(abs_power)
+
+                    # choose randomly with this weighting:
+                    final_mat_abs = np.random.choice(len(widths), p=weighted_abs_power)
+                    A_per_layer[final_mat_abs] = np.real(A_per_layer[final_mat_abs] + ray.I)
+                    theta = None
+
+                else:
+                    theta = np.random.rand() * np.pi
+
+
+
+
 
     # print("Ray ending with pol:", norm(ray.s_vector)**2, norm(ray.p_vector)**2)
     return (
@@ -1360,6 +1320,9 @@ def single_ray_stack(
     )
 
 
+def decide_end():
+    # after a certain number of passes, decide where the ray ends up if it still hasn't been absorbed
+    print('many bounces')
 
 @jit(nopython=True)
 def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):

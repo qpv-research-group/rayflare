@@ -14,8 +14,6 @@ from numba import jit
 from scipy.spatial import Delaunay
 from rayflare.utilities import process_pol
 
-from pytest import approx
-
 unit_cell_N = np.array(
     [[0, -1, 0], [-1, 0, 0], [0, 1, 0], [1, 0, 0]]
 )  # surface normals: top, right, bottom, left
@@ -378,10 +376,11 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
 
     return side, A
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def get_RT_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
     # theta HAS to be positive here!
-    angle_ind = round(theta/d_theta)
+    angle_ind = int(np.floor(theta/d_theta)) # floor to avoid issues when theta = np.pi/2
+
     [Rs, Rp] = R_data[:, angle_ind]*pol
     [Ts, Tp] = T_data[:, angle_ind]*pol
     A_per_layer = np.sum(Alayer_data[:, angle_ind].T * pol, 1)
