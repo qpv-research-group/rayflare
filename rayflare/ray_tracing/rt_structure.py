@@ -757,6 +757,8 @@ def parallel_inner(
         # - direction: the x/y/z directions of the rays
         # - mat_i: the index of the material the ray has just traversed.
 
+        abs_power = 1 - np.exp(-alphas * widths)
+
         x_y_combs = np.array(list(product(xs, ys)))
 
         if prop_rays_analytical:
@@ -810,6 +812,7 @@ def parallel_inner(
             surfaces,
             additional_tmm_args,
             widths,
+            abs_power,
             z_pos,
             depths,
             depth_indices,
@@ -1109,6 +1112,7 @@ def single_ray_stack(
     surfaces,
     tmm_kwargs_list,
     widths,
+    abs_power,
     z_pos,
     depths,
     depth_indices,
@@ -1283,25 +1287,7 @@ def single_ray_stack(
             if maximum_passes and n_passes >= maximum_passes:
                 # choose a direction randomly, with probability determined by Lambertian scattering
                 stop = True
-
-                abs_power = 1 - np.exp(-alphas*widths)
-
-                rnd = np.random.rand()
-
-                if rnd < np.sum(abs_power):
-
-                    weighted_abs_power = abs_power / np.sum(abs_power)
-
-                    # choose randomly with this weighting:
-                    final_mat_abs = np.random.choice(len(widths), p=weighted_abs_power)
-                    A_per_layer[final_mat_abs] = np.real(A_per_layer[final_mat_abs] + ray.I)
-                    theta = None
-
-                else:
-                    theta = np.random.rand() * np.pi
-
-
-
+                ray.I, theta, A_per_layer = decide_end(abs_power, A_per_layer, ray.I)
 
 
     # print("Ray ending with pol:", norm(ray.s_vector)**2, norm(ray.p_vector)**2)
@@ -1319,10 +1305,24 @@ def single_ray_stack(
         direction,
     )
 
-
-def decide_end():
+def decide_end(abs_power, A_per_layer, ray_I):
     # after a certain number of passes, decide where the ray ends up if it still hasn't been absorbed
-    print('many bounces')
+    rnd = np.random.rand()
+
+    if rnd < np.sum(abs_power):
+
+        weighted_abs_power = abs_power / np.sum(abs_power)
+
+        # choose randomly with this weighting:
+        final_mat_abs = np.random.choice(len(abs_power), None, True, weighted_abs_power)
+        A_per_layer[final_mat_abs] = np.real(A_per_layer[final_mat_abs] + ray_I)
+        ray_I = 0
+        theta = None
+
+    else:
+        theta = np.random.rand() * np.pi
+
+    return ray_I, theta, A_per_layer
 
 @jit(nopython=True)
 def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):

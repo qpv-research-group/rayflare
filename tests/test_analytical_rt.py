@@ -387,11 +387,11 @@ def test_end_scatter():
         **all_args,
     )
 
-    options.maximum_passes = 75
-    RAT_Fresnel_m = rt_strt.calculate(options)
     options.maximum_passes = 0
-
     RAT_Fresnel_f = rt_strt.calculate(options)
+
+    options.maximum_passes = 30
+    RAT_Fresnel_m = rt_strt.calculate(options)
 
     assert RAT_Fresnel_m['R'] == approx(RAT_Fresnel_f['R'], rel=0.05, abs=0.05)
     assert RAT_Fresnel_m['T'] == approx(RAT_Fresnel_f['T'], rel=0.05, abs=0.05)
