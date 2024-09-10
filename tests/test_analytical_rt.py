@@ -277,15 +277,17 @@ def test_phong_scattering():
     Air = material("Air")()
 
     options = default_options()
-    options.wavelength = np.linspace(300, 1150, 25)*1e-9
+    options.wavelength = np.linspace(60, 1180, 6)*1e-9
     options.pol = 's'
 
     alpha = 50*np.random.rand()
-    x = np.linspace(0, np.pi/2, 20)
+
+    # find value of x where power_law is greater than 5e-3:
+    max_angle = np.arccos((5e-3)**(1/alpha))
+
+    x = np.linspace(0, max_angle, 6)
     # analytical power law:
     power_law = np.cos(x)**alpha
-
-    x = x[power_law > 5e-3]
 
     options.nx = 10
     options.ny = 10
@@ -296,7 +298,7 @@ def test_phong_scattering():
     rt_strt_anlt = rt_structure(
         textures=[planar_surf, planar_surf],
         materials=[Si],
-        widths=[10e-6],
+        widths=[7e-6],
         incidence=Air, transmission=Air,
         use_TMM=False,
         options=options,
@@ -309,7 +311,7 @@ def test_phong_scattering():
     rt_strt_full = rt_structure(
         textures=[planar_surf, planar_surf],
         materials=[Si],
-        widths=[10e-6],
+        widths=[8e-6],
         incidence=Air, transmission=Air,
         use_TMM=False,
         options=options,
@@ -319,6 +321,7 @@ def test_phong_scattering():
 
     # if there is transmission:
     for i in np.where(RAT_a['T'] > 0.4)[0]:
+        print('high T')
 
         R_thetas_a = RAT_a['thetas'][i][RAT_a['thetas'][i] > np.pi/2]
         R_thetas_f = RAT_f['thetas'][i][RAT_f['thetas'][i] > np.pi/2]

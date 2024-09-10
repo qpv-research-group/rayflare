@@ -53,59 +53,6 @@ def calc_RAT_Fresnel(theta, pol, *args):
 
     return Rs, Rp, np.array([0]), 1 - Rs, 1 - Rp
 
-def calc_RAT_Fresnel_vec(theta, pol, *args):
-
-    n1 = args[0]
-    n2 = args[1]
-    ratio = np.clip((n1[None, :] / n2[None, :]) * np.sin(theta[:, None]), -1, 1)
-    theta_t = np.arcsin(ratio)
-
-    if pol == "s":
-        Rs = (
-                np.abs(
-                    (n1[None, :] * np.cos(theta[:,None]) - n2[None, :] * np.cos(theta_t))
-                    / (n1[None, :] * np.cos(theta[:, None]) + n2[None, :] * np.cos(theta_t))
-                )
-                ** 2
-        )
-
-        # Rs[np.isnan(Rs)] = 1
-
-        return Rs, [0]
-
-    if pol == "p":
-        Rp = (
-                np.abs(
-                    (n1[None, :] * np.cos(theta_t) - n2[None, :] * np.cos(theta[:,None]))
-                    / (n1[None, :] * np.cos(theta_t) + n2[None, :] * np.cos(theta[:,None]))
-                )
-                ** 2
-        )
-
-        # Rp[np.isnan(Rp)] = 1
-
-        return Rp, [0]
-
-    else:
-        Rs = (
-                np.abs(
-                    (n1[None, :] * np.cos(theta[:,None]) - n2[None, :] * np.cos(theta_t))
-                    / (n1[None, :] * np.cos(theta[:,None]) + n2[None, :] * np.cos(theta_t))
-                )
-                ** 2
-        )
-        Rp = (
-                np.abs(
-                    (n1[None, :] * np.cos(theta_t) - n2[None, :] * np.cos(theta[:,None]))
-                    / (n1[None, :] * np.cos(theta_t) + n2[None, :] * np.cos(theta[:,None]))
-                )
-                ** 2
-        )
-        # Rs[np.isnan(Rs)] = 1
-        # Rp[np.isnan(Rp)] = 1
-
-        return (Rs + Rp) / 2, np.array([0])
-
 def calc_RAT_TMM(theta, pol, *args):
     lookuptable = args[0]
 
