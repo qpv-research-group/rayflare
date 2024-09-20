@@ -2,7 +2,7 @@ News & Updates
 ================
 .. _news:
 
-If you want to be notified about new releases, please join our [mailing list](https://www.solcore.solar/mailing-list) --
+If you want to be notified about new releases, please join our `mailing list`_ --
 we will send at most a few emails a year.
 
 To update to the latest version of RayFlare, run the following command in your terminal:
@@ -60,3 +60,4 @@ very specific circumstances which are unlikely to occur in a real solar cell (hi
 of what was changed and what was wrong previously are explained
 `here <https://github.com/qpv-research-group/rayflare/issues/56>`_.
 
+.. _mailing list: https://www.solcore.solar/mailing-list

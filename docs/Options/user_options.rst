@@ -97,6 +97,9 @@ Options used only by the TMM
 
 
 
+###################################
+Individual function documentation:
+###################################
 
 .. automodule:: rayflare.options
     :members:

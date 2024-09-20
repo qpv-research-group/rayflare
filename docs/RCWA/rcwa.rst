@@ -7,6 +7,10 @@ and to define and calculate structures which are treated in their entirety by RC
 The function :literal:`RCWA` is used to create redistribution matrices, while the class :literal:`rcwa_structure` is used to define
 structures for RCWA calculations.
 
+###################################
+Individual function documentation:
+###################################
+
 .. automodule:: rayflare.rigorous_coupled_wave_analysis.rcwa
     :members:
     :undoc-members:

@@ -21,6 +21,12 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
                     rear surface of a cell, you would set upright=False.
     :param size: size of the pyramids; the units are arbitrary, but should be kept consistent across
             different interfaces if you are not randomizing the ray positions.
+    :param kwargs: additional keyword arguments to pass to the RTSurface object, these are all optional.
+            The "height_distribution" argument can be set to as a dictionary with entries "h" and
+            "p", which are lists of heights and probabilities for the heights of the pyramids. This is useful
+            when simulating a random pyramid structure with a distribution of opening angles. The probabilities
+            must sum to 1.
+
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
 

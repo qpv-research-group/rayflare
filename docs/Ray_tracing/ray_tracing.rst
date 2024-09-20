@@ -14,6 +14,22 @@ parameter to :literal:`True` in the :literal:`RT` function or the :literal:`rt_s
 the interface layers the same but change the surface texture (e.g. opening angle of pyramids), you do not
 need to recalculate the lookup tables.
 
-.. automodule:: rayflare.ray_tracing.rt
+
+###################################
+Individual function documentation:
+###################################
+
+.. automodule:: rayflare.ray_tracing.rt_structure
     :members:
     :undoc-members:
+
+
+.. automodule:: rayflare.ray_tracing.rt_matrix
+    :members:
+    :undoc-members:
+
+
+.. automodule:: rayflare.ray_tracing.rt_common
+    :members:
+    :undoc-members:
+

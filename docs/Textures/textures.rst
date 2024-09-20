@@ -13,10 +13,28 @@ surfaces to specify surface layers, which will be treated optically using TMM. T
 - :literal:`coherency_list`: This is a list of the same length as :literal:`interface_layers`
   specifying which layers are coherent ("c") and which are incoherent ("i"). If not provided, all layers are
   assumed to be coherent.
-
 - :literal:`name`: optional; name of the interface under which the TMM lookuptable will be saved.
 
 See `here`_ for an example of how to use this in practice.
+
+You can also specific whether you want to apply `Phong scattering`_ to the
+rays which interact with the surface:
+
+- :literal:`phong`: whether to apply Phong scattering to rays which interact with this surface. Default is False.
+- :literal:`phong_options`: a list with two entries. The first entry is alpha, which describes how Lambertian the
+  scattering is (alpha = 1 is Lambertian, alpha = infinity is perfectly specular; see paper linked above).
+  The second entry is whether to randomize the polarization of the ray after applying the scattering. Default is
+  [25, True].
+
+And whether you want the surface to be treated analytically (is possible):
+
+- :literal:`analytical`: whether to treat the surface analytically. Default is False.
+- :literal:`n_analytical_interactions`: the maximum number if interactions to consider when doing analytical
+  ray-tracing (default is 3). Note that this maximum does not apply when the calculation switches to full ray-tracing.
+
+###################################
+Individual function documentation:
+###################################
 
 .. automodule:: rayflare.textures.define_textures
     :members:
@@ -28,3 +46,4 @@ See `here`_ for an example of how to use this in practice.
 
 
 .. _here: https://rayflare.readthedocs.io/en/latest/Examples/perovskite_Si_rt.html
+.. _Phong scattering: https://ieeexplore.ieee.org/document/8638770
