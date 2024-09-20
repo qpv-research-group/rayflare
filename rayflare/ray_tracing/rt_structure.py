@@ -339,6 +339,12 @@ class rt_structure:
         profile_interfaces = [item[8] for item in allres]
         n_rem = np.stack([item[9] for item in allres])
 
+        final_pol = np.stack([item[10] for item in allres])
+        final_pol_vectors = np.stack([item[11] for item in allres])
+        final_intersection = np.stack([item[12] for item in allres])
+
+
+
         if sum(self.tmm_or_fresnel) > 0:
 
             A_per_interface = [
@@ -410,7 +416,7 @@ class rt_structure:
         R0 = np.real(Is * refl_0).T / (n_reps * nx * ny)
         R0 = np.sum(R0, 0)
 
-        return {
+        return State({
             "R": R,
             "T": T,
             "A_per_layer": A_layer[:, 1:-1],
@@ -424,7 +430,7 @@ class rt_structure:
             "interface_profiles": interface_profiles,
             "Is": Is,
             "xy": [xs, ys],
-        }
+        })
 
     def calculate_profile(self, options):
         prof_results = self.calculate(options)
@@ -659,6 +665,11 @@ def parallel_inner(
     A_layer = np.zeros(len(widths))
     Is = np.zeros(n_reps * nx * ny)
 
+    # ray attributes: I, d, r_a, pol, s_vector, p_vector
+    final_intersection = np.empty((n_reps * nx * ny, 3))*np.nan
+    final_pol = np.empty((n_reps * nx * ny, 2))*np.nan
+    final_pol_vectors = np.empty((n_reps * nx * ny, 2, 3))*np.nan
+
     A_interfaces = [[] for _ in range(len(surfaces) + 1)]
     local_thetas = [[] for _ in range(len(surfaces) + 1)]
     local_pols = [[] for _ in range(len(surfaces) + 1)]
@@ -769,7 +780,7 @@ def parallel_inner(
             # And polarization directions
             ds, pols, pol_vectors, i_mats, i_dirs, surf_inds, n_remaining, I_in, n_inter_in, n_passes_in = (
                 make_rt_args(existing_rays, xs, ys, n_reps, phong_params, phong_options))
-            stop_before = int(np.ceil(n_remaining/(nx*ny)))
+            # stop_before = int(np.ceil(n_remaining/(nx*ny)))
             # r_as need to be set so that z is somewhere within the current surface:
             # z_offs = -cum_width[i_mats - 1] - 1e-8
             z_min = np.array([surf.z_min for surf in surfaces])
@@ -845,6 +856,10 @@ def parallel_inner(
             local_pols[A_interface_index].append(ray.pol)
             directions[A_interface_index].append(direction)
 
+            final_pol[j1] = ray.pol
+            final_pol_vectors[j1] = [ray.s_vector, ray.p_vector]
+            final_intersection[j1] = ray.r_a
+
         A_interfaces = A_interfaces[1:]
         # index 0 are all entries for non-interface-absorption events.
         local_thetas = local_thetas[1:]
@@ -906,6 +921,9 @@ def parallel_inner(
         A_in_interfaces,
         profile_arrays,
         n_remaining,
+        final_pol,
+        final_pol_vectors,
+        final_intersection,
     )
 
 def calculate_interface_profiles(

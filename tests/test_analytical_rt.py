@@ -255,14 +255,6 @@ def test_compare_TMM():
 
     assert full_profile == approx(anlt_profile, rel=0.15, abs=1e-5)
 
-def test_lambertian_scattering():
-    pass
-
-def test_lambertian_scattering_integrated():
-    pass
-
-# should have a test to check is Is, thetas calculate to correct R and T
-
 def test_phong_scattering():
     # phong scattering should give same result whether used with analytical or old ray-tracing.
     # NOTE: currently, phong scattering is only applied when transferring to next surface! So need

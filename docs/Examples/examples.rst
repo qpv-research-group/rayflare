@@ -2,6 +2,11 @@ Examples
 ========
 .. _examples:
 
+In addition to the examples listed here, you can find further detailed examples which use both
+RayFlare and Solcore (our integrated solar cell modelling package which also includes device physics
+models) on the
+[solcore-education](https://qpv-research-group.github.io/solcore-education/solcore-workshop-2/schedule.html) page.
+
 Structures using a single simulation method per structure
 ----------------------------------------------------------
 

@@ -9,7 +9,8 @@ optical models behind RayFlare, you can do that :ref:`here <overview>` or get st
 
 Check the :ref:`news & updates page <news>` for recent changes and new functionality.
 
-If you want to be notified about new releases, please join our `mailing list`_:.
+If you want to be notified about new releases, please join our `mailing list`_: (this will be at most a few emails per year,
+we will not spam you!).
 
 If you use RayFlare in your work, please cite the `JOSS paper`_:
 
