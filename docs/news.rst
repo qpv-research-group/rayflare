@@ -27,6 +27,12 @@ Version 2.0.0 released (2024-09-22)
 
 - The (previously undocumented) returns from rt_structure.calculate with details on final ray directions and intensities
   have been reorganized. See the docstring here.
+- Previously, the ray-tracing method did not handle polarization correctly, assuming a constant mixture
+  of *s* and *p* polarization throughout the ray-tracing procedure regardless of the angle of the surface
+  textures. Thus, ray-tracing
+  calculations will now give slightly different results. For most cases, especially for initially
+  unpolarized light, the differences are small, but this
+  depends on the surface texture, layers, and materials used.
 
 
 Version 1.2.1 released (2023-11-19)

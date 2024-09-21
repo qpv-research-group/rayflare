@@ -1,32 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from rayflare.textures import xyz_texture, regular_pyramids, planar_surface
+from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.ray_tracing import rt_structure
 from solcore import material
-import seaborn as sns
 from rayflare.options import default_options
 from solcore.structure import Layer
-from rayflare.transfer_matrix_method import tmm_structure
+from time import time
 
-# TODO: fix
 options = default_options()
 wl = np.linspace(300, 1150, 40) * 1e-9
 
 options.wavelength = wl
 
-options.nx = 50
-options.ny = 50
+options.nx = 40
+options.ny = 40
 options.n_rays = 1 * options.nx ** 2
-# options.x_limits = [2.5, 7.5]
-# options.y_limits = [2.5, 7.5]
-options.project_name = 'thin_textured_Si'
-options.lambertian_approximation = 0
+options.project_name = 'glass_GaAs_Si'
 options.randomize_surface = True
 
-options.theta_in = 30 * np.pi / 180
+options.theta_in = 0 * np.pi / 180
 options.phi_in = 0 * np.pi / 180
 options.I_thresh = 0.0002
 options.parallel = True
+options.maximum_passes = 50
 
 SiOx = material("SiO2")()
 Si = material("Si")()
@@ -36,13 +32,12 @@ GaAs = material("GaAs")()
 glass = material("BK7")()
 
 layers = [Layer(70e-9, SiN), Layer(100e-9, GaAs)]
-# layers = [Layer(70e-9, SiN)]
-# textured front, absorbing layer: A int 0 looks the same, but R is too high
 
 glass_text = planar_surface()
 
 rear_glass_text = planar_surface(interface_layers=layers)
 
+# for opening angle of 50 degrees, there will be exactly two bounces for normally-incident rays
 Si_front_text = regular_pyramids(50, True, interface_layers=layers)
 
 back_text = planar_surface()
@@ -57,16 +52,46 @@ rtstr_text = rt_structure(
     overwrite=True,
 )
 
-options.pol = 'u'
+options.pol = 's'
+for surf in rtstr_text.surfaces:
+    surf.analytical = True
 
+RAT_s_a = rtstr_text.calculate(options)
+
+for surf in rtstr_text.surfaces:
+    surf.analytical = False
+
+RAT_s_f = rtstr_text.calculate(options)
+
+options.pol = 'p'
+
+for surf in rtstr_text.surfaces:
+    surf.analytical = True
+
+start = time()
+RAT_p_a = rtstr_text.calculate(options)
+print("analytical time taken: ", time() - start)
+
+for surf in rtstr_text.surfaces:
+    surf.analytical = False
+
+start = time()
+RAT_p_f = rtstr_text.calculate(options)
+print("full time taken: ", time() - start)
+
+options.pol = 'u'
+for surf in rtstr_text.surfaces:
+    surf.analytical = True
 RAT_u_a = rtstr_text.calculate(options)
 
+for surf in rtstr_text.surfaces:
+    surf.analytical = False
 RAT_u_f = rtstr_text.calculate(options)
 
 titles = ['s', 'p', 'u']
 
 for i1, [rat_f, rat_a] in enumerate(
-        zip([RAT_u_f], [RAT_u_a])):
+        zip([RAT_s_f, RAT_p_f, RAT_u_f], [RAT_s_a, RAT_p_a, RAT_u_a])):
     plt.figure()
     plt.plot(wl * 1e9, rat_a['R'], '-r', label='R a', alpha=0.5)
     plt.plot(wl * 1e9, rat_f['R'], '--r', label='R f', alpha=0.5)

@@ -692,9 +692,9 @@ def parallel_inner(
     Is = np.zeros(n_reps * nx * ny)
 
     # ray attributes: I, d, r_a, pol, s_vector, p_vector
-    final_intersection = np.empty((n_reps * nx * ny, 3))*np.nan
-    final_pol = np.empty((n_reps * nx * ny, 2))*np.nan
-    final_pol_vectors = np.empty((n_reps * nx * ny, 2, 3))*np.nan
+    final_intersection = np.zeros((n_reps * nx * ny, 3))*np.nan
+    final_pol = np.zeros((n_reps * nx * ny, 2))*np.nan
+    final_pol_vectors = np.zeros((n_reps * nx * ny, 2, 3))*np.nan
 
     A_interfaces = [[] for _ in range(len(surfaces) + 1)]
     local_thetas = [[] for _ in range(len(surfaces) + 1)]
@@ -1286,8 +1286,6 @@ def single_ray_stack(
 
         elif res == 2:  # absorption
             stop = True  # absorption in an interface (NOT a bulk layer!)
-            if np.sum(theta) == 0:
-                print("?")
             A_interface_array = (
                 ray.I * theta[:] / np.sum(theta)
             )  # if absorbed, theta contains information about A_per_layer

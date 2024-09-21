@@ -1,3 +1,5 @@
+# NOTE: this example requires RayFlare v2.0.0 or later
+
 import matplotlib.pyplot as plt
 import numpy as np
 from rayflare.textures import xyz_texture
@@ -118,9 +120,7 @@ options.initial_material = (
 )
 options.initial_direction = 1  # default initial direction, which is 1 (downwards)
 
-
 options.periodic = 0
-
 
 pal = sns.color_palette("rocket", 4)
 
@@ -139,7 +139,7 @@ n_interactions = np.zeros(len(thetas))
 theta_distribution = np.zeros((len(thetas), options.n_rays))
 
 if os.path.isfile(
-    "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays_2.txt"
+    "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt"
 ):
     T_total = np.loadtxt(
         "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt"
@@ -158,8 +158,8 @@ else:
         options.theta_in = th
         result = rtstr.calculate(options)
         T_total[j1] = result["T"]
-        n_interactions[j1] = np.mean(result["n_interactions"])
-        theta_distribution[j1] = result["thetas"]
+        n_interactions[j1] = np.mean(result.ray_data.n_interactions)
+        theta_distribution[j1] = result.ray_data.thetas
 
     np.savetxt(
         "sphere_raytrace_totalT_2e" + str(exp_points) + "_" + str(nxs) + "_points_" + str(options.n_rays) + "_rays.txt",

@@ -39,7 +39,6 @@ options.ny = nxy
 options.n_rays = 2 * nxy**2
 options.depth_spacing = si("0.1um")
 options.parallel = True
-options.analytical_ray_tracing = 0
 options.I_thresh = 0.005
 options.randomize_surface = True
 options.project_name = "phong_scattering"
@@ -50,12 +49,13 @@ front_opening_deg = 50
 
 ARC = [Layer(70e-9, SiN)]
 
-triangle_surf = regular_pyramids(elevation_angle=front_opening_deg, upright=True, interface_layers=ARC)
+triangle_surf = regular_pyramids(elevation_angle=front_opening_deg, upright=True, interface_layers=ARC,
+                                 analytical=True)
 
-flat_surf = planar_surface(phong=False, interface_layers=ARC, analytical=True)  # pyramid size in microns
-flat_triangles = regular_pyramids(15, upright=False, phong=False, interface_layers=ARC, analytical=True)
-same_triangles = regular_pyramids(front_opening_deg, upright=False, phong=False, interface_layers=ARC, analytical=True)
-flat_phong = regular_pyramids(elevation_angle=0, phong=True, phong_options=[1000, True], interface_layers=ARC, analytical=True)
+flat_surf = planar_surface(phong=False, interface_layers=ARC)  # pyramid size in microns
+flat_triangles = regular_pyramids(15, upright=False, phong=False, interface_layers=ARC)
+same_triangles = regular_pyramids(front_opening_deg, upright=False, phong=False, interface_layers=ARC)
+flat_phong = regular_pyramids(elevation_angle=0, phong=True, phong_options=[1000, True], interface_layers=ARC)
 
 
 # values for Phong scattering exponent. Higher = more specular, 1 = perfect Lambertian scattering

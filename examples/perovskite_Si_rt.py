@@ -25,7 +25,6 @@ options.depth_spacing = 1e-9
 options.pol = "u"
 options.I_thresh = 1e-3
 options.randomize_surface = True
-options.analytical_ray_tracing = 0
 options.pol = 'u'
 # mimic random pyramids; do not want correlation between incident position on
 # front and rear pyramids

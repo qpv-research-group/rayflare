@@ -56,6 +56,14 @@ Options used only by the ray-tracer
   the unit cell corresponds to regular pyramids
 - **random_ray_angles**: used in the matrix framework. Rather than scanning through incidence angles and populating the matrix that way,
   random incident ray directions are generated
+- **maximum_passes**: the maximum number of passes through a bulk material a ray can make through the structure before ray-tracing ends. At
+  this point, a guess will be made as to where the ray would end up (absorbed, reflected, or transmitted),
+  using the absorption coefficients and thicknesses of the layers in the structure. The default value is 0 (or False),
+  in which case ray-tracing continues until the ray is absorbed or scattered, without ever making this approximation.
+  For values > 0, the ray-tracer will stop after the specified number of passes through the structure. This can be useful
+  if the structure is quite transparent at some wavelengths, to reduce computation times, but setting this to a small positive
+  value will result in inaccurate result.
+
 
 **Note on the number of rays**:
 
