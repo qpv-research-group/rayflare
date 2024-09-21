@@ -1385,24 +1385,64 @@ def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):
 
     return I_back, DA, stop, theta
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def rotate_vector(rot_mat, delta_theta, delta_phi):
  # in coordinate system of d, generate a vector which has these angles:
 
+    # delta_theta = np.atleast_1d(delta_theta)
+    # delta_phi = np.atleast_1d(delta_phi)
+    #
+    # xy_mag = np.sin(delta_theta)
+    # p_d_coord = np.column_stack([xy_mag * np.cos(delta_phi),
+    #                       xy_mag * np.sin(delta_phi),
+    #                       np.cos(delta_theta)])
+
+    # s_coord = np.empty(3, len(delta_phi))
+
+    # s_coord = np.column_stack([np.sin(delta_phi), -np.cos(delta_phi), 0.0*np.zeros_like(delta_phi)])
+    # p_coord = np.column_stack([-np.cos(delta_phi) * np.cos(delta_theta), -np.sin(delta_phi) * np.cos(delta_theta),
+    #                     np.sin(delta_theta)])
+
+    is_scalar_input = isinstance(delta_theta, (float, int)) and isinstance(delta_phi, (float, int))
+
+    # Convert to 1D arrays if scalar
+    if is_scalar_input:
+        delta_theta = np.array([delta_theta])
+        delta_phi = np.array([delta_phi])
+
+    n = len(delta_phi)
+
+    # Calculate components
     xy_mag = np.sin(delta_theta)
-    p_d_coord = np.array([xy_mag * np.cos(delta_phi),
-                          xy_mag * np.sin(delta_phi),
-                          np.cos(delta_theta)])
+    cos_phi = np.cos(delta_phi)
+    sin_phi = np.sin(delta_phi)
+    cos_theta = np.cos(delta_theta)
+    sin_theta = np.sin(delta_theta)
 
-    s_coord = np.array([np.sin(delta_phi), -np.cos(delta_phi), np.zeros_like(delta_phi)])
-    p_coord = np.array([-np.cos(delta_phi) * np.cos(delta_theta), -np.sin(delta_phi) * np.cos(delta_theta),
-                        np.sin(delta_theta)])
+    # Create coordinate arrays
+    p_d_coord = np.empty((3, n))
+    p_d_coord[0] = xy_mag * cos_phi
+    p_d_coord[1] = xy_mag * sin_phi
+    p_d_coord[2] = cos_theta
 
-    d_rotated = np.matmul(rot_mat, p_d_coord)
-    s_rotated = np.matmul(rot_mat, s_coord)
-    p_rotated = np.matmul(rot_mat, p_coord)
+    s_coord = np.empty((3, n))
+    s_coord[0] = sin_phi
+    s_coord[1] = -cos_phi
+    s_coord[2] = np.zeros(n)
 
-    return d_rotated.T, s_rotated.T, p_rotated.T
+    p_coord = np.empty((3, n))
+    p_coord[0] = -cos_phi * cos_theta
+    p_coord[1] = -sin_phi * cos_theta
+    p_coord[2] = sin_theta
+
+    d_rotated = np.dot(rot_mat, p_d_coord)
+    s_rotated = np.dot(rot_mat, s_coord)
+    p_rotated = np.dot(rot_mat, p_coord)
+
+    if is_scalar_input:
+        return d_rotated.ravel(), s_rotated.ravel(), p_rotated.ravel()
+    else:
+        return d_rotated.T, s_rotated.T, p_rotated.T
 
 @jit(nopython=True)
 def rotation_matrix(theta, phi):
@@ -1439,9 +1479,6 @@ def ray_update_phong(ray, theta, phi, phong_options):
 
     theta = np.real(acos(ray.d[2]))
     phi = np.real(atan2(ray.d[1], ray.d[0]))
-
-    if np.sign(ray.d[2]) != np.sign(new_dir[2]):
-        raise ValueError("Direction not flipped correctly")
 
     if phong_options[1]:
         # randomise the polarization
