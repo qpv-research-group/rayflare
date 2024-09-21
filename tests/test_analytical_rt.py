@@ -56,7 +56,6 @@ def test_total_RAT_TMM():
     from solcore import material
     from rayflare.options import default_options
     from solcore.structure import Layer
-    import numpy as np
 
     Si = material("Si")()
     Air = material("Air")()

@@ -2,11 +2,11 @@
 # coding: utf-8
 
 # # Ray-tracing with regular pyramids
-# 
-# This example shows how to define a structure, and the form of the calculation outputs, for a silicon wafer with pyramid texturing on the front surface and a planar rear surface, and compares the results with those of a well-known wafer ray-tracer (PVLighthouse). The absorption profile is also calculated automatically.
-
-# In[25]:
-
+#
+# This example shows how to define a structure, and the form of the calculation outputs,
+# for a silicon wafer with pyramid texturing on the front surface and a planar rear surface,
+# and compares the results with those of a well-known wafer ray-tracer (PVLighthouse).
+# The absorption profile is also calculated automatically.
 
 import numpy as np
 
@@ -22,10 +22,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-# We define the relevant materials. In this case, we are going to compare the results at the end with ray-tracing results from PVLighthouse's wafer ray tracer, so we want to make sure we are using exactly the same optical constant data. For this, we will use Solcore's ability to download and pull materials from the refractiveindex.info database. First we download the database (if you've already done this previously you will be prompted to ask if you would like to re-download it) and then we search it for the Green 2008 silicon optical constant data. We then define a Solcore material by referencing this search result (for this version of the database, it is the entry with page id 566). We then set some options: the number of rays to trace at each wavelengths, how many x/y points to scan across, the wavelengths, and that the computation should be done in parallel (by default this will use all the available cores).
-
-# In[26]:
-
+# We define the relevant materials. In this case, we are going to compare the results at the end
+# with ray-tracing results from PVLighthouse's wafer ray tracer, so we want to make sure we are
+# using exactly the same optical constant data. For this, we will use Solcore's ability to download
+# and pull materials from the refractiveindex.info database. First we download the database (if
+# you've already done this previously you will be prompted to ask if you would like to re-download
+# it) and then we search it for the Green 2008 silicon optical constant data. We then define a
+# Solcore material by referencing this search result (for this version of the database, it is the
+# entry with page id 566). We then set some options: the number of rays to trace at each wavelengths,
+# how many x/y points to scan across, the wavelengths, and that the computation should be done in
+# parallel (by default this will use all the available cores).
 
 # setting up some colours for plotting
 pal = sns.color_palette("husl", 4)
@@ -55,10 +61,13 @@ options.depth_spacing_bulk = si("0.1um")
 options.parallel = True
 
 
-# Define the structure: the front is made of inverted regular triangles (upright=False) with an opening angle of 55 degrees and a size of 2 microns. The back surface is planar. The rt_structure class takes a list of textures and a list of materials; there must always be one more entry in the list of textures than the number of materials (the incidence and transmission media are specified separately). We then calculate the reflection, transmission, and absorption per layer. The absorption profile will also be calculated because for ray-tracing this requires essentially no additional work, since it only uses Beer-Lambert like absorption.
-
-# In[27]:
-
+# Define the structure: the front is made of inverted regular triangles (upright=False) with an
+# opening angle of 55 degrees and a size of 2 microns. The back surface is planar. The rt_structure
+# class takes a list of textures and a list of materials; there must always be one more entry in the
+# list of textures than the number of materials (the incidence and transmission media are specified
+# separately). We then calculate the reflection, transmission, and absorption per layer. The
+# absorption profile will also be calculated because for ray-tracing this requires essentially no
+# additional work, since it only uses Beer-Lambert like absorption.
 
 flat_surf = planar_surface(size=2)  # pyramid size in microns
 triangle_surf = regular_pyramids(55, upright=False, size=2)
@@ -76,9 +85,6 @@ result = rtstr.calculate(options)
 
 
 # Plot results, and compare them with PVLighthouse ray-tracing results for the same structure.
-
-# In[28]:
-
 
 PVlighthouse = np.loadtxt("data/RAT_data_300um_2um_55.csv", delimiter=",", skiprows=1)
 
@@ -157,9 +163,6 @@ plt.show()
 
 # Plotting the absorption profile at wavelengths bigger than about 1000 nm:
 
-# In[29]:
-
-
 min_wl = 1000
 ind = np.argmin(np.abs(options.wavelength * 1e9 - min_wl))
 
@@ -174,10 +177,3 @@ plt.gca().invert_yaxis()
 plt.xlabel(r"Depth ($\mu$m)")
 plt.ylabel("Wavelength (nm)")
 plt.show()
-
-
-# In[29]:
-
-
-
-

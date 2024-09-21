@@ -2,6 +2,12 @@ Ray-tracing
 ============
 .. _ray_tracing:
 
+.. toctree::
+   :maxdepth: 1
+
+   analytical_ray_tracing
+   polarization
+
 There are two distinct uses of the ray-tracing code: to create redistribution matrices for the matrix framework,
 and to define and calculate structures which are treated in their entirety by ray-tracing (so the matrix framework is not used).
 Both of these methods can be used in combination with TMM lookup tables to calculate realistic reflection, transmission

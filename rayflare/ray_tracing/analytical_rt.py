@@ -165,7 +165,7 @@ def analytical_start(nks,
 
     # if initial_dir == 1: # travelling down
     surf_index = initial_mat
-    next_mat = initial_mat + initial_dir
+    # next_mat = initial_mat + initial_dir
 
     # else: # travelling up
     #     surf_index = initial_mat - 1

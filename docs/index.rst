@@ -12,7 +12,6 @@
    news
    Installation/installation
    Theory/theory
-   Theory/polarization
    Examples/examples.rst
    Matrix/matrix_method
    Ray_tracing/ray_tracing
