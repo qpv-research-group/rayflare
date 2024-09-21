@@ -136,23 +136,49 @@ class rt_structure:
            - x_limits: x limits (in same units as the size of the RTSurface) between which incident rays will be generated
            - y_limits: y limits (in same units as the size of the RTSurface) between which incident rays will be generated
 
-        :return: A State object (dictionary) with the following entries (all are Numpy arrays):
+        :return: A State object (dictionary) with the following entries:
 
-            - R: total reflectance (as a fraction) at each wavelength
-            - R0: R0
-            - T: total transmittance (as a fraction) at each wavelength
+            - R: total reflectance (as a fraction) at each wavelength (array)
+            - R0: reflectance at the first surface interaction only (n_passes = 0) (array)
+            - T: total transmittance (as a fraction) at each wavelength (array)
             - A_per_layer: absorptance in each bulk (not interface!) layer at each wavelength. Dimensions
-              are (wavelength, layer).
-            - A_per_interface:
-            - profile: absorption_profiles / 1e3,
-            - interface_profiles": interface_profiles,
-            - thetas:
-            - phis:
-            - n_passes:
-            - n_interactions:
-            - Is:
-            - xy: [xs, ys],
-            - final_ray_data:
+              are (wavelength, layer). (array)
+            - A_per_interface: absorptance in the interface (if interface_layers were present). This
+              is a list, with the length equal to the number of textures/surfaces in the structure.
+              Each entry in the list is an array with dimensions (wavelength, n_interface_layers)
+              where n_interface_layers is the number of layers in the corresponding interface.
+            - profile: the absorption profile in the bulk layers. The spacing will be equal to
+              options.depth_spacing_bulk. Units are m-1.
+            - interface_profiles: the absorption profile in the interface layers, if requested.
+              The spacing will be equal to options.depth_spacing. Units are nm-1 (note that this
+              is not the same as the bulk profile!).
+            - ray_data: this is a State object (dictionary) which contains information about the
+              individual rays: their direction, polarization, initial and final position. Keys are:
+
+              - xy_in: the initial x and y coordinates of each ray. List with two entries, the initial
+                x positions and the initial y positions.
+              - Is: the final intensity of each ray. Array with dimensions (wavelengths, n_rays)
+              - thetas: the final polar angle of each ray (in radians). If less than pi/2, the ray is travelling
+                upwards (reflection), if between pi/2 and pi it is transmitted. If the entry is NaN,
+                the ray was absorbed in a bulk or interface layer.
+                Array with dimensions (wavelengths, n_rays)
+              - phis: the final polar angle of each ray (in radians). If the entry is NaN,
+                the ray was absorbed in a bulk or interface layer.
+                Array with dimensions (wavelengths, n_rays)
+              - n_passes: number of passes through bulk materials. Array with dimensions (wavelengths, n_rays)
+              - n_interactions: number of interactions. This counts TOTAL interactions with interface;
+                a ray may interact with a single interface more than once per encounter.
+                Array with dimensions (wavelengths, n_rays)
+              - pol: the final polarization state of the ray. This is relative to the last surface it
+                interacted with. Array with dimensions (wavelengths, n_rays, 2), with the final
+                dimension containing the s-component and p-component (summing to 1) respectively.
+              - pol_vectors: the final directions of the s and p polarization directions.
+                Array with dimensions (wavelengths, n_rays, 2, 3).
+              - intersection: the final intersection of the ray (xyz coordinates), before it was
+                reflected, transmitted, or absorbed. Array with dimensions (wavelengths, n_rays, 3).
+
+              To access, for example, the final polar angle (theta) distribution of the rays,
+              you would use rt_result.ray_data.thetas or rt_result['ray_data']['thetas'].
 
         """
 
@@ -960,7 +986,6 @@ def calculate_interface_profiles(
     z_list,
     offsets,
     lookuptable,
-    # wl,
     local_pols_i,
     depth_spacing,
 ):

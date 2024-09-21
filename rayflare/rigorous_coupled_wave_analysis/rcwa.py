@@ -1183,7 +1183,12 @@ class rcwa_structure:
 
         pol = process_pol(options.pol)
 
-        if not np.all(options.wavelength == self.current_wavelengths):
+        if len(options.wavelength) == len(self.current_wavelengths):
+            if not np.all(options.wavelength == self.current_wavelengths):
+                self.update_oc(options.wavelength)
+                # if total R, A, T have already been calculated, it was for the wrong wavelengths
+                self.calculate(options)
+        else:
             self.update_oc(options.wavelength)
             # if total R, A, T have already been calculated, it was for the wrong wavelengths
             self.calculate(options)

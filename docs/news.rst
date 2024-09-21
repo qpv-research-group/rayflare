@@ -19,18 +19,21 @@ Version 2.0.0 released (2024-09-22)
 - New analytical method for ray-tracing, which is much faster than full ray-tracing and can be used with full
   accuracy for surfaces where the number of ray interactions is known exactly in advance (e.g. upright pyramids with
   opening angles between 45 and 54 degrees).
+- Phong scattering
 - Rigorous treatment of polarization in ray-tracing (no changes to treatment of polarization in TMM and RCWA calculations).
 - More detailed output from ray-tracing calculations
 - More detailed output from RCWA calculations
+- Option to set a maximum number of bulk passes for the ray-tracer using the maximum_passes option
+  (see :ref:`Options <options>`).
 
 **Possible backwards compatibility issues:**
 
 - The (previously undocumented) returns from rt_structure.calculate with details on final ray directions and intensities
-  have been reorganized. See the docstring here.
+  have been reorganized. See the docstring :ref:`here <ray_tracing>`.
 - Previously, the ray-tracing method did not handle polarization correctly, assuming a constant mixture
   of *s* and *p* polarization throughout the ray-tracing procedure regardless of the angle of the surface
   textures. Thus, ray-tracing
-  calculations will now give slightly different results. For most cases, especially for initially
+  calculations may now give slightly different results. For most cases, especially for initially
   unpolarized light, the differences are small, but this
   depends on the surface texture, layers, and materials used.
 
@@ -39,7 +42,7 @@ Version 1.2.1 released (2023-11-19)
 ------------------------------------
 **Highlights:**
 
-- New RCWA method ([Inkstone](https://github.com/alexysong/inkstone) now intergrated with RayFlare.
+- New RCWA method (`Inkstone <https://github.com/alexysong/inkstone>`_) now integrated with RayFlare.
   This is an all-Python program which is therefore easy to install (unlike S4). This means all core u
   functionality of RayFlare is now available without the need to compile anything on your computer.
   Users can toggle between S4 and Inkstone by setting the ``RCWA_method`` option.
