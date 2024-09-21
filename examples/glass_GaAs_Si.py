@@ -8,6 +8,7 @@ from rayflare.options import default_options
 from solcore.structure import Layer
 from rayflare.transfer_matrix_method import tmm_structure
 
+# TODO: fix
 options = default_options()
 wl = np.linspace(300, 1150, 40) * 1e-9
 
@@ -21,7 +22,7 @@ options.n_rays = 1 * options.nx ** 2
 options.project_name = 'thin_textured_Si'
 options.lambertian_approximation = 0
 options.randomize_surface = True
-options.analytical_ray_tracing = True
+
 options.theta_in = 30 * np.pi / 180
 options.phi_in = 0 * np.pi / 180
 options.I_thresh = 0.0002
@@ -33,8 +34,6 @@ Air = material("Air")()
 SiN = material("Si3N4")()
 GaAs = material("GaAs")()
 glass = material("BK7")()
-
-options.analytical_ray_tracing = 0
 
 layers = [Layer(70e-9, SiN), Layer(100e-9, GaAs)]
 # layers = [Layer(70e-9, SiN)]
@@ -59,10 +58,9 @@ rtstr_text = rt_structure(
 )
 
 options.pol = 'u'
-options.analytical_ray_tracing = 2
+
 RAT_u_a = rtstr_text.calculate(options)
 
-options.analytical_ray_tracing = 0
 RAT_u_f = rtstr_text.calculate(options)
 
 titles = ['s', 'p', 'u']

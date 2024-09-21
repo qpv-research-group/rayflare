@@ -126,7 +126,7 @@ class rt_structure:
            - maximum_passes: if 0 (default), keep following the ray until it is absorbed or escapes. Otherwise,
              assume the ray is Lambertian after this many traversals of the bulk.
            - pol: Polarisation of the light: 's', 'p' or 'u', or a list/tuple of length 2 with the fraction
-                  of ['s', 'p'] polarized light.
+             of ['s', 'p'] polarized light.
            - depth_spacing_bulk: depth spacing for absorption profile calculations in the bulk (m)
            - depth_spacing: depth spacing for absorption profile calculations in interface layers (m)
            - nx and ny: number of points to scan across the surface in the x and y directions (integers)
@@ -137,7 +137,24 @@ class rt_structure:
            - x_limits: x limits (in same units as the size of the RTSurface) between which incident rays will be generated
            - y_limits: y limits (in same units as the size of the RTSurface) between which incident rays will be generated
 
-        :return: A dictionary with the R, A and T at the specified wavelengths and angle.
+        :return: A State object (dictionary) with the following entries (all are Numpy arrays):
+
+            - R: total reflectance (as a fraction) at each wavelength
+            - R0: R0
+            - T: total transmittance (as a fraction) at each wavelength
+            - A_per_layer: absorptance in each bulk (not interface!) layer at each wavelength. Dimensions
+              are (wavelength, layer).
+            - A_per_interface:
+            - profile: absorption_profiles / 1e3,
+            - interface_profiles": interface_profiles,
+            - thetas:
+            - phis:
+            - n_passes:
+            - n_interactions:
+            - Is:
+            - xy: [xs, ys],
+            - final_ray_data:
+
         """
 
         if isinstance(options, dict):
@@ -343,8 +360,6 @@ class rt_structure:
         final_pol_vectors = np.stack([item[11] for item in allres])
         final_intersection = np.stack([item[12] for item in allres])
 
-
-
         if sum(self.tmm_or_fresnel) > 0:
 
             A_per_interface = [
@@ -418,18 +433,29 @@ class rt_structure:
 
         return State({
             "R": R,
+            "R0": R0,
             "T": T,
             "A_per_layer": A_layer[:, 1:-1],
             "profile": absorption_profiles / 1e3,
             "thetas": thetas,
             "phis": phis,
-            "R0": R0,
             "n_passes": n_passes,
             "n_interactions": n_interactions,
             "A_per_interface": A_per_interface,
             "interface_profiles": interface_profiles,
-            "Is": Is,
-            "xy": [xs, ys],
+            # "Is": Is,
+            "ray_data":
+                State({
+                    "xy_in": [xs, ys],
+                    "Is": Is,
+                    "thetas": thetas,
+                    "phis": phis,
+                    "n_passes": n_passes,
+                    "n_interactions": n_interactions,
+                    "pol": final_pol,
+                    "pol_vectors": final_pol_vectors,
+                    "intersection": final_intersection
+                }),
         })
 
     def calculate_profile(self, options):

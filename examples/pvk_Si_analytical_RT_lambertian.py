@@ -10,6 +10,7 @@ from rayflare.ray_tracing import rt_structure
 from time import time
 import seaborn as sns
 
+# TODO: fix
 SiN = material("Si3N4")()
 Si = material("Si")()
 Air = material("Air")()
@@ -37,7 +38,6 @@ AM15G = LightSource(source_type='standard', version='AM1.5g', x=wavelengths,
 lambert_approx = 30
 options = default_options()
 
-options.analytical_ray_tracing = 0
 options.wavelength = wavelengths
 options.project_name = 'integration_testing'
 options.nx = 10

@@ -11,6 +11,24 @@ To update to the latest version of RayFlare, run the following command in your t
 
    pip install rayflare --upgrade
 
+Version 2.0.0 released (2024-09-22)
+------------------------------------
+**Highlights:**
+
+- Speed improvements for all ray-tracing calculations, using numba and more efficient lookup of TMM values.
+- New analytical method for ray-tracing, which is much faster than full ray-tracing and can be used with full
+  accuracy for surfaces where the number of ray interactions is known exactly in advance (e.g. upright pyramids with
+  opening angles between 45 and 54 degrees).
+- Rigorous treatment of polarization in ray-tracing (no changes to treatment of polarization in TMM and RCWA calculations).
+- More detailed output from ray-tracing calculations
+- More detailed output from RCWA calculations
+
+**Possible backwards compatibility issues:**
+
+- The (previously undocumented) returns from rt_structure.calculate with details on final ray directions and intensities
+  have been reorganized. See the docstring here.
+
+
 Version 1.2.1 released (2023-11-19)
 ------------------------------------
 **Highlights:**

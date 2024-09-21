@@ -40,4 +40,12 @@ structure are treated separately and can be simulated with different methods.
    compare_models_3Jsolarcell_profile.ipynb
    HIT_emissivity.ipynb
 
+Full list of GitHub examples
+-----------------------------
+
+These examples are available in the `GitHub repository <https://github.com/qpv-research-group/rayflare/tree/devel/examples>`_; a list
+is provided here to give an overview of what is covered in each example.
+
+
+
 .. _solcore-education: https://qpv-research-group.github.io/solcore-education/solcore-workshop-2/schedule.html

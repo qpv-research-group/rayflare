@@ -8,6 +8,7 @@ from rayflare.options import default_options
 from solcore.structure import Layer
 from time import time
 
+# TODO: fix
 options = default_options()
 wl = np.linspace(300, 1000, 30) * 1e-9
 
@@ -19,7 +20,6 @@ options.n_rays = 1 * options.nx ** 2
 # options.x_limits = [2.5, 7.5]
 # options.y_limits = [2.5, 7.5]
 options.project_name = 'surface_comparison'
-options.lambertian_approximation = 0
 options.randomize_surface = True
 options.phi_in = 20 * np.pi / 180
 options.I_thresh = 0.0002
@@ -63,7 +63,7 @@ for i1, degrees_in in enumerate(angle_in):
     options.theta_in = degrees_in * np.pi / 180
 
     start = time()
-    options.analytical_ray_tracing = 4
+
     rat_a = rtstr_text.calculate(options)
     print("analytical time taken: ", time() - start)
 
