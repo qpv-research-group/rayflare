@@ -14,10 +14,9 @@ import xarray as xr
 from joblib import Parallel, delayed
 from copy import deepcopy
 from solcore.state import State
-from scipy.spatial.transform import Rotation
 from numba import jit
 
-from rayflare.utilities import get_savepath, get_wavelength, process_pol
+from rayflare.utilities import get_savepath, get_wavelength
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare import logger
 from .analytical_rt import analytical_start, dummy_prop_rays

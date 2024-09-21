@@ -57,7 +57,6 @@ def test_total_RAT_TMM():
     from rayflare.options import default_options
     from solcore.structure import Layer
     import numpy as np
-    from pytest import approx
 
     Si = material("Si")()
     Air = material("Air")()
@@ -88,7 +87,6 @@ def test_total_RAT_TMM():
         widths=[50e-6, 100e-6],
         incidence=Air, transmission=Air,
         use_TMM=True, options=options,
-        save_location="current",
         overwrite=True,
     )
 
@@ -261,7 +259,7 @@ def test_phong_scattering():
     # to do two surfaces to check.
 
     from rayflare.ray_tracing import rt_structure
-    from rayflare.textures import regular_pyramids, planar_surface
+    from rayflare.textures import planar_surface
     from solcore import material
     from rayflare.options import default_options
 
@@ -278,8 +276,6 @@ def test_phong_scattering():
     max_angle = np.arccos((5e-3)**(1/alpha))
 
     x = np.linspace(0, max_angle, 6)
-    # analytical power law:
-    power_law = np.cos(x)**alpha
 
     options.nx = 10
     options.ny = 10

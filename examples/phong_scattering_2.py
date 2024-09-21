@@ -22,9 +22,6 @@ sns.set_style("whitegrid")
 d = 100e-6
 # setting up Solcore materials
 Air = material("Air")()
-
-from solcore.absorption_calculator import download_db, search_db
-
 Si = material("Si")()
 SiN = material("Si3N4")()
 

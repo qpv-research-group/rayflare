@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from rayflare.textures import regular_pyramids, planar_surface
 from rayflare.ray_tracing import rt_structure
 from solcore import material
-import seaborn as sns
 from rayflare.options import default_options
 from solcore.structure import Layer
 from time import time

@@ -46,6 +46,15 @@ Full list of GitHub examples
 These examples are available in the `GitHub repository <https://github.com/qpv-research-group/rayflare/tree/devel/examples>`_; a list
 is provided here to give an overview of what is covered in each example.
 
+TMM
+#####
 
+1.
+
+Ray-tracing
+#############
+
+RCWA
+######
 
 .. _solcore-education: https://qpv-research-group.github.io/solcore-education/solcore-workshop-2/schedule.html

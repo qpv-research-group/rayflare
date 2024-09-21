@@ -198,11 +198,6 @@ def analytical_start(nks,
 
     while single_direction:
 
-        normals = surfaces[surf_index].N
-
-        n0 = nks[mat_i]
-        n1 = nks[next_mat]
-
         I_rem_data = I_remaining.data[0]
 
         R_data, A_data, T_data, R_pol, T_pol, A_int_detail = analytical_per_face(surfaces[surf_index],
