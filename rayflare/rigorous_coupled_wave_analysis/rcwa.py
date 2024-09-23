@@ -15,7 +15,7 @@ from solcore.state import State
 from solcore.absorption_calculator import OptiStack
 
 from rayflare.angles import make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths, get_wavelength, process_pol
+from rayflare.utilities import get_matrices_or_paths, process_pol
 
 from inkstone import Inkstone
 
@@ -937,7 +937,6 @@ class rcwa_structure:
 
         self.transmission = transmission
         self.incidence = incidence
-        get_wavelength(options)
         wavelengths = options.wavelength
 
         geom_list = []
@@ -1084,7 +1083,6 @@ class rcwa_structure:
         if isinstance(options, dict):
             options = State(options)
 
-        get_wavelength(options)
         wl = options.wavelength * 1e9
 
         pol = process_pol(options.pol)
@@ -1178,7 +1176,6 @@ class rcwa_structure:
 
         parallel_func = {"s4": RCWA_wl_prof, "inkstone": RCWA_wl_prof_inkstone}
 
-        get_wavelength(options)
         wl = options.wavelength * 1e9
 
         pol = process_pol(options.pol)

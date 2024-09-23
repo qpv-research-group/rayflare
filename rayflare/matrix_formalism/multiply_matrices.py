@@ -13,7 +13,7 @@ import xarray as xr
 from solcore.state import State
 
 from rayflare.structure import Interface, BulkLayer
-from rayflare.utilities import get_savepath, get_wavelength
+from rayflare.utilities import get_savepath
 
 from rayflare import logger
 
@@ -321,8 +321,6 @@ def matrix_multiplication(
         theta_spacing,
     )
     n_a_in = int(len(angle_vector) / 2)
-
-    get_wavelength(options)
 
     num_wl = len(options["wavelength"])
 

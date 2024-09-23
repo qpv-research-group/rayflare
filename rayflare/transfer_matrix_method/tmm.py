@@ -14,7 +14,7 @@ from solcore.absorption_calculator import OptiStack
 from solcore.state import State
 
 from rayflare.angles import make_angle_vector, fold_phi
-from rayflare.utilities import get_matrices_or_paths, get_wavelength
+from rayflare.utilities import get_matrices_or_paths
 
 
 def TMM(
@@ -596,7 +596,6 @@ class tmm_structure:
         if isinstance(options, dict):
             options = State(options)
 
-        get_wavelength(options)
         wavelength = options.wavelength * 1e9
         pol = options.pol
         angle = options.theta_in

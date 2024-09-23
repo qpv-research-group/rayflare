@@ -16,7 +16,7 @@ from copy import deepcopy
 from solcore.state import State
 from numba import jit
 
-from rayflare.utilities import get_savepath, get_wavelength
+from rayflare.utilities import get_savepath
 from rayflare.transfer_matrix_method.lookup_table import make_TMM_lookuptable
 from rayflare import logger
 from .analytical_rt import analytical_start, dummy_prop_rays
@@ -185,7 +185,6 @@ class rt_structure:
         if isinstance(options, dict):
             options = State(options)
 
-        get_wavelength(options)
         wavelengths = options.wavelength
         theta = options.theta_in
         phi = options.phi_in

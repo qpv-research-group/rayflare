@@ -35,7 +35,6 @@ def make_absorption_function(result, structure, options):
     from rayflare.ray_tracing import rt_structure
     from rayflare.structure import Structure
 
-    get_wavelength(options)
     # determine the type of structure to figure out how to process the result:
 
     if isinstance(structure, Structure):
@@ -338,17 +337,6 @@ def get_savepath(save_location, project_name):
 
     return structpath
 
-
-def get_wavelength(options):
-    # wavelengths (plural) will be deprecated and should be wavelength (singular) instead,
-    # but this is to ensure backwards compatibility for the next few versions
-
-    if "wavelengths" in options:
-        options["wavelength"] = options["wavelengths"]
-        logger.warning(
-            "The option 'wavelengths' (plural) will be deprecated in the next major version. Please use 'wavelength' (singular) instead. "
-            "Currently, wavelengths (plural) will override wavelength (singular) if both are specified."
-        )
 
 def process_pol(input_pol):
     if len(input_pol) == 2:

@@ -15,7 +15,7 @@ from rayflare.rigorous_coupled_wave_analysis import RCWA
 from rayflare.transfer_matrix_method import TMM
 from rayflare.angles import make_angle_vector
 from rayflare.matrix_formalism.ideal_cases import lambertian_matrix, mirror_matrix
-from rayflare.utilities import get_savepath, get_wavelength
+from rayflare.utilities import get_savepath
 from rayflare import logger
 
 def process_structure(SC, options, save_location="default", overwrite=False):
@@ -39,8 +39,6 @@ def process_structure(SC, options, save_location="default", overwrite=False):
 
     if isinstance(options, dict):
         options = State(options)
-
-    get_wavelength(options)
 
     def determine_only_incidence(sd, j1, oia):
         if sd == "front" and j1 == 0 and oia:

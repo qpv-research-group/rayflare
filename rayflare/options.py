@@ -58,8 +58,6 @@ class default_options(State):
         self.random_ray_angles = False
         self.n_rays = 10000
         self.maximum_passes = 0
-        self.analytical_ray_tracing = False
-        self.analytical_threshold = 0.99
 
         # TMM options
         self.lookuptable_angles = 200

@@ -8,7 +8,6 @@
 import xarray as xr
 import numpy as np
 from rayflare.transfer_matrix_method.tmm import tmm_structure
-from rayflare.utilities import get_wavelength
 import os
 from solcore.absorption_calculator import OptiStack
 
@@ -59,7 +58,6 @@ def make_TMM_lookuptable(
         logging.info("Existing lookup table found")
         allres = xr.open_dataset(savepath)
     else:
-        get_wavelength(options)
         wavelengths = options["wavelength"]
         n_angles = options["lookuptable_angles"]
         thetas = np.linspace(0, (np.pi / 2) - 1e-3, n_angles)
