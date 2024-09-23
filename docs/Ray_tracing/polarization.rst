@@ -1,5 +1,6 @@
 Treatment of polarization
 ==========================
+.. _polarization:
 
 Note: for ray-tracing, the below applies to RayFlare version 2.0.0 (September 2024) and later.
 

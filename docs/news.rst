@@ -11,20 +11,28 @@ To update to the latest version of RayFlare, run the following command in your t
 
    pip install rayflare --upgrade
 
-Version 2.0.0 released (2024-09-22)
+Version 2.0.0 released (2024-09-23)
 ------------------------------------
 **Highlights:**
 
-- Speed improvements for all ray-tracing calculations, using numba and more efficient lookup of TMM values.
-- New analytical method for ray-tracing, which is much faster than full ray-tracing and can be used with full
+- **Speed improvements for all ray-tracing calculations**, by using numba jit (just-in-time) compilation of heavily-used
+  functions, and more efficient lookup of TMM values for integrated ray-tracing/TMM calculations.
+- **New analytical method for ray-tracing**, which is much faster than full ray-tracing and can be used with full
   accuracy for surfaces where the number of ray interactions is known exactly in advance (e.g. upright pyramids with
-  opening angles between 45 and 54 degrees).
-- Phong scattering
-- Rigorous treatment of polarization in ray-tracing (no changes to treatment of polarization in TMM and RCWA calculations).
-- More detailed output from ray-tracing calculations
-- More detailed output from RCWA calculations
+  opening angles between 45 and 54 degrees). Note that the calculation of absorption profiles in interface layers
+  is not yet implemented for this method (though this is on the roadmap, as there is no fundamental reason this
+  cannot be done). Absorption in bulk layers is calculated as usual if the analytical method is used. This option
+  can be toggled on per surface in an rt_structure object, see :ref:`here <textures>`.
+- **Phong scattering**: a new option for the ray-tracer, which allows additional non-specular scattering. The continuum
+  between perfectly specular and Lambertian scattering can be controlled with the Phong exponent; see the documentation
+  :ref:`here <textures>`.
+- **Rigorous treatment of polarization in ray-tracing** (no changes to treatment of polarization in TMM and RCWA calculations).
+  See further mathematical details of the new method :ref:`here <polarization>`.
 - Option to set a maximum number of bulk passes for the ray-tracer using the maximum_passes option
   (see :ref:`Options <options>`).
+- More detailed output from ray-tracing calculations. See the docstring for :literal:`rt_structure.calculate`
+  :ref:`here <ray_tracing>`.
+- More detailed output from RCWA calculations.
 
 **Possible backwards compatibility issues:**
 

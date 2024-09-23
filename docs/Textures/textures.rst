@@ -26,7 +26,7 @@ rays which interact with the surface:
   The second entry is whether to randomize the polarization of the ray after applying the scattering. Default is
   [25, True].
 
-And whether you want the surface to be treated analytically (is possible):
+And whether you want the surface to be treated analytically (if possible):
 
 - :literal:`analytical`: whether to treat the surface analytically. Default is False.
 - :literal:`n_analytical_interactions`: the maximum number if interactions to consider when doing analytical

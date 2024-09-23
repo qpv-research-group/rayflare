@@ -736,7 +736,10 @@ def parallel_inner(
         n_remaining = n_reps * nx * ny
 
     else:
+        # TODO: not sure this condition makes sense
         continue_wl = np.sum(existing_rays.I) > I_thresh
+        print("new wl", continue_wl)
+        print(existing_rays.I)
         n_remaining = 0
         prop_rays_analytical = True
 
@@ -1354,6 +1357,7 @@ def single_ray_stack(
                 # choose a direction randomly, with probability determined by Lambertian scattering
                 stop = True
                 ray.I, theta, A_per_layer = decide_end(abs_power, A_per_layer, ray.I)
+                print("maximum passes reached")
 
 
     # print("Ray ending with pol:", norm(ray.s_vector)**2, norm(ray.p_vector)**2)
