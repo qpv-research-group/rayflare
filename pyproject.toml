@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rayflare"
-version = "1.3.0"
+version = "2.0.0"
 description = "Python-based integrated optical modelling"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 # "LICENSE" is name of the license file, which must be in root of project folder
 license = {file = "LICENSE.txt"}
 authors = [
