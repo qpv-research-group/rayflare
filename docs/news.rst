@@ -22,7 +22,9 @@ Version 2.0.0 released (2024-09-23)
   opening angles between 45 and 54 degrees). Note that the calculation of absorption profiles in interface layers
   is not yet implemented for this method (though this is on the roadmap, as there is no fundamental reason this
   cannot be done). Absorption in bulk layers is calculated as usual if the analytical method is used. This option
-  can be toggled on per surface in an rt_structure object, see :ref:`here <textures>`.
+  can be toggled on per surface in an rt_structure object, see :ref:`here <textures>`. The analytical method is not
+  yet implemented for calculating redistribution matrices (for the angular redistribution method), but this is
+  planned for the next minor release.
 - **Phong scattering**: a new option for the ray-tracer, which allows additional non-specular scattering. The continuum
   between perfectly specular and Lambertian scattering can be controlled with the Phong exponent; see the documentation
   :ref:`here <textures>`.

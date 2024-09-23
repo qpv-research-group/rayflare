@@ -32,7 +32,7 @@ def test_RAT(RCWA_method):
         "n_theta_bins": 100,
         "c_azimuth": 1e-7,
         "pol": "u",
-        "wavelengths": RCWA_wl,
+        "wavelength": RCWA_wl,
         "theta_in": 0,
         "phi_in": 0,
         "parallel": True,

@@ -5,7 +5,7 @@ import numpy as np
 def test_tmm_structure():
     from rayflare.transfer_matrix_method import tmm_structure
 
-    options = dict(wavelengths=np.array([]), pol="s", coherent=True, coherency_list=None,
+    options = dict(wavelength=np.array([]), pol="s", coherent=True, coherency_list=None,
                    theta_in=0, depth_spacing=10)
     tmm_setup = tmm_structure([])
     RAT = tmm_setup.calculate(options)
@@ -37,7 +37,7 @@ def test_inc_coh_tmm():
 
     c_list = [["c", "c", "c", "c"], ["c", "c", "c", "i"], ["c", "i", "i", "c"], ["i", "i", "i", "i"]]
 
-    options = dict(wavelengths=wl * 1e-9, pol="u", coherent=False, coherency_list=None, theta_in=0, depth_spacing=10)
+    options = dict(wavelength=wl * 1e-9, pol="u", coherent=False, coherency_list=None, theta_in=0, depth_spacing=10)
 
     results = []
     for cl in c_list:
