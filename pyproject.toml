@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling>=1.24.2", "hatch-vcs>=0.3.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rayflare"
+version = "1.3.0"
+description = "Python-based integrated optical modelling"
+readme = "README.md"
+requires-python = ">=3.7"
+# "LICENSE" is name of the license file, which must be in root of project folder
+license = {file = "LICENSE.txt"}
+authors = [
+    {name = "Phoebe Pearce", email = "p.m.pearce@gmail.com"},
+]
+keywords = [
+    "photovoltaics", "physics", "optics", "ray tracing", " ray optics",
+    "wave optics", "transfer matrix", "rcwa", "tmm", "rigorous coupled wave analysis",
+    "thin film", "thin film optics", "scattering", "light scattering", "light trapping",
+    "ellipsometry", "diffraction", "lens", "lens design", "lens simulation",
+]
+
+# https://pypi.org/classifiers/
+# Add PyPI classifiers here
+classifiers = [
+"Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Physics",
+]
+
+# Required dependencies for install/usage of your package or application
+# If you don't have any dependencies, leave this section empty
+# Format for dependency strings: https://peps.python.org/pep-0508/
+dependencies = [
+    "matplotlib",
+    "scipy",
+    "numpy<2.0.0",
+    "solcore",
+    "xarray>=v2024.07.0",
+    "sparse",
+    "joblib",
+    "seaborn",
+    "inkstone",
+    "numba",
+]
+
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.urls]
+Homepage = "https://github.com/qpv-research-group/rayflare"
+Documentation = "https://rayflare.readthedocs.io"
+Changelog = "https://rayflare.readthedocs.io/en/latest/news.html"
+
+[tool.hatch.build.targets.sdist]
+include = ["/rayflare"]
+
+[tool.pytest.ini_options]
+testpaths = "tests"  # directory containing your tests

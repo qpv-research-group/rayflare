@@ -6,14 +6,14 @@
 # Contact: p.pearce@unsw.edu.au
 
 import numpy as np
-from sparse import load_npz, dot, COO, stack
+from sparse import load_npz, COO, stack, einsum
 from rayflare.angles import make_angle_vector, fold_phi, overall_bin
 import os
 import xarray as xr
 from solcore.state import State
 
 from rayflare.structure import Interface, BulkLayer
-from rayflare.utilities import get_savepath, get_wavelength
+from rayflare.utilities import get_savepath
 
 from rayflare import logger
 
@@ -157,26 +157,24 @@ def make_D(alphas, thick, thetas):
     D_1 = stack([COO.from_numpy(np.diag(x)) for x in diag])
     return D_1
 
-
+# dot_wl and dot_wl_u2d now use einsum method from sparse, which is significantly
+# faster than the previous for loop implementation. Thanks to Johnson Wong
+# (GitHub: arsonwong)
 def dot_wl(mat, vec):
-
-    result = np.empty((vec.shape[0], mat.shape[1]))
-
+    # note: sometimes get nans here in result, even when there are no nans
+    # in mat or vec.
     if len(mat.shape) == 3:
-        for i1 in range(vec.shape[0]):  # loop over wavelengths
-            result[i1, :] = dot(mat[i1], vec[i1])
+        result = einsum('ijk,ik->ij', mat, COO(vec)).todense()
 
     if len(mat.shape) == 2:
-        for i1 in range(vec.shape[0]):  # loop over wavelengths
-            result[i1, :] = dot(mat, vec[i1])
+        result = einsum('jk,ik->ij', mat, COO(vec)).todense()
 
     return result
 
 
 def dot_wl_u2d(mat, vec):
-    result = np.empty((vec.shape[0], vec.shape[1]))
-    for i1 in range(vec.shape[0]):  # loop over wavelengths
-        result[i1, :] = dot(mat, vec[i1])
+
+    result = einsum('jk,ik->ij', mat, COO(vec)).todense()
     return result
 
 
@@ -323,8 +321,6 @@ def matrix_multiplication(
         theta_spacing,
     )
     n_a_in = int(len(angle_vector) / 2)
-
-    get_wavelength(options)
 
     num_wl = len(options["wavelength"])
 

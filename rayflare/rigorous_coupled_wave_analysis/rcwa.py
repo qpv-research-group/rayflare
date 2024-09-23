@@ -15,7 +15,7 @@ from solcore.state import State
 from solcore.absorption_calculator import OptiStack
 
 from rayflare.angles import make_angle_vector, overall_bin
-from rayflare.utilities import get_matrices_or_paths, get_wavelength
+from rayflare.utilities import get_matrices_or_paths, process_pol
 
 from inkstone import Inkstone
 
@@ -39,34 +39,15 @@ except Exception as err:
     )
 
 
-def process_pol(input_pol):
-    if len(input_pol) == 2:
-        pol = input_pol
-
-    else:
-        if input_pol in "sp":
-            pol = (int(input_pol == "s"), int(input_pol == "p"))
-
-        elif input_pol == "u":
-            pol = (np.sqrt(2) / 2, np.sqrt(2) / 2)
-
-        else:
-            raise ValueError(
-                "Polarization must be 's', 'p', 'u', or a tuple with the s and p components."
-            )
-
-    return pol
-
-
 def set_incident_wave(S, s, p, options, wavelength):
     S.SetExcitationPlanewave(
-        (options["theta_in"] * 180 / np.pi, options["phi_in"] * 180 / np.pi), s, p, 0
+        (options.theta_in * 180 / np.pi, options.phi_in * 180 / np.pi), s, p, 0
     )
     S.SetFrequency(1 / wavelength)
 
 
 def set_incident_wave_inkstone(S, s, p, options, wavelength):
-    S.SetExcitation(options["theta_in"] * 180 / np.pi, options["phi_in"] * 180 / np.pi, s, p)
+    S.SetExcitation(options.theta_in * 180 / np.pi, options.phi_in * 180 / np.pi, s, p)
     S.SetFrequency(1 / wavelength)
 
 
@@ -92,7 +73,7 @@ def RCWA(
     :param structure: list of Solcore Layer objects for the surface
     :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
     :param orders: number of RCWA orders to be used for the calculations
-    :param options: user options (dictionary or State object)
+    :param options: user options (State object)
     :param structpath: file path where matrices will be stored or loaded from
     :param incidence: incidence medium
     :param transmission: transmission medium
@@ -109,9 +90,6 @@ def RCWA(
     :return:
     """
 
-    if isinstance(options, dict):
-        options = State(options)
-
     parallel_func = {"s4": RCWA_wl, "inkstone": RCWA_wl_inkstone}
 
     existing_mats, path_or_mats = get_matrices_or_paths(
@@ -122,8 +100,7 @@ def RCWA(
         return path_or_mats
 
     else:
-        get_wavelength(options)
-        wavelengths = options["wavelength"]
+        wavelengths = options.wavelength
 
         if front_or_rear == "front":
             layers = structure
@@ -156,7 +133,7 @@ def RCWA(
 
         if prof_layers is not None:
             z_limit = np.sum(np.array(widths[1:-1]))
-            full_dist = np.arange(0, z_limit, options["depth_spacing"] * 1e9)
+            full_dist = np.arange(0, z_limit, options.depth_spacing * 1e9)
             layer_start = np.insert(np.cumsum(np.insert(widths[1:-1], 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(widths[1:-1], 0, 0))
 
@@ -183,13 +160,13 @@ def RCWA(
 
         shapes_names = [str(x) for x in shape_mats]
 
-        phi_sym = options["phi_symmetry"]
-        n_theta_bins = options["n_theta_bins"]
-        c_az = options["c_azimuth"]
+        phi_sym = options.phi_symmetry
+        n_theta_bins = options.n_theta_bins
+        c_az = options.c_azimuth
 
-        pol = process_pol(options["pol"])
+        pol = process_pol(options.pol)
 
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             # RCWA options - S4 only
             S4_options = dict(
                 LatticeTruncation="Circular",
@@ -204,7 +181,7 @@ def RCWA(
                 Verbosity=0,
             )
 
-            user_options = options["S4_options"] if "S4_options" in options.keys() else {}
+            user_options = options.S4_options if "S4_options" in options.keys() else {}
             S4_options.update(user_options)
 
         else:
@@ -217,8 +194,8 @@ def RCWA(
         )
 
         if only_incidence_angle:
-            thetas_in = np.array([options["theta_in"]])
-            phis_in = np.array([options["phi_in"]])
+            thetas_in = np.array([options.theta_in])
+            phis_in = np.array([options.phi_in])
         else:
             angles_in = angle_vector[: int(len(angle_vector) / 2), :]
             thetas_in = angles_in[:, 1]
@@ -237,13 +214,13 @@ def RCWA(
         else:
             side = -1
 
-        if options["parallel"]:
-            n_jobs = options["n_jobs"] if "n_jobs" in options.keys() else -1
+        if options.parallel:
+            n_jobs = options.n_jobs if "n_jobs" in options.keys() else -1
         else:
             n_jobs = 1
 
         allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_func[options["RCWA_method"].lower()])(
+            delayed(parallel_func[options.RCWA_method.lower()])(
                 wavelengths[i1] * 1e9,
                 geom_list_str,
                 layers_oc[i1],
@@ -791,7 +768,7 @@ def initialise_S_inkstone(size, orders, geom_list, mats_oc, shapes_oc, shape_mat
                             vertices[i2] = [v[0] + center[0], v[1] + center[1]]
 
                     if "angle" in shape:
-                        logger.warn("Angle not implemented for polygon shapes in Inkstone")
+                        logger.warning("Angle not implemented for polygon shapes in Inkstone")
 
                     S.AddPatternPolygon(layer_name, mat_name, vertices)
 
@@ -948,16 +925,19 @@ class rcwa_structure:
              [width of the layer in nm, wavelengths, n at these wavelengths, k at these wavelengths, geometry]
 
     :param size: tuple with the vectors describing the unit cell: ((x1, y1), (x2, y2))
-    :param options: dictionary or State object containing user options
+    :param options: State object containing user options
     :param incidence: semi-infinite incidence medium
     :param transmission: semi-infinite transmission medium (substrate)
     """
 
     def __init__(self, structure, size, options, incidence, transmission):
+
+        if isinstance(options, dict):
+            options = State(options)
+
         self.transmission = transmission
         self.incidence = incidence
-        get_wavelength(options)
-        wavelengths = options["wavelength"]
+        wavelengths = options.wavelength
 
         geom_list = []
         list_for_OS = []
@@ -1002,7 +982,7 @@ class rcwa_structure:
         # depth_spacing = options['depth_spacing']
 
         # RCWA options
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             S4_options = dict(
                 LatticeTruncation="Circular",
                 DiscretizedEpsilon=False,
@@ -1016,7 +996,7 @@ class rcwa_structure:
                 Verbosity=0,
             )
 
-            user_options = options["S4_options"] if "S4_options" in options.keys() else {}
+            user_options = options.S4_options if "S4_options" in options.keys() else {}
             S4_options.update(user_options)
             self.user_options = S4_options
 
@@ -1059,7 +1039,7 @@ class rcwa_structure:
     def make_S(self, options, wl_ind):
         args = [
             self.size,
-            options["orders"],
+            options.orders,
             self.geom_list,
             self.layers_oc[wl_ind],
             self.shapes_oc[wl_ind],
@@ -1067,10 +1047,10 @@ class rcwa_structure:
             self.widths,
         ]
 
-        if options["RCWA_method"].lower() == "s4":
-            S = initialise_S(*(args + [options["S4_options"]]))
+        if options.RCWA_method.lower() == "s4":
+            S = initialise_S(*(args + [options.S4_options]))
 
-        elif options["RCWA_method"].lower() == "inkstone":
+        elif options.RCWA_method.lower() == "inkstone":
             S = initialise_S_inkstone(*args)
 
         else:
@@ -1100,35 +1080,37 @@ class rcwa_structure:
 
         parallel_func = {"s4": RCWA_structure_wl, "inkstone": RCWA_structure_wl_inkstone}
 
-        get_wavelength(options)
-        wl = options["wavelength"] * 1e9
+        if isinstance(options, dict):
+            options = State(options)
 
-        pol = process_pol(options["pol"])
+        wl = options.wavelength * 1e9
 
-        if not np.all(options["wavelength"] == self.current_wavelengths):
+        pol = process_pol(options.pol)
+
+        if not np.all(options.wavelength == self.current_wavelengths):
             # need to update list of optical constants for correct wavelengths
-            self.update_oc(options["wavelength"])
+            self.update_oc(options.wavelength)
 
-        if options["parallel"]:
-            n_jobs = options["n_jobs"] if "n_jobs" in options.keys() else -1
+        if options.parallel:
+            n_jobs = options.n_jobs if "n_jobs" in options.keys() else -1
         else:
             n_jobs = 1
 
         allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_func[options["RCWA_method"].lower()])(
+            delayed(parallel_func[options.RCWA_method.lower()])(
                 wl[i1],
                 self.geom_list,
                 self.layers_oc[i1],
                 self.shapes_oc[i1],
                 self.shapes_names,
                 pol,
-                options["theta_in"] * 180 / np.pi,
-                options["phi_in"] * 180 / np.pi,
+                options.theta_in * 180 / np.pi,
+                options.phi_in * 180 / np.pi,
                 self.widths,
                 self.size,
-                options["orders"],
-                options["A_per_order"],
-                options["detailed_rcwa"],
+                options.orders,
+                options.A_per_order,
+                options.detailed_rcwa,
                 self.user_options,
             )
             for i1 in range(len(wl))
@@ -1149,7 +1131,7 @@ class rcwa_structure:
             "A_per_layer": A_mat,
         }
 
-        if options["A_per_order"]:
+        if options.A_per_order:
             A_order = np.real(np.stack([item[3] for item in allres]))
 
             results["A_layer_order"] = A_order
@@ -1159,7 +1141,7 @@ class rcwa_structure:
             results["basis_set"] = basis_set
             results["reciprocal"] = f_mat
 
-        if options["detailed_rcwa"]:
+        if options.detailed_rcwa:
             R_order = np.real(np.stack([item[4] for item in allres]))
             T_order = np.real(np.stack([item[5] for item in allres]))
             R_amplitudes = np.stack([item[6] for item in allres])
@@ -1170,7 +1152,7 @@ class rcwa_structure:
             results["R_amplitudes"] = R_amplitudes
             results["T_amplitudes"] = T_amplitudes
 
-            if not options["A_per_order"]:
+            if not options.A_per_order:
                 basis_set = S_for_orders.GetBasisSet()
                 f_mat = S_for_orders.GetReciprocalLattice()
                 results["basis_set"] = basis_set
@@ -1186,18 +1168,25 @@ class rcwa_structure:
         In principle this has units of [power]/[volume], but we can express it as a multiple of incoming light power
         density on the material, which has units [power]/[area], so that absorbed energy density has units of 1/[length].'
 
-        :param options: dictionary or State object containing user options
+        :param options: State object containing user options
         """
+
+        if isinstance(options, dict):
+            options = State(options)
 
         parallel_func = {"s4": RCWA_wl_prof, "inkstone": RCWA_wl_prof_inkstone}
 
-        get_wavelength(options)
-        wl = options["wavelength"] * 1e9
+        wl = options.wavelength * 1e9
 
-        pol = process_pol(options["pol"])
+        pol = process_pol(options.pol)
 
-        if not np.all(options["wavelength"] == self.current_wavelengths):
-            self.update_oc(options["wavelength"])
+        if len(options.wavelength) == len(self.current_wavelengths):
+            if not np.all(options.wavelength == self.current_wavelengths):
+                self.update_oc(options.wavelength)
+                # if total R, A, T have already been calculated, it was for the wrong wavelengths
+                self.calculate(options)
+        else:
+            self.update_oc(options.wavelength)
             # if total R, A, T have already been calculated, it was for the wrong wavelengths
             self.calculate(options)
 
@@ -1205,10 +1194,10 @@ class rcwa_structure:
             # Need to calculate R, A, T first
             self.calculate(options)
 
-        dist = options["z_points"] if "z_points" in options.keys() else None
-        z_limit = options["z_limit"] if "z_limit" in options.keys() else None
+        dist = options.z_points if "z_points" in options.keys() else None
+        z_limit = options.z_limit if "z_limit" in options.keys() else None
 
-        step_size = options["depth_spacing"] * 1e9
+        step_size = options.depth_spacing * 1e9
 
         if dist is None:
             if z_limit is None:
@@ -1217,14 +1206,14 @@ class rcwa_structure:
 
         self.dist = dist
 
-        if options["parallel"]:
-            n_jobs = options["n_jobs"] if "n_jobs" in options.keys() else -1
+        if options.parallel:
+            n_jobs = options.n_jobs if "n_jobs" in options.keys() else -1
 
         else:
             n_jobs = 1
 
         allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_func[options["RCWA_method"].lower()])(
+            delayed(parallel_func[options.RCWA_method.lower()])(
                 wl[i1],
                 self.rat_output_A[i1],
                 dist,
@@ -1233,11 +1222,11 @@ class rcwa_structure:
                 self.shapes_oc[i1],
                 self.shapes_names,
                 pol,
-                options["theta_in"] * 180 / np.pi,
-                options["phi_in"] * 180 / np.pi,
+                options.theta_in * 180 / np.pi,
+                options.phi_in * 180 / np.pi,
                 self.widths,
                 self.size,
-                options["orders"],
+                options.orders,
                 self.user_options,
             )
             for i1 in range(len(wl))
@@ -1269,7 +1258,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param options: dictionary or State object containing user options
+        :param options: State object containing user options
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
         :param n_points: number of points to scan across in the x and y directions
@@ -1282,7 +1271,7 @@ class rcwa_structure:
 
         S = self.make_S(options, wl_ind)
 
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             if extent is None:
                 xdim = np.max(abs(np.array(self.size)[:, 0]))
                 ydim = np.max(abs(np.array(self.size)[:, 1]))
@@ -1351,7 +1340,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param options: dictionary or State object containing user options
+        :param options: State object containing user options
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based \
         on the unit cell size by default
         :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
@@ -1366,9 +1355,9 @@ class rcwa_structure:
 
         S = self.make_S(options, wl_ind)
 
-        pol = process_pol(options["pol"])
+        pol = process_pol(options.pol)
 
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             set_incident_wave(S, pol[0], pol[1], options, wavelength)
 
         else:
@@ -1401,7 +1390,7 @@ class rcwa_structure:
 
         total_points = len(xys[0].flatten())
 
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             for x_i, y_i in zip(range(0, total_points), range(0, total_points)):
                 calc = S.GetFields(xys[0].flatten()[x_i], xys[1].flatten()[y_i], depth_S4)
                 E[ind_0[x_i], ind_1[y_i]] = calc[0]
@@ -1443,7 +1432,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param options: dictionary or State object containing user options
+        :param options: State object containing user options
         :param depth: depth in the layer (from the top of the layer) in nm at which to calculate the fields
         :param n_points: number of points to scan across in the x and y directions
 
@@ -1451,12 +1440,12 @@ class rcwa_structure:
                     the magnitude of the E-field, the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
 
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
 
             S = self.make_S(options, wl_ind)
 
-            pol = process_pol(options["pol"])
+            pol = process_pol(options.pol)
             set_incident_wave(S, pol[0], pol[1], options, wavelength)
 
             if layer_index > 0:
@@ -1480,7 +1469,7 @@ class rcwa_structure:
 
         :param layer_index: index of the layer in which to get epsilon. layer 0 is the incidence medium, layer 1 is the first layer in the stack, etc.
         :param wavelength: wavelength (in nm) at which to get epsilon
-        :param options: dictionary or State object containing user options
+        :param options: State object containing user options
         :param extent: range of x/y values in format [[x_min, x_max], [y_min, y_max]]. Default is 'None', will choose a reasonable area based
                 on the unit cell size by default
         :param n_points: number of points to scan across in the x and y directions
@@ -1491,12 +1480,12 @@ class rcwa_structure:
                 the magnitude of the H-field. The magnitude is given by sqrt(abs(Ex^2 + Ey^2 + Ez^2))
         """
 
-        if options["RCWA_method"].lower() == "s4":
+        if options.RCWA_method.lower() == "s4":
             wl_ind = np.argmin(np.abs(self.current_wavelengths * 1e9 - wavelength))
 
             S = self.make_S(options, wl_ind)
 
-            pol = process_pol(options["pol"])
+            pol = process_pol(options.pol)
             set_incident_wave(S, pol[0], pol[1], options, wavelength)
 
             if extent is None:
@@ -1601,6 +1590,7 @@ def RCWA_structure_wl(
     detailed_rcwa,
     S4_options,
 ):
+    print("wl")
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)

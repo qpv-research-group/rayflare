@@ -57,8 +57,9 @@ class default_options(State):
         self.randomize_surface = False
         self.random_ray_angles = False
         self.n_rays = 10000
+        self.maximum_passes = 0
 
         # TMM options
-        self.lookuptable_angles = 300
+        self.lookuptable_angles = 200
         self.coherent = True
         self.coherency_list = None

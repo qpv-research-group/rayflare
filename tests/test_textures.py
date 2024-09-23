@@ -3,7 +3,7 @@ from pytest import approx, mark
 import itertools
 
 @mark.parametrize("upright", [True, False])
-def test_regular_pryramids(upright):
+def test_regular_pyramids(upright):
     from rayflare.textures import regular_pyramids
 
     if upright:
@@ -73,7 +73,7 @@ def test_V_grooves():
 
 def test_xyz_texture():
     from rayflare.textures import xyz_texture
-    from rayflare.ray_tracing.rt import RTSurface
+    from rayflare.ray_tracing.rt_common import RTSurface
 
     x = np.array([0, 0, 1, 1, 0.5, 0.5])
     y = np.array([0, 1, 0, 1, 0, 1])
@@ -88,7 +88,7 @@ def test_xyz_texture():
 
 def test_heights_texture():
     from rayflare.textures import heights_texture
-    from rayflare.ray_tracing.rt import RTSurface
+    from rayflare.ray_tracing.rt_common import RTSurface
     import os
 
     cur_path = os.path.dirname(os.path.abspath(__file__))
@@ -164,7 +164,7 @@ def test_hyperhemisphere():
 
     options.periodic = 0
 
-    options.wavelengths = np.array([6e-6])
+    options.wavelength = np.array([6e-6])
     options.parallel = False
 
     options.theta_in = 0.1
@@ -337,8 +337,8 @@ def test_rough_hemisphere_size():
 def test_hemisphere_cap_surface():
     from rayflare.textures import hemisphere_surface
 
-    Lx = np.random.uniform(3, 5, 1)
-    offset = np.random.uniform(0, 1, 1)
+    Lx = np.random.uniform(3, 5, 1)[0]
+    offset = np.random.uniform(0, 1, 1)[0]
 
     front, _ = hemisphere_surface(Lx, 101, Lx / 3, offset, 0, 1)
 

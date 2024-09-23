@@ -11,9 +11,10 @@ from sparse import COO, save_npz, stack
 
 from solcore.absorption_calculator import tmm_core_vec as tmm
 from solcore.absorption_calculator import OptiStack
+from solcore.state import State
 
 from rayflare.angles import make_angle_vector, fold_phi
-from rayflare.utilities import get_matrices_or_paths, get_wavelength
+from rayflare.utilities import get_matrices_or_paths
 
 
 def TMM(
@@ -140,15 +141,14 @@ def TMM(
 
     else:
 
-        get_wavelength(options)
-        wavelengths = options["wavelength"]
+        wavelengths = options.wavelength
 
         theta_spacing = options.theta_spacing if "theta_spacing" in options else "sin"
 
         theta_intv, phi_intv, angle_vector = make_angle_vector(
-            options["n_theta_bins"],
-            options["phi_symmetry"],
-            options["c_azimuth"],
+            options.n_theta_bins,
+            options.phi_symmetry,
+            options.c_azimuth,
             theta_spacing,
         )
         angles_in = angle_vector[: int(len(angle_vector) / 2), :]
@@ -165,7 +165,7 @@ def TMM(
         if prof_layers is not None:
             profile = True
             z_limit = np.sum(np.array(optlayers.widths))
-            full_dist = np.arange(0, z_limit, options["depth_spacing"] * 1e9)
+            full_dist = np.arange(0, z_limit, options.depth_spacing * 1e9)
             layer_start = np.insert(np.cumsum(np.insert(optlayers.widths, 0, 0)), 0, 0)
             layer_end = np.cumsum(np.insert(optlayers.widths, 0, 0))
 
@@ -199,11 +199,11 @@ def TMM(
             trns = incidence
             inc = transmission
 
-        if options["pol"] == "u":
+        if options.pol == "u":
             pols = ["s", "p"]
 
         else:
-            pols = [options["pol"]]
+            pols = [options.pol]
 
         R = xr.DataArray(
             np.empty((len(pols), len(wavelengths), n_angles)),
@@ -259,7 +259,7 @@ def TMM(
         pass_options["coherent"] = coherent
         pass_options["coherency_list"] = coherency_list
         pass_options["wavelength"] = wavelengths
-        pass_options["depth_spacing"] = options["depth_spacing"]
+        pass_options["depth_spacing"] = options.depth_spacing
 
         for pol in pols:
 
@@ -309,7 +309,7 @@ def TMM(
         else:
             allres = xr.merge([R, T, Alayer])
 
-        if options["pol"] == "u":
+        if options.pol == "u":
             allres = (
                 allres.reduce(np.mean, "pol").assign_coords(pol="u").expand_dims("pol")
             )
@@ -320,7 +320,7 @@ def TMM(
             angle_vector_th = angle_vector[: int(len(angle_vector) / 2), 1]
             angle_vector_phi = angle_vector[: int(len(angle_vector) / 2), 2]
 
-            phis_out = fold_phi(angle_vector_phi + np.pi, options["phi_symmetry"])
+            phis_out = fold_phi(angle_vector_phi + np.pi, options.phi_symmetry)
             theta_lookup = angles_in[:, 1]
             quadrant = np.pi
 
@@ -328,7 +328,7 @@ def TMM(
             angle_vector_th = angle_vector[int(len(angle_vector) / 2) :, 1]
             angle_vector_phi = angle_vector[int(len(angle_vector) / 2) :, 2]
 
-            phis_out = fold_phi(angle_vector_phi + np.pi, options["phi_symmetry"])
+            phis_out = fold_phi(angle_vector_phi + np.pi, options.phi_symmetry)
             theta_lookup = angles_in[:, 1][::-1]
             quadrant = 0
 
@@ -372,7 +372,7 @@ def TMM(
 class tmm_structure:
     """Set up structure for TMM calculations.
 
-    :param stack: an OptiStack or SolarCell object.
+    :param stack: an OptiStack or SolarCell object, or a list of Solcore layers.
     :param incidence: incidence medium (Solcore material)
     :param transmission: transmission medium/substrate (Solcore material)
     :param no_back_reflection: whether to suppress reflections at the interface between the final material
@@ -424,7 +424,7 @@ class tmm_structure:
                 layers = np.arange(1, layer_stack.num_layers + 1)
 
             if dist is None:
-                depth_spacing = options["depth_spacing"] * 1e9  # convert from m to nm
+                depth_spacing = options.depth_spacing * 1e9  # convert from m to nm
                 z_limit = np.sum(np.array(layer_stack.widths))
                 full_dist = np.arange(0, z_limit, depth_spacing)
                 layer_start = np.insert(
@@ -593,12 +593,14 @@ class tmm_structure:
                 (fn.A1, fn.A2, np.real(fn.A3), np.imag(fn.A3), fn.a1, fn.a3)
             )  # shape is (6, n_layers, num_wl)
 
-        get_wavelength(options)
-        wavelength = options["wavelength"] * 1e9
-        pol = options["pol"]
-        angle = options["theta_in"]
+        if isinstance(options, dict):
+            options = State(options)
 
-        coherent = options["coherent"] if "coherent" in options.keys() else True
+        wavelength = options.wavelength * 1e9
+        pol = options.pol
+        angle = options.theta_in
+
+        coherent = options.coherent if "coherent" in options.keys() else True
 
         layer_stack = self.layer_stack
 
@@ -732,7 +734,7 @@ class tmm_structure:
     def build_coh_list(self, options):
 
         coherency_list = (
-            options["coherency_list"] if "coherency_list" in options.keys() else None
+            options.coherency_list if "coherency_list" in options.keys() else None
         )
         if coherency_list is not None:
             assert len(coherency_list) == self.layer_stack.num_layers, (

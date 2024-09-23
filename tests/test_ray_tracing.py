@@ -19,7 +19,7 @@ def test_parallel():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1700, 5) * 1e-9
+    options.wavelength = np.linspace(700, 1700, 5) * 1e-9
     options.theta_in = 45 * np.pi / 180
     options.nx = 5
     options.ny = 5
@@ -82,7 +82,7 @@ def test_flip():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1700, 8) * 1e-9
+    options.wavelength = np.linspace(700, 1700, 8) * 1e-9
     options.nx = 5
     options.ny = 5
     options.pol = "s"
@@ -138,7 +138,7 @@ def test_periodic():
 
     options = default_options()
 
-    options.wavelengths = np.linspace(700, 1700, 8) * 1e-9
+    options.wavelength = np.linspace(700, 1700, 8) * 1e-9
     options.nx = 5
     options.ny = 5
     options.pol = "s"
@@ -201,12 +201,14 @@ def test_interface_absorption():
     back_surf = planar_surface(interface_layers=back_layers, prof_layers=[1, 2])  # pyramid size in microns
     middle_surf = planar_surface()
 
-    opts.wavelengths = np.linspace(300, 1900, 5) * 1e-9
+    opts.wavelength = np.linspace(300, 1900, 5) * 1e-9
     opts.depth_spacing = 1e-9
     opts.depth_spacing_bulk = 1e-8
     # opts.parallel = False
 
-    rtstr = rt_structure([front_surf, middle_surf, back_surf], [Si, Ge], [d_Si, d_Ge], Air, Air, opts, use_TMM=True)
+    rtstr = rt_structure([front_surf, middle_surf, back_surf],
+                         [Si, Ge], [d_Si, d_Ge], Air, Air, opts, use_TMM=True,
+                         overwrite=True)
     # import matplotlib.pyplot as plt
 
     for angle_pol in itertools.product(thetas_in, pol_in):
@@ -235,19 +237,6 @@ def test_interface_absorption():
         assert prof_int_front == approx(np.sum(rt_res["A_per_interface"][0], 1), abs=0.01)
         assert prof_int_back == approx(np.sum(rt_res["A_per_interface"][2], 1), abs=0.01)
 
-        # plt.figure()
-        # plt.plot(opts.wavelengths*1e9, total_A)
-        # plt.legend(["Si", "Ge", "MGF2", "Ta2O5", "GaAs", "ITO", "Ag", "R", "T"])
-        # plt.show()
-        #
-        # plt.figure()
-        # plt.plot(rt_res["interface_profiles"][0].T)
-        # plt.show()
-        #
-        # plt.figure()
-        # plt.plot(rt_res["interface_profiles"][2].T)
-        # plt.show()
-
         assert np.sum(total_A, 1) == approx(1, abs=opts.I_thresh)
 
 
@@ -264,7 +253,7 @@ def test_random_position():
     options.nx = 50
     options.ny = 50
 
-    options.wavelengths = np.array([500e-9])
+    options.wavelength = np.array([500e-9])
 
     Si = material("Si")()
     Air = material("Air")()
@@ -299,7 +288,7 @@ def test_inverted():
     options.nx = 50
     options.ny = 50
 
-    options.wavelengths = np.array([500e-9])
+    options.wavelength = np.array([500e-9])
 
     Si = material("Si")()
     Air = material("Air")()
@@ -321,3 +310,93 @@ def test_inverted():
     assert res_inverted["R"] == approx(res_upright["T"], rel=0.03)
     assert res_inverted["T"] == approx(res_upright["R"], rel=0.03)
     assert np.mean(res_inverted["n_interactions"]) == approx(np.mean(res_upright["n_interactions"]), rel=0.03)
+
+
+def test_phong():
+    # make a planar surface with phong scattering, and check if distribution of outgoing rays is as
+    # expected
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import planar_surface
+    from rayflare.options import default_options
+    from solcore import material
+
+    Air = material("Air")()
+
+    options = default_options()
+    options.n_rays = 1e4
+    options.pol = 'u'
+    options.wavelength = np.array([500e-9])
+
+    alpha = 100*np.random.rand()
+
+    surf = planar_surface(phong=True, phong_options=[alpha, False])
+
+    rtstr = rt_structure([surf], [], [], Air, Air)
+
+    res = rtstr.calculate(options)
+
+    thetas = np.pi - res["thetas"][0]
+
+    n, bins = np.histogram(thetas, bins=50, density=True)
+
+    mean_theta_bin = np.mean([bins[0:-1], bins[1:]], 0)
+    scaled_intensity = n / np.sin(mean_theta_bin)
+
+    cos_x = np.cos(mean_theta_bin)
+    power_law = cos_x ** (alpha)
+    # make it so that sum (area under curve) is the same:
+    scaled_intensity = np.sum(power_law) * scaled_intensity/np.sum(scaled_intensity)
+
+    # filter out low probabilities
+    mask = scaled_intensity > 0.05
+    scaled_intensity = scaled_intensity[mask]
+    power_law = power_law[mask]
+
+    assert scaled_intensity == approx(power_law, rel=0.2)
+
+
+def test_phong_reflectance():
+    # make a planar surface with phong scattering, and check if distribution of outgoing rays is as
+    # expected
+    from rayflare.ray_tracing import rt_structure
+    from rayflare.textures import planar_surface
+    from rayflare.options import default_options
+    from solcore import material
+
+    Air = material("Air")()
+    Ag = material("Ag")()
+
+    options = default_options()
+    options.n_rays = 1e4
+    options.pol = 'u'
+    options.wavelength = np.array([500e-9])
+    options.parallel = False
+
+    alpha = 100*np.random.rand()
+
+    surf = planar_surface(phong=True, phong_options=[alpha, False])
+
+    rtstr = rt_structure([surf], [], [], Air, Ag)
+
+    res = rtstr.calculate(options)
+
+    thetas = res["thetas"][0]
+    thetas = thetas[thetas < np.pi/2]
+
+    n, bins = np.histogram(thetas, bins=50, density=True)
+
+    mean_theta_bin = np.mean([bins[0:-1], bins[1:]], 0)
+    scaled_intensity = n / np.sin(mean_theta_bin)
+
+    cos_x = np.cos(mean_theta_bin)
+    power_law = cos_x ** (alpha)
+    # make it so that sum (area under curve) is the same:
+    scaled_intensity = np.sum(power_law) * scaled_intensity/np.sum(scaled_intensity)
+
+
+    # filter out low probabilities
+    mask = scaled_intensity > 0.05
+    scaled_intensity = scaled_intensity[mask]
+    power_law = power_law[mask]
+
+    assert scaled_intensity == approx(power_law, rel=0.2)

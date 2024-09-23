@@ -5,7 +5,7 @@
 #
 # Contact: p.pearce@unsw.edu.au
 
-from rayflare.ray_tracing.rt import RTSurface
+from rayflare.ray_tracing.rt_common import RTSurface
 from rayflare.textures.define_textures import xyz_texture
 from scipy.spatial import ConvexHull
 from copy import deepcopy
@@ -21,8 +21,18 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
                     rear surface of a cell, you would set upright=False.
     :param size: size of the pyramids; the units are arbitrary, but should be kept consistent across
             different interfaces if you are not randomizing the ray positions.
+    :param kwargs: additional keyword arguments to pass to the RTSurface object, these are all optional.
+            The "height_distribution" argument can be set to as a dictionary with entries "h" and
+            "p", which are lists of heights and probabilities for the heights of the pyramids. This is useful
+            when simulating a random pyramid structure with a distribution of opening angles. The probabilities
+            must sum to 1.
+
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
+
+    if elevation_angle == 45:
+        elevation_angle = 45.001 # this is to prevent rays travelling exactly
+        # parallel to the surface, which causes numerical errors in the ray tracing
 
     char_angle = math.radians(elevation_angle)
     Lx = size * 1
@@ -49,6 +59,7 @@ def regular_pyramids(elevation_angle=55, upright=True, size=1, **kwargs):
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 
@@ -68,6 +79,7 @@ def planar_surface(size=1, **kwargs):
     Points = np.vstack([x, y, z]).T
     surf_fi = RTSurface(Points, **kwargs)
     surf_ri = RTSurface(Points)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 
@@ -81,6 +93,11 @@ def V_grooves(elevation_angle=55, width=1, direction="y", **kwargs):
     :param direction: Whether the V-grooves lie along the 'x' or 'y' direction (string)
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
+
+    if elevation_angle == 45:
+        elevation_angle = 45.001 # this is to prevent rays travelling exactly
+        # parallel to the surface, which causes numerical errors in the ray tracing
+
     char_angle = math.radians(elevation_angle)
     h = width * math.tan(char_angle) / 2
     if direction == "y":
@@ -98,6 +115,7 @@ def V_grooves(elevation_angle=55, width=1, direction="y", **kwargs):
 
     Points_ri = np.vstack([x, y, -z]).T
     surf_ri = RTSurface(Points_ri)
+    surf_ri.name = surf_fi.name
 
     return [surf_fi, surf_ri]
 
@@ -331,6 +349,8 @@ def hyperhemisphere(N_points=2**15, radius=1, h=0, **kwargs):
 
     front.N = front.crossP / np.linalg.norm(front.crossP, axis=1)[:, None]
     back.N = back.crossP / np.linalg.norm(back.crossP, axis=1)[:, None]
+
+    back.name = front.name
     hyperhemi = [front, back]
 
     return hyperhemi
@@ -364,6 +384,10 @@ def rough_pyramids(
             regular_grid=True.
     :return: a list of two RTSurface objects: [front_incidence, rear_incidence]
     """
+
+    if elevation_angle == 45:
+        elevation_angle = 45.001 # this is to prevent rays travelling exactly
+        # parallel to the surface, which causes numerical errors in the ray tracing
 
     char_angle = math.radians(elevation_angle)
 
@@ -500,7 +524,7 @@ def hemisphere_surface(
     :param radius: radius of the hemispherical cap
     :param offset: the hemisphere is shifted DOWN by this value (any points which end up below the z = 0 surface will be
                     removed from the surface)
-    :param noise_angle: the maximum opening angle/surface normal angle that will be used to generate the random noise.
+    :param noise_angle: the maximum opening angle/surface normal angle (radians) that will be used to generate the random noise.
                     This is used to keep the height of the roughness for some noise_angle consistent with diferent n_points
     :param stretch: factor by which the height of the hemispherical cap is stretched (for ellipsoid rather than spheres)
     :return:
@@ -513,7 +537,7 @@ def hemisphere_surface(
     x = np.linspace(-size / 2, size / 2, n_per_side)
     y = np.linspace(-size / 2, size / 2, n_per_side)
 
-    ds = np.diff(x)[0]
+    ds = np.diff(x.flatten())[0]
     noise_height = ds * np.tan(noise_angle)
 
     xs, ys = np.meshgrid(x, y)

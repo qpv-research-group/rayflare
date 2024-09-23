@@ -2,6 +2,10 @@ Examples
 ========
 .. _examples:
 
+In addition to the examples listed here, you can find further detailed examples which use both
+RayFlare and Solcore (our integrated solar cell modelling package which also includes device physics
+models) on the `solcore-education`_ page.
+
 Structures using a single simulation method per structure
 ----------------------------------------------------------
 
@@ -35,3 +39,30 @@ structure are treated separately and can be simulated with different methods.
    compare_models_3Jsolarcell.ipynb
    compare_models_3Jsolarcell_profile.ipynb
    HIT_emissivity.ipynb
+
+Full list of GitHub examples
+-----------------------------
+
+These examples are available in the `GitHub repository <https://github.com/qpv-research-group/rayflare/tree/devel/examples>`_; a list
+is provided here to give an overview of what is covered in each example.
+
+Multiple methods
+##################
+
+1. compare_models_3Jsolarcell.py
+2. compare_models_3Jsolarcell_profile.py
+
+Ray-tracing
+#############
+
+1. rt_pyramids:
+2. create_rt_texture:
+3. analytical_rt_comparison
+
+RCWA
+######
+
+1. aSi_pillar_grating
+2.
+
+.. _solcore-education: https://qpv-research-group.github.io/solcore-education/solcore-workshop-2/schedule.html
