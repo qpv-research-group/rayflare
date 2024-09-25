@@ -1590,7 +1590,7 @@ def RCWA_structure_wl(
     detailed_rcwa,
     S4_options,
 ):
-    print("wl")
+
     def vs_pol(s, p):
         S.SetExcitationPlanewave((theta, phi), s, p, 0)
         S.SetFrequency(1 / wl)
