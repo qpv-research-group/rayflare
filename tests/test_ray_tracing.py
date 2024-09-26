@@ -212,7 +212,7 @@ def test_interface_absorption():
     # import matplotlib.pyplot as plt
 
     for angle_pol in itertools.product(thetas_in, pol_in):
-        print(angle_pol)
+
         opts.theta_in = angle_pol[0]
         opts.pol_in = angle_pol[1]
         rt_res = rtstr.calculate(opts)

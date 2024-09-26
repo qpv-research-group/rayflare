@@ -308,7 +308,6 @@ def test_phong_scattering():
 
     # if there is transmission:
     for i in np.where(RAT_a['T'] > 0.4)[0]:
-        print('high T')
 
         R_thetas_a = RAT_a['thetas'][i][RAT_a['thetas'][i] > np.pi/2]
         R_thetas_f = RAT_f['thetas'][i][RAT_f['thetas'][i] > np.pi/2]
