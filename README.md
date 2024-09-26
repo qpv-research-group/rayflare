@@ -9,6 +9,9 @@ and changes, including any possible backwards compatibility issues.  If you have
 documentation and (open and closed) [issues](https://github.com/qpv-research-group/rayflare/issues) first,
 or open a new issue using the relevant template.
 
+If you would like to be kept up to date on (important) releases and new features, please join the Solcore/RayFlare mailing list 
+[here](https://www.solcore.solar/mailing-list).
+
 # rayflare
 Open-source, integrated optical modelling of complex stacks. RayFlare incorporates the transfer-matrix method (TMM), 
 ray-tracing and rigorous coupled-wave analysis (RCWA/FMM), in addition to an angular redistribution matrix method which allows multiple 
