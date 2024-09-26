@@ -597,7 +597,10 @@ def analytical_per_face(current_surf,
             refracted_rays[:, 2] / np.linalg.norm(refracted_rays,
                                                   axis=1))  # cos (global) of refracted ray
 
-        T_pol_per_it[:, N_interaction] = T_stack/T_prob[:,:,None]
+        # T_pol_per_it[:, N_interaction] = T_stack/T_prob[:,:,None]
+        T_pol_per_it[:, N_interaction] = np.divide(T_stack, T_prob[:, :, None], out=T_pol_per_it[:, N_interaction],
+                  where=T_prob[:, :, None] > 1e-15)
+
         cos_inc[reflected_direction[:, 2] > 0] = 0
         stop_it[
             np.all((np.all(reflected_direction[:, 2] > 0, axis=1), stop_it > N_interaction),
@@ -651,7 +654,8 @@ def analytical_per_face(current_surf,
     final_T_weights[final_T_weights < 0] = 0
     final_T_directions = np.array(final_T_directions)
     final_T_pol = np.array(final_T_pol)
-    final_T_pol = final_T_pol / np.sum(final_T_pol, -1)[:, :, None]
+    final_T_pol = np.divide(final_T_pol, np.sum(final_T_pol, -1)[:, :, None],
+                            out=final_T_pol, where=np.sum(final_T_pol, -1)[:, :, None] > 1e-15)
 
     # A_per_it has dimensions: (face, layer, interaction, wavelength)
     # sum over layers:

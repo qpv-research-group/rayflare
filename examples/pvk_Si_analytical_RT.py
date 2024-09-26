@@ -55,7 +55,6 @@ options.n_rays = n_rays
 options.maximum_passes = 100
 options.n_rays = n_rays
 options.pol = 'u'
-options.use_numba = False
 
 front_text = regular_pyramids(52, True, 1,
                                 interface_layers=[Layer(100e-9, MgF2), Layer(1000e-9, Pvk)],
