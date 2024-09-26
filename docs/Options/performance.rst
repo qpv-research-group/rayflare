@@ -1,5 +1,6 @@
 Performance
 ===========
+.. _performance:
 
 Ray-tracing and RCWA are both computationally intensive. RayFlare currently has two approaches for
 increasing the speed of calculations:
