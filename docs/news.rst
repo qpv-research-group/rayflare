@@ -11,12 +11,13 @@ To update to the latest version of RayFlare, run the following command in your t
 
    pip install rayflare --upgrade
 
-Version 2.0.0 released (2024-09-23)
+Version 2.0 released (2024-09-23)
 ------------------------------------
 **Highlights:**
 
 - **Speed improvements for all ray-tracing calculations**, by using numba jit (just-in-time) compilation of heavily-used
-  functions, and more efficient lookup of TMM values for integrated ray-tracing/TMM calculations.
+  functions, and more efficient lookup of TMM values for integrated ray-tracing/TMM calculations. The use of just-in-time
+  compilation can be turned on or off, see here: :ref:`Performance <performance>`.
 - **New analytical method for ray-tracing**, which is much faster than full ray-tracing and can be used with full
   accuracy for surfaces where the number of ray interactions is known exactly in advance (e.g. upright pyramids with
   opening angles between 45 and 54 degrees). Note that the calculation of absorption profiles in interface layers

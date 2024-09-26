@@ -10,9 +10,10 @@ from cmath import sqrt, acos, atan
 from math import atan2
 from random import random
 from copy import deepcopy
-from numba import jit
 from scipy.spatial import Delaunay
 from rayflare.utilities import process_pol
+
+from numba import jit
 
 unit_cell_N = np.array(
     [[0, -1, 0], [-1, 0, 0], [0, 1, 0], [1, 0, 0]]
@@ -377,7 +378,7 @@ def decide_RT_TMM(ray, n0, n1, theta, N, side, rnd, lookuptable, d_theta):
 
     return side, A
 
-#@jit(nopython=True)
+@jit(nopython=True)
 def get_RT_data(theta, d_theta, R_data, T_data, Alayer_data, pol):
     # theta HAS to be positive here!
     angle_ind = int(np.floor(theta/d_theta)) # floor to avoid issues when theta = np.pi/2
