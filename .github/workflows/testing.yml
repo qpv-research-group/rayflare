@@ -43,7 +43,6 @@ jobs:
     - name: Check compiler versions
       if: matrix.os == 'macos-15'
       run: |
-        sudo xcode-select --install
         echo "=== Clang version ==="
         clang --version
         echo ""
@@ -56,6 +55,25 @@ jobs:
         echo "=== Default CC/CXX ==="
         echo "CC: $CC"
         echo "CXX: $CXX"
+
+    - name: Remove Xcode and install standalone Command Line Tools
+      if: matrix.os == 'macos-15'
+      run: |
+        echo "=== Current Xcode info ==="
+        xcode-select --print-path
+        
+        echo "=== Removing Xcode ==="
+        sudo rm -rf /Applications/Xcode*.app
+        
+        echo "=== Remove existing command line tools ==="
+        sudo rm -rf /Library/Developer/CommandLineTools
+        
+        echo "=== Install standalone Command Line Tools ==="
+        # This will prompt, so we need to handle it programmatically
+        touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+        PROD=$(softwareupdate -l | grep "\*.*Command Line" | head -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | tr -d '\n')
+        softwareupdate -i "$PROD" --verbose
+        rm /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 
     - name: Install python dependencies
       run: |
