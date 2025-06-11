@@ -7,7 +7,7 @@ name = "rayflare"
 version = "2.0.1"
 description = "Python-based integrated optical modelling"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 # "LICENSE" is name of the license file, which must be in root of project folder
 license = {file = "LICENSE.txt"}
 authors = [
@@ -43,12 +43,13 @@ dependencies = [
     "scipy",
     "numpy==2.2.0",
     "solcore",
-    "xarray>=v2024.07.0",
+    "xarray>=v2024.09.0",
     "sparse",
     "joblib",
     "seaborn",
     "inkstone",
     "numba>=0.61.2",
+    "typing-extensions",
 ]
 
 test = [
