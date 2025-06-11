@@ -36,12 +36,12 @@ jobs:
 
 # Do not need to do this if not installing S4
     - name: Install system dependencies in MacOS
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-15'
       run: |
         brew install fftw suite-sparse openblas lapack boost
 
     - name: Check compiler versions
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-15'
       run: |
         echo "=== Clang version ==="
         clang --version
@@ -73,7 +73,7 @@ jobs:
 
 # Not working as of March 2024. Cannot find cholmod.h header file. Reason unclear.
     - name: Install S4 in MacOS
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-15'
       run: |
         git clone https://github.com/phoebe-p/S4
         cd S4
