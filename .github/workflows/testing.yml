@@ -40,24 +40,19 @@ jobs:
       run: |
         brew install fftw suite-sparse openblas lapack boost
 
-    - name: Remove Xcode and install standalone Command Line Tools
-      if: matrix.os == 'macos-15'
+    - name: Update Command Line Tools
       run: |
-        echo "=== Current Xcode info ==="
-        xcode-select --print-path
+        echo "=== Current version ==="
+        clang --version
         
-        echo "=== Removing Xcode ==="
-        sudo rm -rf /Applications/Xcode*.app
+        echo "=== Check for Command Line Tools updates ==="
+        softwareupdate --list | grep -i "command line"
         
-        echo "=== Remove existing command line tools ==="
-        sudo rm -rf /Library/Developer/CommandLineTools
+        echo "=== Update Command Line Tools if available ==="
+        sudo softwareupdate --install --all --include-config-data
         
-        echo "=== Install standalone Command Line Tools ==="
-        # This will prompt, so we need to handle it programmatically
-        touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-        PROD=$(softwareupdate -l | grep "\*.*Command Line" | head -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | tr -d '\n')
-        softwareupdate -i "$PROD" --verbose
-        rm /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+        echo "=== Verify version after update ==="
+        clang --version
 
     - name: Check compiler versions
       if: matrix.os == 'macos-15'
