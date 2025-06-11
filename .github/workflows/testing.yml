@@ -43,6 +43,7 @@ jobs:
     - name: Check compiler versions
       if: matrix.os == 'macos-15'
       run: |
+        sudo xcode-select --install
         echo "=== Clang version ==="
         clang --version
         echo ""
