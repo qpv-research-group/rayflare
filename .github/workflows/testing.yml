@@ -40,6 +40,22 @@ jobs:
       run: |
         brew install fftw suite-sparse openblas lapack boost
 
+    - name: Check compiler versions
+      if: matrix.os == 'macos-latest'
+      run: |
+        echo "=== Clang version ==="
+        clang --version
+        echo ""
+        echo "=== Clang++ version ==="
+        clang++ --version
+        echo ""
+        echo "=== GCC version (if available) ==="
+        gcc --version || echo "GCC not found"
+        echo ""
+        echo "=== Default CC/CXX ==="
+        echo "CC: $CC"
+        echo "CXX: $CXX"
+
     - name: Install python dependencies
       run: |
         python -m pip install uv
