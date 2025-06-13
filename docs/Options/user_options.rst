@@ -56,9 +56,10 @@ Options used only by the ray-tracer
 - **random_ray_position**: if True, rather than scanning across the surface, nx*ny random surface points for ray incidence are generated
 - **x_limits** and **y_limits**: limits of the x and y ranges to scan incident rays across (list/tuple of length 2). This
   should be in the same units as those used to specify the size of the ray-tracing texture.
-- **randomize_surface**: used only by the ray-tracing algorithm for a whole structure (i.e. not if using ray-tracing in the matrix framework).
-  If True, the ray position is randomized before interaction with every surface, mimicking the effect of e.g. random pyramids even though
-  the unit cell corresponds to regular pyramids
+- **randomize_surface**: used only by the ray-tracing algorithm for a whole structure, :literal:`rt_structure` (i.e. not if using ray-tracing in the matrix framework).
+  If True, the ray position is randomized after leaving one surface, before it interacts with the next surface (note: the ray position is *not* randomized
+  while ray-tracing of a single surface is in progress). This breaks any correlation between the position at which the ray leaves one surface and the position at which it enters
+  the next surface.
 - **random_ray_angles**: used in the matrix framework. Rather than scanning through incidence angles and populating the matrix that way,
   random incident ray directions are generated
 - **maximum_passes**: the maximum number of passes through a bulk material a ray can make through the structure before ray-tracing ends. At
