@@ -7,6 +7,18 @@ from rayflare.options import default_options
 from solcore.structure import Layer
 from time import time
 
+# structure:
+
+# ---------------- (glass_text, interface 0)
+# | glass          | (bulk 0)
+# ---------------- (rear_glass_text, interface 1)
+# | SiN + GaAs     | (interface 1 layers on rear_glass_text)
+# ----------------
+# | "glass"        | (bulk 1) - would be some kind of epoxy, modelled as glass since n ~ 1.5
+# /\/\/\/\/\/\/\/\/\ (Si_front_text, interface 2)
+# | Si            | (bulk 2)
+# ---------------- (back_text, interface 3)
+
 options = default_options()
 wl = np.linspace(300, 1150, 40) * 1e-9
 
@@ -38,7 +50,7 @@ glass_text = planar_surface()
 rear_glass_text = planar_surface(interface_layers=layers)
 
 # for opening angle of 50 degrees, there will be exactly two bounces for normally-incident rays
-Si_front_text = regular_pyramids(50, True, interface_layers=layers)
+Si_front_text = regular_pyramids(50, True)
 
 back_text = planar_surface()
 
@@ -88,7 +100,9 @@ for surf in rtstr_text.surfaces:
     surf.analytical = False
 RAT_u_f = rtstr_text.calculate(options)
 
-titles = ['s', 'p', 'u']
+titles = ['s-polarized', 'p-polarized', 'unpolarized']
+
+# a = analytical, f = full
 
 for i1, [rat_f, rat_a] in enumerate(
         zip([RAT_s_f, RAT_p_f, RAT_u_f], [RAT_s_a, RAT_p_a, RAT_u_a])):
@@ -96,25 +110,24 @@ for i1, [rat_f, rat_a] in enumerate(
     plt.plot(wl * 1e9, rat_a['R'], '-r', label='R a', alpha=0.5)
     plt.plot(wl * 1e9, rat_f['R'], '--r', label='R f', alpha=0.5)
 
-    plt.plot(wl * 1e9, rat_a['R0'], '-c', label='R a', alpha=0.5)
-    plt.plot(wl * 1e9, rat_f['R0'], '--c', label='R f', alpha=0.5)
+    plt.plot(wl * 1e9, rat_a['R0'], '-c', label='R0 a', alpha=0.5)
+    plt.plot(wl * 1e9, rat_f['R0'], '--c', label='R0 f', alpha=0.5)
+
+    plt.plot(wl * 1e9, np.sum(rat_a['A_per_interface'][1], 1), '-b', label='A int 1 (SiN + GaAs) a', alpha=0.5)
+    plt.plot(wl * 1e9, np.sum(rat_f['A_per_interface'][1], 1), '--b', label='A int 1 (SiN + GaAs) f', alpha=0.5)
+
+    # plt.plot(wl * 1e9, rat_a['A_per_layer'][:, 0], '-g', label='A bulk 0 (glass) a', alpha=0.5)
+    # plt.plot(wl * 1e9, rat_f['A_per_layer'][:, 0], '--g', label='A bulk 0 (glass) f', alpha=0.5)
+    # # plt.plot(wl * 1e9, tmm['A_per_layer'][:, 1], '-.g')
+
+    plt.plot(wl * 1e9, rat_a['A_per_layer'][:, 2], '-k', label='A bulk 2 (Si) a', alpha=0.5)
+    plt.plot(wl * 1e9, rat_f['A_per_layer'][:, 2], '--k', label='A bulk 12 (Si) f', alpha=0.5)
 
     plt.plot(wl * 1e9, rat_a['T'], '-y', label='T a', alpha=0.5)
     plt.plot(wl * 1e9, rat_f['T'], '--y', label='T f', alpha=0.5)
 
-    plt.plot(wl * 1e9, rat_a['A_per_layer'][:, 0], '-g', label='A bulk 0 a', alpha=0.5)
-    plt.plot(wl * 1e9, rat_f['A_per_layer'][:, 0], '--g', label='A bulk 0 f', alpha=0.5)
-    # plt.plot(wl * 1e9, tmm['A_per_layer'][:, 1], '-.g')
-
-    plt.plot(wl * 1e9, rat_a['A_per_layer'][:, 1], '-k', label='A bulk 1 a', alpha=0.5)
-    plt.plot(wl * 1e9, rat_f['A_per_layer'][:, 1], '--k', label='A bulk 1 f', alpha=0.5)
-    # plt.plot(wl*1e9, tmm['A_per_layer'][:,3], '-.k')
-
-    plt.plot(wl * 1e9, np.sum(rat_a['A_per_interface'][1], 1), '-b', label='A int 1 a', alpha=0.5)
-    plt.plot(wl * 1e9, np.sum(rat_f['A_per_interface'][1], 1), '--b', label='A int 1 f', alpha=0.5)
-
-    plt.plot(wl * 1e9, np.sum(rat_a['A_per_interface'][2], 1), '-k', label='A int 2 a', alpha=0.5)
-    plt.plot(wl * 1e9, np.sum(rat_f['A_per_interface'][2], 1), '--k', label='A int 2 f', alpha=0.5)
+    # plt.plot(wl * 1e9, np.sum(rat_a['A_per_interface'][2], 1), '-k', label='A int 2 a', alpha=0.5)
+    # plt.plot(wl * 1e9, np.sum(rat_f['A_per_interface'][2], 1), '--k', label='A int 2 f', alpha=0.5)
 
     plt.title(titles[i1])
 
