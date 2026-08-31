@@ -1152,7 +1152,7 @@ def calculate_interface_profiles(
     profile = profile_front + profile_back
 
     if np.sum(profile) > 0:
-        integrated_profile = np.sum(profile.reduce(np.trapz, dim="dim_0", dx=depth_spacing))
+        integrated_profile = np.sum(profile.reduce(np.trapezoid, dim="dim_0", dx=depth_spacing))
 
         A_corr = np.sum(A_in_prof_layers)
 
@@ -1404,7 +1404,7 @@ def traverse(ray_I, width, theta, alpha, positions, I_thresh, direction):
     if direction == -1:
         DA_u = np.flip(DA_u)
 
-    intgr = np.trapz(DA_u, positions)
+    intgr = np.trapezoid(DA_u, positions)
 
     DA = (ray_I - I_back) * DA_u / intgr
 

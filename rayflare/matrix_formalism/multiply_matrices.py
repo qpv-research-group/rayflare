@@ -193,7 +193,7 @@ def bulk_profile_calc(v_1, v_2, alphas, thetas, d, depths, A):
         )
         result[i1, :] = np.sum(a_x, 1)
 
-    check = np.trapz(result, depths, axis=1)
+    check = np.trapezoid(result, depths, axis=1)
     # the bulk layer is often thick so you don't want the depth spacing too fine,
     # but at short wavelengths this causes an issue where the integrated depth profile
     # is not equal to the total absorption. Scale the profile to fix this and make things
@@ -414,7 +414,7 @@ def matrix_multiplication(
                 scaled_prof = scale * Pf[i1]
                 a_prof[i1].append(np.sum(scaled_prof, 1))
                 # print("SHAPE:", a_prof[i1][-1].shape)
-                # print("Integrated absorbed:", np.trapz(a_prof[i1][-1], dx=options.depth_spacing*1e9, axis=1))
+                # print("Integrated absorbed:", np.trapezoid(a_prof[i1][-1], dx=options.depth_spacing*1e9, axis=1))
 
             power = np.sum(vf_1[i1], axis=1)
             # print("Power remaining", power)
@@ -438,7 +438,7 @@ def matrix_multiplication(
                     scaled_prof = scale * Pf[i1 + 1]
                     # print("Pf, back surface", Pf[i1+1])
                     a_prof[i1 + 1].append(np.sum(scaled_prof, 1))
-                    # print("Integrated absorbed (back):", np.trapz(a_prof[i1 + 1][-1], dx=options.depth_spacing * 1e9, axis=1))
+                    # print("Integrated absorbed (back):", np.trapezoid(a_prof[i1 + 1][-1], dx=options.depth_spacing * 1e9, axis=1))
 
                 A[i1].append(np.sum(vf_1[i1], 1) - np.sum(vb_1[i1], 1))
                 # print("Total absorbed, back", A[i1][-1])
@@ -455,7 +455,7 @@ def matrix_multiplication(
                             A[i1][-1],
                         )
                     )
-                    # print("bulk profile (down) integrated", np.trapz(A_prof[i1][-1], dx=options.depth_spacing_bulk, axis=1))
+                    # print("bulk profile (down) integrated", np.trapezoid(A_prof[i1][-1], dx=options.depth_spacing_bulk, axis=1))
 
                 vb_2[i1] = dot_wl(
                     Rf[i1 + 1], vb_1[i1]
@@ -486,7 +486,7 @@ def matrix_multiplication(
                             1,
                         )
                     )
-                    # print("bulk profile (up) integrated", np.trapz(A_prof[i1][-1], dx=options.depth_spacing_bulk, axis=1))
+                    # print("bulk profile (up) integrated", np.trapezoid(A_prof[i1][-1], dx=options.depth_spacing_bulk, axis=1))
 
                 vf_2[i1] = dot_wl_u2d(up2down, vf_2[i1])  # prepare for rear incidence
                 # vf_2: incoming
@@ -501,7 +501,7 @@ def matrix_multiplication(
                     a_prof[i1].append(np.sum(scaled_prof, 1))
                     # print("SHAPE:", a_prof[i1][-1].shape)
                     # print("Integrated absorbed (front surface, rear inc):",
-                    #       np.trapz(a_prof[i1][-1], dx=options.depth_spacing * 1e9, axis=1))
+                    #       np.trapezoid(a_prof[i1][-1], dx=options.depth_spacing * 1e9, axis=1))
 
                 vf_1[i1] = dot_wl(Rb[i1], vf_2[i1])  # reflect from front surface
                 # print("Reflected from front", np.sum(vf_1[i1], axis=1))

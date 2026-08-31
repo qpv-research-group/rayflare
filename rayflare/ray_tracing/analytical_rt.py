@@ -20,7 +20,7 @@ def traverse_vectorised(width, theta, alpha, I_i, positions, direction):
     if direction == -1:
         DA_u = np.flip(DA_u)
 
-    intgr = np.trapz(DA_u, positions, axis=2)
+    intgr = np.trapezoid(DA_u, positions, axis=2)
 
     DA = np.divide(
         ((I_i[:, :, None] - I_back[:, :, None]) * DA_u), intgr[:, :, None], where=intgr[:, :, None] != 0,
