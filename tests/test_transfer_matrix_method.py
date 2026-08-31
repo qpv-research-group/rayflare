@@ -229,7 +229,7 @@ def test_tmm_structure_abs():
             tmm_result = tmm_setup.calculate(options)
 
             integr = (
-                1e4 * np.trapz(wavelength[:, None] * 1e9 * tmm_result["A_per_layer"], wavelength * 1e9, axis=0) / 1e9
+                1e4 * np.trapezoid(wavelength[:, None] * 1e9 * tmm_result["A_per_layer"], wavelength * 1e9, axis=0) / 1e9
             )
 
             integrated[j1, :] = integr[1:]

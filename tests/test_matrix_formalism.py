@@ -43,7 +43,7 @@ def test_bulk_profile():
 
     depths = np.arange(0, bulk.width, options.depth_spacing_bulk)
 
-    check = np.trapz(res_fresnel[3][0], depths, axis=1)
+    check = np.trapezoid(res_fresnel[3][0], depths, axis=1)
 
     assert check == approx(res_fresnel[0]["A_bulk"][0].data)
 
@@ -90,7 +90,7 @@ def test_phi_all():
 
     depths = np.arange(0, bulk.width, options.depth_spacing_bulk)
 
-    check = np.trapz(res[3][0], depths, axis=1)
+    check = np.trapezoid(res[3][0], depths, axis=1)
 
     assert check == approx(res[0]["A_bulk"][0].data)
 

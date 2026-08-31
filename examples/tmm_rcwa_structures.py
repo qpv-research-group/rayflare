@@ -60,14 +60,14 @@ for pol in ["s", "p", "u"]:
         Jsc_TMM = (
             0.1
             * (q / (h * c))
-            * np.trapz(wavelengths[:, None] * 1e9 * tmm_result["A_per_layer"] * AM0[:, None], wavelengths * 1e9, axis=0)
+            * np.trapezoid(wavelengths[:, None] * 1e9 * tmm_result["A_per_layer"] * AM0[:, None], wavelengths * 1e9, axis=0)
             / 1e9
         )
 
         Jsc_RCWA = (
             0.1
             * (q / (h * c))
-            * np.trapz(
+            * np.trapezoid(
                 wavelengths[:, None] * 1e9 * rcwa_result["A_per_layer"] * AM0[:, None], wavelengths * 1e9, axis=0
             )
             / 1e9

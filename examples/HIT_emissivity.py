@@ -114,7 +114,7 @@ spectr_flux = LightSource(
     source_type="standard", version="AM1.5g", x=wavelengths, output_units="photon_flux_per_m", concentration=1
 ).spectrum(wavelengths)[1]
 
-Jph_Si = q * np.trapz(RAT["A_bulk"][0] * spectr_flux, wavelengths) / 10  # mA/cm2
+Jph_Si = q * np.trapezoid(RAT["A_bulk"][0] * spectr_flux, wavelengths) / 10  # mA/cm2
 
 pal = sns.cubehelix_palette(allres.shape[0], start=0.5, rot=-0.9)
 pal.reverse()

@@ -69,9 +69,9 @@ layers = (
 S4_setup = rcwa_structure(layers, size=size, options=options, incidence=Air, transmission=Ge)
 RAT = S4_setup.calculate(options)
 
-J_InGaP = q * np.trapz(RAT["A_per_layer"][:, 3] * photon_flux, x=wavelengths) / 10
-J_GaAs = q * np.trapz(RAT["A_per_layer"][:, 4] * photon_flux, x=wavelengths) / 10
-J_Ge = q * np.trapz(RAT["T"] * photon_flux, x=wavelengths) / 10
+J_InGaP = q * np.trapezoid(RAT["A_per_layer"][:, 3] * photon_flux, x=wavelengths) / 10
+J_GaAs = q * np.trapezoid(RAT["A_per_layer"][:, 4] * photon_flux, x=wavelengths) / 10
+J_Ge = q * np.trapezoid(RAT["T"] * photon_flux, x=wavelengths) / 10
 
 print("Jsc InGaP =", J_InGaP, "mA/cm2")
 print("Jsc GaAs =", J_GaAs, "mA/cm2")
@@ -186,8 +186,8 @@ Jscs = np.zeros(len(A_list))
 Jscs_Ge = np.zeros(len(A_list))
 
 for i, A in enumerate(A_list):
-    Jscs[i] = q * np.trapz(A * photon_flux, wavelengths) / 10
-    Jscs_Ge[i] = q * np.trapz(photon_flux * T_list[i], wavelengths) / 10
+    Jscs[i] = q * np.trapezoid(A * photon_flux, wavelengths) / 10
+    Jscs_Ge[i] = q * np.trapezoid(photon_flux * T_list[i], wavelengths) / 10
 
 plt.figure(figsize=(5, 5))
 plt.plot(labels, Jscs, "o-", fillstyle="none", color=pal[0], label="GaAs", markersize=8)

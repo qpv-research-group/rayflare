@@ -41,7 +41,7 @@ classifiers = [
 dependencies = [
     "matplotlib",
     "scipy",
-    "numpy<2.0.0",
+    "numpy>=2.0.0",
     "solcore",
     "xarray>=v2024.07.0",
     "sparse",

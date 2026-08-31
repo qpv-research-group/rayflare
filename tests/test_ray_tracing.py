@@ -228,10 +228,10 @@ def test_interface_absorption():
             axis=1,
         )
 
-        prof_int_front = np.trapz(rt_res["interface_profiles"][0], dx=1, axis=1)
-        prof_int_back = np.trapz(rt_res["interface_profiles"][2], dx=1, axis=1)
+        prof_int_front = np.trapezoid(rt_res["interface_profiles"][0], dx=1, axis=1)
+        prof_int_back = np.trapezoid(rt_res["interface_profiles"][2], dx=1, axis=1)
 
-        prof_int_bulk = np.trapz(rt_res["profile"], dx=10, axis=1)
+        prof_int_bulk = np.trapezoid(rt_res["profile"], dx=10, axis=1)
 
         assert prof_int_bulk == approx(np.sum(rt_res["A_per_layer"], 1), abs=0.01)
         assert prof_int_front == approx(np.sum(rt_res["A_per_interface"][0], 1), abs=0.01)

@@ -205,8 +205,8 @@ light_source = LightSource(source_type="standard", version="AM1.5g", x=wavelengt
 
 photon_flux = light_source.spectrum(wavelengths)[1]
 
-J_GaAs_1 = q * np.trapz(result["A_per_interface"][0][:, cell_layer_ind[0] - 1] * photon_flux, wavelengths) / 10
-J_GaAs_2 = q * np.trapz(result["A_per_interface"][0][:, cell_layer_ind[1] - 1] * photon_flux, wavelengths) / 10
-J_Si = q * np.trapz(result["A_per_layer"][:, 1] * photon_flux, wavelengths) / 10
+J_GaAs_1 = q * np.trapezoid(result["A_per_interface"][0][:, cell_layer_ind[0] - 1] * photon_flux, wavelengths) / 10
+J_GaAs_2 = q * np.trapezoid(result["A_per_interface"][0][:, cell_layer_ind[1] - 1] * photon_flux, wavelengths) / 10
+J_Si = q * np.trapezoid(result["A_per_layer"][:, 1] * photon_flux, wavelengths) / 10
 
 print(J_GaAs_1, J_GaAs_2, J_Si)

@@ -1056,12 +1056,12 @@ def test_rcwa_tmm_matrix_profiles(RCWA_method):
         prof_plot_TMM_back = profile[1]
 
         depths = np.linspace(0, len(prof_plot_TMM[0, :]) * options["depth_spacing"] * 1e9, len(prof_plot_TMM[0, :]))
-        integrated_A = np.trapz(prof_plot_TMM, depths, axis=1)
+        integrated_A = np.trapezoid(prof_plot_TMM, depths, axis=1)
 
         depths_back = np.linspace(
             0, len(prof_plot_TMM_back[0, :]) * options["depth_spacing"] * 1e9, len(prof_plot_TMM_back[0, :])
         )
-        integrated_A_back = np.trapz(prof_plot_TMM_back, depths_back, axis=1)
+        integrated_A_back = np.trapezoid(prof_plot_TMM_back, depths_back, axis=1)
 
         assert integrated_A == approx(results_TMM_Matrix[0]["A_interface"][0].data, abs=0.01)
         assert integrated_A_back == approx(results_TMM_Matrix[0]["A_interface"][1].data, abs=0.01)
@@ -1088,12 +1088,12 @@ def test_rcwa_tmm_matrix_profiles(RCWA_method):
         prof_plot_RT_back = profile[1]
 
         depths = np.linspace(0, len(prof_plot_RT[0, :]) * options["depth_spacing"] * 1e9, len(prof_plot_RT[0, :]))
-        integrated_A = np.trapz(prof_plot_RT, depths, axis=1)
+        integrated_A = np.trapezoid(prof_plot_RT, depths, axis=1)
 
         depths_back = np.linspace(
             0, len(prof_plot_RT_back[0, :]) * options["depth_spacing"] * 1e9, len(prof_plot_RT_back[0, :])
         )
-        integrated_A_back = np.trapz(prof_plot_RT_back, depths_back, axis=1)
+        integrated_A_back = np.trapezoid(prof_plot_RT_back, depths_back, axis=1)
 
         assert integrated_A == approx(results_RT[0]["A_interface"][0].data, abs=0.01)
         assert integrated_A_back == approx(results_RT[0]["A_interface"][1].data, abs=0.01)
@@ -1124,12 +1124,12 @@ def test_rcwa_tmm_matrix_profiles(RCWA_method):
         prof_plot_RCWA_back = profile[1]
 
         depths = np.linspace(0, len(prof_plot_RCWA[0, :]) * options["depth_spacing"] * 1e9, len(prof_plot_RCWA[0, :]))
-        integrated_A = np.trapz(prof_plot_RCWA, depths, axis=1)
+        integrated_A = np.trapezoid(prof_plot_RCWA, depths, axis=1)
 
         depths_back = np.linspace(
             0, len(prof_plot_RCWA_back[0, :]) * options["depth_spacing"] * 1e9, len(prof_plot_RCWA_back[0, :])
         )
-        integrated_A_back = np.trapz(prof_plot_RCWA_back, depths_back, axis=1)
+        integrated_A_back = np.trapezoid(prof_plot_RCWA_back, depths_back, axis=1)
 
         assert integrated_A == approx(results_RCWA_Matrix[0]["A_interface"][0].data, abs=0.01)
         assert integrated_A_back == approx(results_RCWA_Matrix[0]["A_interface"][1].data, abs=0.01)
@@ -1175,8 +1175,8 @@ def test_profile_integration(RCWA_method):
             depths = np.arange(0, len(prof["z"]) * ds, ds)
             depths_r = np.arange(0, len(prof_r["z"]) * ds, ds)
 
-            integrated_prof = np.trapz(prof.data, depths, axis=1)
-            integrated_prof_r = np.trapz(prof_r.data, depths_r, axis=1)
+            integrated_prof = np.trapezoid(prof.data, depths, axis=1)
+            integrated_prof_r = np.trapezoid(prof_r.data, depths_r, axis=1)
 
             assert integrated_prof == approx(intgr.data, rel=0.03)
             assert integrated_prof_r == approx(intgr_r.data, rel=0.03)
@@ -1195,7 +1195,7 @@ def test_profile_integration(RCWA_method):
 
             depths = np.arange(0, len(prof["z"]) * ds, ds)
 
-            integrated_prof = np.trapz(prof.data, depths, axis=1)
+            integrated_prof = np.trapezoid(prof.data, depths, axis=1)
 
             c_i = intgr.data > 1e-4
 
@@ -1506,8 +1506,8 @@ def test_tmm_arm():
 
     assert np.allclose(ratio, 1, atol=0.15)
 
-    int_front_rt = np.trapz(tmm_front, dx=0.1, axis=1)
-    int_front_arm = np.trapz(prof_front, dx=0.1, axis=1)
+    int_front_rt = np.trapezoid(tmm_front, dx=0.1, axis=1)
+    int_front_arm = np.trapezoid(prof_front, dx=0.1, axis=1)
 
     assert int_front_rt == approx(int_front_arm, rel=0.02)
 
@@ -1649,8 +1649,8 @@ def test_tmm_rt_methods():
     #
     # assert np.allclose(ratio, 1, atol=0.15)
 
-    int_front_rt = np.trapz(rt_front, dx=1, axis=1)
-    int_front_arm = np.trapz(prof_front, dx=1, axis=1)
+    int_front_rt = np.trapezoid(rt_front, dx=1, axis=1)
+    int_front_arm = np.trapezoid(prof_front, dx=1, axis=1)
 
     # import matplotlib.pyplot as plt
     #
