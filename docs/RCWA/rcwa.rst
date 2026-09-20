@@ -7,6 +7,13 @@ and to define and calculate structures which are treated in their entirety by RC
 The function :literal:`RCWA` is used to create redistribution matrices, while the class :literal:`rcwa_structure` is used to define
 structures for RCWA calculations.
 
+The optional FMMAX backend is described in :doc:`fmmax`.
+
+.. toctree::
+    :maxdepth: 1
+
+    fmmax
+
 ###################################
 Individual function documentation:
 ###################################
@@ -14,4 +21,3 @@ Individual function documentation:
 .. automodule:: rayflare.rigorous_coupled_wave_analysis.rcwa
     :members:
     :undoc-members:
-

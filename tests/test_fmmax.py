@@ -162,3 +162,57 @@ def test_rcwa_structure_selects_fmmax():
         1,
         atol=2e-6,
     )
+
+
+def test_rcwa_matrix_interface_selects_fmmax(tmp_path):
+    from solcore import material
+    from solcore.structure import Layer
+    from rayflare.options import default_options
+    from rayflare.rigorous_coupled_wave_analysis import RCWA
+
+    air = material("Air")()
+    gaas = material("GaAs")()
+    opts = default_options()
+    opts.RCWA_method = "FMMAX"
+    opts.parallel = False
+    opts.orders = 1
+    opts.wavelength = np.asarray([700e-9])
+    opts.n_theta_bins = 3
+    opts.c_azimuth = 0.1
+    opts.pol = "s"
+    redistribution, absorption = RCWA(
+        [Layer(100e-9, gaas)],
+        ((500, 0), (0, 500)),
+        1,
+        opts,
+        str(tmp_path),
+        air,
+        air,
+        save=False,
+        overwrite=True,
+    )
+    energy = np.sum(redistribution.todense(), axis=1) + np.sum(
+        absorption.todense(), axis=1
+    )
+    assert_allclose(energy, 1, atol=2e-6)
+
+
+def test_unsupported_geometry_is_rejected():
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend
+
+    with pytest.raises(
+        NotImplementedError, match="circle, ellipse, rectangle, and polygon"
+    ):
+        fmmax_backend.solve(
+            wavelength=600,
+            geom_list=[None, [{"type": "sphere", "mat": "air"}], None],
+            layer_permittivities=np.asarray([1 + 0j, 2.25 + 0j, 1 + 0j]),
+            shape_permittivities=np.asarray([1 + 0j]),
+            shape_names=["air"],
+            pol="s",
+            theta=0,
+            phi=0,
+            widths=[np.inf, 100, np.inf],
+            size=((400, 0), (0, 400)),
+            orders=1,
+        )

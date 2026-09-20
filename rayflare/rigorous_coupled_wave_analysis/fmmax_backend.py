@@ -148,9 +148,12 @@ def _shape_mask(shape, x, y, lattice):
     center = np.asarray(shape.get("center", (0.0, 0.0)), dtype=float)
     if center.shape != (2,):
         raise ValueError("A geometry center must contain two coordinates in nm.")
+    fractional_center = center @ np.linalg.inv(lattice)
+    center = np.mod(fractional_center, 1) @ lattice
     angle = np.deg2rad(float(shape.get("angle", 0.0)))
     cosine, sine = np.cos(angle), np.sin(angle)
     mask = np.zeros(x.shape, dtype=bool)
+    maximum_extent = min(np.linalg.norm(lattice, axis=1))
 
     # RayFlare/S4 geometry is periodically continued and commonly has a feature
     # centred at (0, 0). Check neighbouring images so such features wrap across
@@ -167,6 +170,7 @@ def _shape_mask(shape, x, y, lattice):
                 radius = float(shape["radius"])
                 if radius <= 0:
                     raise ValueError("Circle radius must be positive.")
+                feature_extent = radius
                 image_mask = xr**2 + yr**2 <= radius**2
             elif shape_type in {"ellipse", "rectangle"}:
                 halfwidths = np.asarray(shape["halfwidths"], dtype=float)
@@ -174,6 +178,7 @@ def _shape_mask(shape, x, y, lattice):
                     raise ValueError(
                         "Shape halfwidths must contain two positive values."
                     )
+                feature_extent = np.linalg.norm(halfwidths)
                 if shape_type == "ellipse":
                     image_mask = (xr / halfwidths[0]) ** 2 + (
                         yr / halfwidths[1]
@@ -192,8 +197,13 @@ def _shape_mask(shape, x, y, lattice):
                     raise ValueError(
                         "Polygon vertices must have shape (n, 2), with n >= 3."
                     )
+                feature_extent = np.max(np.linalg.norm(vertices, axis=1))
                 # Vertices are relative to the centre and rotate with the shape.
                 image_mask = _points_in_polygon(xr, yr, vertices)
+            if feature_extent > maximum_extent:
+                raise NotImplementedError(
+                    "FMMAX periodic features must fit within one primitive-cell span."
+                )
             mask |= image_mask
     return mask
 
