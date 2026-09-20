@@ -45,7 +45,18 @@ class default_options(State):
             WeismannFormulation=False,
             Verbosity=0,
         )
-        self.RCWA_method = 'S4'
+        self.RCWA_method = "S4"
+
+        # Optional FMMAX backend. These defaults are only read when
+        # RCWA_method = "FMMAX"; importing RayFlare does not import FMMAX/JAX.
+        self.FMMAX_options = dict(
+            formulation="fft",
+            truncation="circular",
+            grid_spacing=5.0,
+            grid_shape=None,
+            force_x64_solve=False,
+            max_grid_points=1_000_000,
+        )
 
         self.orders = 10
 

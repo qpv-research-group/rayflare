@@ -90,7 +90,15 @@ def RCWA(
     :return:
     """
 
-    parallel_func = {"s4": RCWA_wl, "inkstone": RCWA_wl_inkstone}
+    parallel_func = {
+        "s4": RCWA_wl,
+        "inkstone": RCWA_wl_inkstone,
+        "fmmax": RCWA_wl_fmmax,
+    }
+
+    method = options.RCWA_method.lower()
+    if method not in parallel_func:
+        raise ValueError("RCWA_method must be 'S4', 'Inkstone', or 'FMMAX'")
 
     existing_mats, path_or_mats = get_matrices_or_paths(
         structpath, surf_name, front_or_rear, prof_layers, overwrite
@@ -144,7 +152,10 @@ def RCWA(
                     (
                         dist,
                         full_dist[
-                            np.all((full_dist >= layer_start[l], full_dist < layer_end[l]), 0)
+                            np.all(
+                                (full_dist >= layer_start[l], full_dist < layer_end[l]),
+                                0,
+                            )
                         ],
                     )
                 )
@@ -156,7 +167,9 @@ def RCWA(
         layers_oc[:, -1] = (trns.n(wavelengths) + 1j * trns.k(wavelengths)) ** 2
 
         for i1, x in enumerate(layers):
-            layers_oc[:, i1 + 1] = (x.material.n(wavelengths) + 1j * x.material.k(wavelengths)) ** 2
+            layers_oc[:, i1 + 1] = (
+                x.material.n(wavelengths) + 1j * x.material.k(wavelengths)
+            ) ** 2
 
         shapes_names = [str(x) for x in shape_mats]
 
@@ -164,9 +177,9 @@ def RCWA(
         n_theta_bins = options.n_theta_bins
         c_az = options.c_azimuth
 
-        pol = process_pol(options.pol)
+        pol = options.pol if method == "fmmax" else process_pol(options.pol)
 
-        if options.RCWA_method.lower() == "s4":
+        if method == "s4":
             # RCWA options - S4 only
             S4_options = dict(
                 LatticeTruncation="Circular",
@@ -184,6 +197,10 @@ def RCWA(
             user_options = options.S4_options if "S4_options" in options.keys() else {}
             S4_options.update(user_options)
 
+        elif method == "fmmax":
+            S4_options = (
+                options.FMMAX_options if "FMMAX_options" in options.keys() else {}
+            )
         else:
             S4_options = None
 
@@ -220,7 +237,7 @@ def RCWA(
             n_jobs = 1
 
         allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_func[options.RCWA_method.lower()])(
+            delayed(parallel_func[method])(
                 wavelengths[i1] * 1e9,
                 geom_list_str,
                 layers_oc[i1],
@@ -274,7 +291,10 @@ def RCWA(
             intgr = xr.DataArray(
                 intgr_mat,
                 dims=["wl", "global_index"],
-                coords={"wl": wavelengths, "global_index": np.arange(0, prof_mat.shape[2])},
+                coords={
+                    "wl": wavelengths,
+                    "global_index": np.arange(0, prof_mat.shape[2]),
+                },
             )
 
             intgr.name = "intgr"
@@ -316,7 +336,9 @@ def RCWA_wl_inkstone(
 
     G_basis = np.array(S.pr.idx_g)
 
-    f_mat = np.array(S.pr.recipr_vec) / (2 * np.pi)  # to make consistent with S4 definition
+    f_mat = np.array(S.pr.recipr_vec) / (
+        2 * np.pi
+    )  # to make consistent with S4 definition
 
     fg_1x = f_mat[0][0]
     fg_1y = f_mat[0][1]
@@ -338,7 +360,9 @@ def RCWA_wl_inkstone(
         in_bin = np.arange(len(theta))
 
     else:
-        binned_theta_in = np.digitize(np.pi - np.pi * theta / 180, theta_intv, right=True) - 1
+        binned_theta_in = (
+            np.digitize(np.pi - np.pi * theta / 180, theta_intv, right=True) - 1
+        )
         phi_in = xr.DataArray(
             np.pi * phi / 180,
             coords={"theta_bin": (["angle_in"], binned_theta_in)},
@@ -367,7 +391,9 @@ def RCWA_wl_inkstone(
                     layer, d_in_layer = tmm.find_in_structure_with_inf(
                         widths, d
                     )  # don't need to change this
-                    layer_name = "layer_" + str(layer + 1)  # layer_1 is air above so need to add 1
+                    layer_name = "layer_" + str(
+                        layer + 1
+                    )  # layer_1 is air above so need to add 1
                     data = rcwa_position_resolved(S, layer_name, d_in_layer, incpfi)
                     mat_prof[j, in_bin[i1]] = data
 
@@ -378,10 +404,14 @@ def RCWA_wl_inkstone(
         T_pfbo = np.real(T_pfbo)
 
         fi_x = np.real(
-            (np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) * np.sin(ph * np.pi / 180)
+            (np.real(np.sqrt(l_oc[0])) / wl)
+            * np.sin(th * np.pi / 180)
+            * np.sin(ph * np.pi / 180)
         )
         fi_y = np.real(
-            (np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) * np.cos(ph * np.pi / 180)
+            (np.real(np.sqrt(l_oc[0])) / wl)
+            * np.sin(th * np.pi / 180)
+            * np.cos(ph * np.pi / 180)
         )
 
         fr_x = fi_x + G_basis[:, 0] * fg_1x + G_basis[:, 1] * fg_2x
@@ -394,7 +424,9 @@ def RCWA_wl_inkstone(
         phi_rt = fold_phi(phi_rt, phi_sym)
 
         theta_r = np.real(np.arccos(fr_z / np.sqrt(fr_x**2 + fr_y**2 + fr_z**2)))
-        theta_t = np.pi - np.real(np.arccos(ft_z / np.sqrt(fr_x**2 + fr_y**2 + ft_z**2)))
+        theta_t = np.pi - np.real(
+            np.arccos(ft_z / np.sqrt(fr_x**2 + fr_y**2 + ft_z**2))
+        )
 
         np_r = theta_r == np.pi / 2  # non-propagating reflected orders
         np_t = theta_t == np.pi / 2  # non-propagating transmitted orders
@@ -475,6 +507,143 @@ def RCWA_wl_inkstone(
         return R, T, A_layer.T, mat_RT, mat_int  # , mat_T
 
 
+def RCWA_wl_fmmax(
+    wl,
+    geom_list,
+    l_oc,
+    s_oc,
+    s_names,
+    pol,
+    theta,
+    phi,
+    widths,
+    size,
+    orders,
+    phi_sym,
+    theta_intv,
+    phi_intv,
+    angle_vector_0,
+    fmmax_options,
+    layer_details=False,
+    side=1,
+    dist=None,
+):
+    """FMMAX wavelength worker for angular redistribution matrices."""
+    if layer_details:
+        raise NotImplementedError(
+            "detail_layer redistribution is not yet supported by the FMMAX backend."
+        )
+    from . import fmmax_backend
+
+    n_angles = len(theta)
+    R = np.zeros(n_angles)
+    T = np.zeros(n_angles)
+    A_layer = np.zeros((n_angles, len(widths) - 2))
+    mat_RT = np.zeros((len(angle_vector_0), int(len(angle_vector_0) / 2)))
+    mat_int = np.zeros_like(mat_RT)
+    if dist is not None:
+        mat_prof = np.zeros((len(dist), int(len(angle_vector_0) / 2)))
+        mat_intgr = np.zeros(int(len(angle_vector_0) / 2))
+
+    if side == 1:
+        in_bin = np.arange(n_angles)
+    else:
+        binned_theta_in = (
+            np.digitize(np.pi - np.pi * theta / 180, theta_intv, right=True) - 1
+        )
+        phi_in = xr.DataArray(
+            np.pi * phi / 180,
+            coords={"theta_bin": (["angle_in"], binned_theta_in)},
+            dims=["angle_in"],
+        )
+        in_bin = phi_in.groupby("theta_bin").map(
+            overall_bin, args=(phi_intv, angle_vector_0)
+        ).data - int(len(angle_vector_0) / 2)
+
+    logger.info(f"FMMAX RCWA calculation for wavelength = {wl} nm")
+    for angle_index, (th, ph) in enumerate(zip(theta, phi)):
+        result = fmmax_backend.solve(
+            wavelength=wl,
+            geom_list=geom_list,
+            layer_permittivities=l_oc,
+            shape_permittivities=s_oc,
+            shape_names=s_names,
+            pol=pol,
+            theta=th,
+            phi=ph,
+            widths=widths,
+            size=size,
+            orders=orders,
+            user_options=fmmax_options,
+            profile_depths=dist,
+        )
+        column = in_bin[angle_index]
+        R[column] = result["R"]
+        T[column] = result["T"]
+        A_layer[column] = result["A_per_layer"]
+        if dist is not None:
+            mat_prof[:, column] = result["profile"]
+            mat_intgr[column] = np.sum(result["A_per_layer"])
+
+        kxy = result["transverse_wavevectors"]
+        transverse_k = np.linalg.norm(np.real(kxy), axis=1)
+        k0 = 2 * np.pi / wl
+        kz_r = np.sqrt(k0**2 * l_oc[0] - np.sum(kxy**2, axis=1) + 0j)
+        kz_t = np.sqrt(k0**2 * l_oc[-1] - np.sum(kxy**2, axis=1) + 0j)
+        theta_r = np.arctan2(transverse_k, np.maximum(np.real(kz_r), 0))
+        theta_t = np.pi - np.arctan2(transverse_k, np.maximum(np.real(kz_t), 0))
+        if side == -1:
+            theta_r = np.pi - theta_r
+            theta_t = np.pi - theta_t
+        phi_rt = fold_phi(np.arctan2(kxy[:, 1].real, kxy[:, 0].real), phi_sym)
+
+        R_order = np.where(
+            np.abs(result["R_per_order"]) < 1e-12, 0, result["R_per_order"]
+        )
+        T_order = np.where(
+            np.abs(result["T_per_order"]) < 1e-12, 0, result["T_per_order"]
+        )
+        theta_r_bin = np.digitize(theta_r, theta_intv, right=True) - 1
+        theta_t_bin = np.digitize(theta_t, theta_intv, right=True) - 1
+        for order_index in np.nonzero(R_order > 0)[0]:
+            if not 0 <= theta_r_bin[order_index] < len(phi_intv):
+                continue
+            phi_index = (
+                np.digitize(
+                    phi_rt[order_index], phi_intv[theta_r_bin[order_index]], right=True
+                )
+                - 1
+            )
+            output_bin = (
+                np.argmin(abs(angle_vector_0 - theta_r_bin[order_index])) + phi_index
+            )
+            mat_RT[output_bin, column] += R_order[order_index]
+        for order_index in np.nonzero(T_order > 0)[0]:
+            if not 0 <= theta_t_bin[order_index] < len(phi_intv):
+                continue
+            phi_index = (
+                np.digitize(
+                    phi_rt[order_index], phi_intv[theta_t_bin[order_index]], right=True
+                )
+                - 1
+            )
+            output_bin = (
+                np.argmin(abs(angle_vector_0 - theta_t_bin[order_index])) + phi_index
+            )
+            mat_RT[output_bin, column] += T_order[order_index]
+
+    if side == -1:
+        A_layer = np.flip(A_layer, axis=1)
+        if dist is not None:
+            mat_prof = np.flip(mat_prof, axis=0)
+
+    mat_RT = COO.from_numpy(mat_RT)
+    mat_int = COO.from_numpy(mat_int)
+    if dist is not None:
+        return R, T, A_layer.T, mat_RT, mat_int, mat_prof, mat_intgr
+    return R, T, A_layer.T, mat_RT, mat_int
+
+
 def RCWA_wl(
     wl,
     geom_list,
@@ -522,7 +691,9 @@ def RCWA_wl(
         in_bin = np.arange(len(theta))
 
     else:
-        binned_theta_in = np.digitize(np.pi - np.pi * theta / 180, theta_intv, right=True) - 1
+        binned_theta_in = (
+            np.digitize(np.pi - np.pi * theta / 180, theta_intv, right=True) - 1
+        )
         phi_in = xr.DataArray(
             np.pi * phi / 180,
             coords={"theta_bin": (["angle_in"], binned_theta_in)},
@@ -554,7 +725,9 @@ def RCWA_wl(
                     layer, d_in_layer = tmm.find_in_structure_with_inf(
                         widths, d
                     )  # don't need to change this
-                    layer_name = "layer_" + str(layer + 1)  # layer_1 is air above so need to add 1
+                    layer_name = "layer_" + str(
+                        layer + 1
+                    )  # layer_1 is air above so need to add 1
                     data = rcwa_position_resolved(S, layer_name, d_in_layer, incpfi)
                     mat_prof[j, in_bin[i1]] = data
 
@@ -565,10 +738,14 @@ def RCWA_wl(
         T_pfbo = np.real(T_pfbo)
 
         fi_x = np.real(
-            (np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) * np.sin(ph * np.pi / 180)
+            (np.real(np.sqrt(l_oc[0])) / wl)
+            * np.sin(th * np.pi / 180)
+            * np.sin(ph * np.pi / 180)
         )
         fi_y = np.real(
-            (np.real(np.sqrt(l_oc[0])) / wl) * np.sin(th * np.pi / 180) * np.cos(ph * np.pi / 180)
+            (np.real(np.sqrt(l_oc[0])) / wl)
+            * np.sin(th * np.pi / 180)
+            * np.cos(ph * np.pi / 180)
         )
 
         fr_x = fi_x + G_basis[:, 0] * fg_1x + G_basis[:, 1] * fg_2x
@@ -581,7 +758,9 @@ def RCWA_wl(
         phi_rt = fold_phi(phi_rt, phi_sym)
 
         theta_r = np.real(np.arccos(fr_z / np.sqrt(fr_x**2 + fr_y**2 + fr_z**2)))
-        theta_t = np.pi - np.real(np.arccos(ft_z / np.sqrt(fr_x**2 + fr_y**2 + ft_z**2)))
+        theta_t = np.pi - np.real(
+            np.arccos(ft_z / np.sqrt(fr_x**2 + fr_y**2 + ft_z**2))
+        )
 
         np_r = theta_r == np.pi / 2  # non-propagating reflected orders
         np_t = theta_t == np.pi / 2  # non-propagating transmitted orders
@@ -627,10 +806,14 @@ def RCWA_wl(
 
             R_pfbo_int[np_l] = 0
 
-            R_pfbo_int[np.abs(R_pfbo_int < 1e-16)] = 0  # sometimes get very small negative valyes
+            R_pfbo_int[np.abs(R_pfbo_int < 1e-16)] = (
+                0  # sometimes get very small negative valyes
+            )
             theta_l_bin = np.digitize(theta_l, theta_intv, right=True) - 1
             for i2 in np.nonzero(R_pfbo_int)[0]:
-                phi_ind = np.digitize(phi_rt[i2], phi_intv[theta_l_bin[i2]], right=True) - 1
+                phi_ind = (
+                    np.digitize(phi_rt[i2], phi_intv[theta_l_bin[i2]], right=True) - 1
+                )
                 bini = np.argmin(abs(angle_vector_0 - theta_l_bin[i2])) + phi_ind
                 mat_int[bini, i1] = mat_int[bini, i1] + R_pfbo_int[i2]
 
@@ -693,7 +876,7 @@ def rcwa_rt_pfbo(S, n_layers, incpf, det_l=False):
 
     T_pfbo = np.real(np.sum(np.array(S.GetPowerFluxByOrder(below)), 1)) / incpf
 
-    R_amplitudes = S.GetAmplitudes('layer_1')
+    R_amplitudes = S.GetAmplitudes("layer_1")
     T_amplitudes = S.GetAmplitudes(below)
 
     return R_pfbo, T_pfbo, R_pfbo_int, R_amplitudes, T_amplitudes
@@ -702,20 +885,29 @@ def rcwa_rt_pfbo(S, n_layers, incpf, det_l=False):
 def rcwa_rt_pfbo_inkstone(S, n_layers, incpf):
     below = "layer_" + str(n_layers)
 
-    R_pfbo = -np.array([S.GetPowerFluxByOrder("layer_1", order) for order in S.pr.idx_g])[:, 1]
+    R_pfbo = -np.array(
+        [S.GetPowerFluxByOrder("layer_1", order) for order in S.pr.idx_g]
+    )[:, 1]
     T_pfbo = (
-        np.sum(np.array([S.GetPowerFluxByOrder(below, order) for order in S.pr.idx_g]), 1) / incpf
+        np.sum(
+            np.array([S.GetPowerFluxByOrder(below, order) for order in S.pr.idx_g]), 1
+        )
+        / incpf
     )
 
     return R_pfbo, T_pfbo
 
 
-def initialise_S_inkstone(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths):
+def initialise_S_inkstone(
+    size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
+):
     S = Inkstone(size, orders)
 
     # SETTING OPTIONS WAS HERE FOR S4
 
-    for i1, sh in enumerate(shapes_oc):  # create the materials needed for all the shapes in S4
+    for i1, sh in enumerate(
+        shapes_oc
+    ):  # create the materials needed for all the shapes in S4
         S.AddMaterial("shape_mat_" + str(i1 + 1), sh)
 
     for i1, _ in enumerate(
@@ -743,10 +935,16 @@ def initialise_S_inkstone(size, orders, geom_list, mats_oc, shapes_oc, shape_mat
             for shape in geometry:
                 mat_name = "shape_mat_" + str(shape_mats.index(str(shape["mat"])) + 1)
                 if shape["type"] == "circle":
-                    S.AddPatternDisk(layer_name, mat_name, shape["radius"], shape["center"])
+                    S.AddPatternDisk(
+                        layer_name, mat_name, shape["radius"], shape["center"]
+                    )
                 elif shape["type"] == "ellipse":
                     S.AddPatternEllipse(
-                        layer_name, mat_name, shape["halfwidths"], shape["center"], shape["angle"]
+                        layer_name,
+                        mat_name,
+                        shape["halfwidths"],
+                        shape["center"],
+                        shape["angle"],
                     )
                 elif shape["type"] == "rectangle":
                     S.AddPatternRectangle(
@@ -768,14 +966,18 @@ def initialise_S_inkstone(size, orders, geom_list, mats_oc, shapes_oc, shape_mat
                             vertices[i2] = [v[0] + center[0], v[1] + center[1]]
 
                     if "angle" in shape:
-                        logger.warning("Angle not implemented for polygon shapes in Inkstone")
+                        logger.warning(
+                            "Angle not implemented for polygon shapes in Inkstone"
+                        )
 
                     S.AddPatternPolygon(layer_name, mat_name, vertices)
 
     return S
 
 
-def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths, options):
+def initialise_S(
+    size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths, options
+):
     S = S4.New(size, orders)
 
     S.SetOptions(
@@ -791,7 +993,9 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
         Verbosity=options["Verbosity"],
     )
 
-    for i1, sh in enumerate(shapes_oc):  # create the materials needed for all the shapes in S4
+    for i1, sh in enumerate(
+        shapes_oc
+    ):  # create the materials needed for all the shapes in S4
         S.SetMaterial("shape_mat_" + str(i1 + 1), sh)
 
     for i1, _ in enumerate(
@@ -819,18 +1023,32 @@ def initialise_S(size, orders, geom_list, mats_oc, shapes_oc, shape_mats, widths
             for shape in geometry:
                 mat_name = "shape_mat_" + str(shape_mats.index(str(shape["mat"])) + 1)
                 if shape["type"] == "circle":
-                    S.SetRegionCircle(layer_name, mat_name, shape["center"], shape["radius"])
+                    S.SetRegionCircle(
+                        layer_name, mat_name, shape["center"], shape["radius"]
+                    )
                 elif shape["type"] == "ellipse":
                     S.SetRegionEllipse(
-                        layer_name, mat_name, shape["center"], shape["angle"], shape["halfwidths"]
+                        layer_name,
+                        mat_name,
+                        shape["center"],
+                        shape["angle"],
+                        shape["halfwidths"],
                     )
                 elif shape["type"] == "rectangle":
                     S.SetRegionRectangle(
-                        layer_name, mat_name, shape["center"], shape["angle"], shape["halfwidths"]
+                        layer_name,
+                        mat_name,
+                        shape["center"],
+                        shape["angle"],
+                        shape["halfwidths"],
                     )
                 elif shape["type"] == "polygon":
                     S.SetRegionPolygon(
-                        layer_name, mat_name, shape["center"], shape["angle"], shape["vertices"]
+                        layer_name,
+                        mat_name,
+                        shape["center"],
+                        shape["angle"],
+                        shape["vertices"],
                     )
 
     return S
@@ -856,7 +1074,8 @@ def necessary_materials(geom_list):
 def rcwa_position_resolved(S, layer, depth, incpf):
     delta = 1e-9
     power_difference = np.real(
-        sum(S.GetPowerFlux(layer, depth - delta)) - sum(S.GetPowerFlux(layer, depth + delta))
+        sum(S.GetPowerFlux(layer, depth - delta))
+        - sum(S.GetPowerFlux(layer, depth + delta))
     )
 
     return power_difference / (
@@ -883,8 +1102,12 @@ def rcwa_absorption_per_layer_order(S, n_layers, incpf):
     n_orders = len(S.GetBasisSet())
     A_per_order = np.empty((n_layers - 2, n_orders))
     for i1, layer in enumerate(np.arange(n_layers - 2) + 2):
-        per_order_top = np.sum(np.array(S.GetPowerFluxByOrder("layer_" + str(layer))), 1)
-        per_order_bottom = np.sum(np.array(S.GetPowerFluxByOrder("layer_" + str(layer + 1))), 1)
+        per_order_top = np.sum(
+            np.array(S.GetPowerFluxByOrder("layer_" + str(layer))), 1
+        )
+        per_order_bottom = np.sum(
+            np.array(S.GetPowerFluxByOrder("layer_" + str(layer + 1))), 1
+        )
 
         A_per_order[i1, :] = np.real(per_order_top - per_order_bottom) / incpf
 
@@ -982,7 +1205,8 @@ class rcwa_structure:
         # depth_spacing = options['depth_spacing']
 
         # RCWA options
-        if options.RCWA_method.lower() == "s4":
+        method = options.RCWA_method.lower()
+        if method == "s4":
             S4_options = dict(
                 LatticeTruncation="Circular",
                 DiscretizedEpsilon=False,
@@ -1000,6 +1224,10 @@ class rcwa_structure:
             S4_options.update(user_options)
             self.user_options = S4_options
 
+        elif method == "fmmax":
+            self.user_options = (
+                options.FMMAX_options if "FMMAX_options" in options.keys() else {}
+            )
         else:
             self.user_options = None
 
@@ -1010,7 +1238,9 @@ class rcwa_structure:
         for i1, x in enumerate(self.shape_mats):
             if isinstance(x, list):
                 if len(x) == 3:
-                    shapes_oc[:, i1] = np.ones_like(wavelengths) * (x[1] + 1j * x[2]) ** 2
+                    shapes_oc[:, i1] = (
+                        np.ones_like(wavelengths) * (x[1] + 1j * x[2]) ** 2
+                    )
 
                 if len(x) == 4:
                     shapes_oc[:, i1] = (x[2] + 1j * x[3]) ** 2
@@ -1053,8 +1283,14 @@ class rcwa_structure:
         elif options.RCWA_method.lower() == "inkstone":
             S = initialise_S_inkstone(*args)
 
+        elif options.RCWA_method.lower() == "fmmax":
+            raise NotImplementedError(
+                "FMMAX does not expose an S4/Inkstone-compatible solver object. "
+                "Use calculate() or calculate_profile()."
+            )
+
         else:
-            raise ValueError("RCWA_method must be 'S4' or 'Inkstone'")
+            raise ValueError("RCWA_method must be 'S4', 'Inkstone', or 'FMMAX'")
 
         return S
 
@@ -1078,14 +1314,26 @@ class rcwa_structure:
         :return: A dictionary with the R, A and T at the specified wavelengths and angle.
         """
 
-        parallel_func = {"s4": RCWA_structure_wl, "inkstone": RCWA_structure_wl_inkstone}
+        parallel_func = {
+            "s4": RCWA_structure_wl,
+            "inkstone": RCWA_structure_wl_inkstone,
+            "fmmax": RCWA_structure_wl_fmmax,
+        }
 
         if isinstance(options, dict):
             options = State(options)
 
         wl = options.wavelength * 1e9
 
-        pol = process_pol(options.pol)
+        method = options.RCWA_method.lower()
+        if method not in parallel_func:
+            raise ValueError("RCWA_method must be 'S4', 'Inkstone', or 'FMMAX'")
+        if method == "fmmax" and (options.A_per_order or options.detailed_rcwa):
+            raise NotImplementedError(
+                "A_per_order and detailed_rcwa are not yet exposed by the FMMAX "
+                "rcwa_structure adapter."
+            )
+        pol = options.pol if method == "fmmax" else process_pol(options.pol)
 
         if not np.all(options.wavelength == self.current_wavelengths):
             # need to update list of optical constants for correct wavelengths
@@ -1097,7 +1345,7 @@ class rcwa_structure:
             n_jobs = 1
 
         allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_func[options.RCWA_method.lower()])(
+            delayed(parallel_func[method])(
                 wl[i1],
                 self.geom_list,
                 self.layers_oc[i1],
@@ -1122,9 +1370,6 @@ class rcwa_structure:
 
         self.rat_output_A = np.sum(A_mat, 1)  # used for profile calculation
 
-        S_for_orders = self.make_S(options, 0)
-
-
         results = {
             "R": R,
             "T": T,
@@ -1132,6 +1377,7 @@ class rcwa_structure:
         }
 
         if options.A_per_order:
+            S_for_orders = self.make_S(options, 0)
             A_order = np.real(np.stack([item[3] for item in allres]))
 
             results["A_layer_order"] = A_order
@@ -1142,6 +1388,7 @@ class rcwa_structure:
             results["reciprocal"] = f_mat
 
         if options.detailed_rcwa:
+            S_for_orders = self.make_S(options, 0)
             R_order = np.real(np.stack([item[4] for item in allres]))
             T_order = np.real(np.stack([item[5] for item in allres]))
             R_amplitudes = np.stack([item[6] for item in allres])
@@ -1174,11 +1421,18 @@ class rcwa_structure:
         if isinstance(options, dict):
             options = State(options)
 
-        parallel_func = {"s4": RCWA_wl_prof, "inkstone": RCWA_wl_prof_inkstone}
+        parallel_func = {
+            "s4": RCWA_wl_prof,
+            "inkstone": RCWA_wl_prof_inkstone,
+            "fmmax": RCWA_wl_prof_fmmax,
+        }
 
         wl = options.wavelength * 1e9
 
-        pol = process_pol(options.pol)
+        method = options.RCWA_method.lower()
+        if method not in parallel_func:
+            raise ValueError("RCWA_method must be 'S4', 'Inkstone', or 'FMMAX'")
+        pol = options.pol if method == "fmmax" else process_pol(options.pol)
 
         if len(options.wavelength) == len(self.current_wavelengths):
             if not np.all(options.wavelength == self.current_wavelengths):
@@ -1213,7 +1467,7 @@ class rcwa_structure:
             n_jobs = 1
 
         allres = Parallel(n_jobs=n_jobs)(
-            delayed(parallel_func[options.RCWA_method.lower()])(
+            delayed(parallel_func[method])(
                 wl[i1],
                 self.rat_output_A[i1],
                 dist,
@@ -1288,7 +1542,9 @@ class rcwa_structure:
             a_i = np.zeros(len(xs) * len(ys))
 
             if layer_index > 0:
-                depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + 1e-10
+                depth = (
+                    np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + 1e-10
+                )
 
             else:
                 depth = -1
@@ -1307,7 +1563,9 @@ class rcwa_structure:
                     "Plotting extent not implemented for Inkstone RCWA. Returns results for one unit cell."
                 )
 
-            xs, ys, epsilon, _ = S.ReconstructLayer(f"layer_{layer_index + 1}", n_points, n_points)
+            xs, ys, epsilon, _ = S.ReconstructLayer(
+                f"layer_{layer_index + 1}", n_points, n_points
+            )
             # last value returned is mu, but not currently used by RayFlare
             # assume material is isotropic! top left entry of dielectric tensor
             a_r = np.real(epsilon)[:, :, 0, 0]
@@ -1330,9 +1588,15 @@ class rcwa_structure:
 
         return xs, ys, a_r, a_i
 
-
     def get_fields(
-        self, layer_index, wavelength, options, extent=None, depth=1e-10, n_points=200, plot=True
+        self,
+        layer_index,
+        wavelength,
+        options,
+        extent=None,
+        depth=1e-10,
+        n_points=200,
+        plot=True,
     ):
         """
         Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
@@ -1392,12 +1656,16 @@ class rcwa_structure:
 
         if options.RCWA_method.lower() == "s4":
             for x_i, y_i in zip(range(0, total_points), range(0, total_points)):
-                calc = S.GetFields(xys[0].flatten()[x_i], xys[1].flatten()[y_i], depth_S4)
+                calc = S.GetFields(
+                    xys[0].flatten()[x_i], xys[1].flatten()[y_i], depth_S4
+                )
                 E[ind_0[x_i], ind_1[y_i]] = calc[0]
                 H[ind_0[x_i], ind_1[y_i]] = calc[1]
 
         else:
-            calc = S.GetLayerFields(x=xs, y=ys, z=depth, layer=str("layer_" + str(layer_index + 1)))
+            calc = S.GetLayerFields(
+                x=xs, y=ys, z=depth, layer=str("layer_" + str(layer_index + 1))
+            )
             E[:, :, 0] = calc[0][:, :, 0]
             E[:, :, 1] = calc[1][:, :, 0]
             E[:, :, 2] = calc[2][:, :, 0]
@@ -1425,7 +1693,9 @@ class rcwa_structure:
 
         return xs, ys, E, H, E_mag, H_mag
 
-    def get_fields_unit_cell(self, layer_index, wavelength, options, depth=1e-10, n_points=200):
+    def get_fields_unit_cell(
+        self, layer_index, wavelength, options, depth=1e-10, n_points=200
+    ):
         """
         Get the components of the E and H fields at a specific depth in a layer, over a range of x/y points. Can also plot results
         automatically. Uses the S4 function GetFieldsOnGrid().
@@ -1449,9 +1719,13 @@ class rcwa_structure:
             set_incident_wave(S, pol[0], pol[1], options, wavelength)
 
             if layer_index > 0:
-                depth = np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
+                depth = (
+                    np.cumsum([0] + self.widths[1:-1] + [0])[layer_index - 1] + depth
+                )
 
-            E, H = S.GetFieldsOnGrid(z=depth, NumSamples=(n_points, n_points), Format="Array")
+            E, H = S.GetFieldsOnGrid(
+                z=depth, NumSamples=(n_points, n_points), Format="Array"
+            )
 
         else:
             raise ValueError(
@@ -1604,12 +1878,16 @@ def RCWA_structure_wl(
             result_list.append(A_per_layer_order)
 
         if detailed_rcwa:
-            R_per_order, T_per_order, _, R_amplitudes, T_amplitudes = rcwa_rt_pfbo(S, len(widths), incpf)
+            R_per_order, T_per_order, _, R_amplitudes, T_amplitudes = rcwa_rt_pfbo(
+                S, len(widths), incpf
+            )
             result_list += [None, R_per_order, T_per_order, R_amplitudes, T_amplitudes]
 
         return result_list
 
-    S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+    S = initialise_S(
+        size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options
+    )
 
     results = vs_pol(*pol)
 
@@ -1617,8 +1895,18 @@ def RCWA_structure_wl(
 
 
 def RCWA_structure_wl_inkstone(
-    wl, geom_list, layers_oc, shapes_oc, s_names, pol,
-        theta, phi, widths, size, orders, *args
+    wl,
+    geom_list,
+    layers_oc,
+    shapes_oc,
+    s_names,
+    pol,
+    theta,
+    phi,
+    widths,
+    size,
+    orders,
+    *args,
 ):
     def vs_pol(s, p):
         S.SetExcitation(theta, phi, s, p)
@@ -1634,11 +1922,53 @@ def RCWA_structure_wl_inkstone(
         # else:
         return R, T, A_layer
 
-    S = initialise_S_inkstone(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths)
+    S = initialise_S_inkstone(
+        size, orders, geom_list, layers_oc, shapes_oc, s_names, widths
+    )
 
     results = vs_pol(pol[0], pol[1])
 
     return results
+
+
+def RCWA_structure_wl_fmmax(
+    wl,
+    geom_list,
+    layers_oc,
+    shapes_oc,
+    s_names,
+    pol,
+    theta,
+    phi,
+    widths,
+    size,
+    orders,
+    A_per_order,
+    detailed_rcwa,
+    fmmax_options,
+):
+    """FMMAX wavelength worker for :class:`rcwa_structure`."""
+    if A_per_order or detailed_rcwa:
+        raise NotImplementedError(
+            "A_per_order and detailed_rcwa are not yet exposed by the FMMAX adapter."
+        )
+    from . import fmmax_backend
+
+    result = fmmax_backend.solve(
+        wavelength=wl,
+        geom_list=geom_list,
+        layer_permittivities=layers_oc,
+        shape_permittivities=shapes_oc,
+        shape_names=s_names,
+        pol=pol,
+        theta=theta,
+        phi=phi,
+        widths=widths,
+        size=size,
+        orders=orders,
+        user_options=fmmax_options,
+    )
+    return result["R"], result["T"], result["A_per_layer"]
 
 
 def RCWA_wl_prof(
@@ -1660,7 +1990,9 @@ def RCWA_wl_prof(
     profile_data = np.zeros(len(dist))
 
     if rat_output_A > 0:
-        S = initialise_S(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options)
+        S = initialise_S(
+            size, orders, geom_list, layers_oc, shapes_oc, s_names, widths, S4_options
+        )
 
         S.SetExcitationPlanewave((theta, phi), pol[0], pol[1], 0)
         S.SetFrequency(1 / wl)
@@ -1671,7 +2003,9 @@ def RCWA_wl_prof(
             layer, d_in_layer = tmm.find_in_structure_with_inf(
                 widths, d
             )  # don't need to change this
-            layer_name = "layer_" + str(layer + 1)  # layer_1 is air above so need to add 1
+            layer_name = "layer_" + str(
+                layer + 1
+            )  # layer_1 is air above so need to add 1
             data = rcwa_position_resolved(S, layer_name, d_in_layer, incpf)
             profile_data[j] = np.real(data)
 
@@ -1696,7 +2030,9 @@ def RCWA_wl_prof_inkstone(
 ):
     profile_data = np.zeros(len(dist))
     if rat_output_A > 0:
-        S = initialise_S_inkstone(size, orders, geom_list, layers_oc, shapes_oc, s_names, widths)
+        S = initialise_S_inkstone(
+            size, orders, geom_list, layers_oc, shapes_oc, s_names, widths
+        )
 
         S.SetExcitation(theta, phi, pol[0], pol[1])
         S.SetFrequency(1 / wl)
@@ -1707,8 +2043,49 @@ def RCWA_wl_prof_inkstone(
             layer, d_in_layer = tmm.find_in_structure_with_inf(
                 widths, d
             )  # don't need to change this
-            layer_name = "layer_" + str(layer + 1)  # layer_1 is air above so need to add 1
+            layer_name = "layer_" + str(
+                layer + 1
+            )  # layer_1 is air above so need to add 1
             data = rcwa_position_resolved(S, layer_name, d_in_layer, incpf)
             profile_data[j] = data
 
     return profile_data
+
+
+def RCWA_wl_prof_fmmax(
+    wl,
+    rat_output_A,
+    dist,
+    geom_list,
+    layers_oc,
+    shapes_oc,
+    s_names,
+    pol,
+    theta,
+    phi,
+    widths,
+    size,
+    orders,
+    fmmax_options,
+):
+    """FMMAX profile worker for :class:`rcwa_structure`."""
+    if rat_output_A <= 0:
+        return np.zeros(len(dist))
+    from . import fmmax_backend
+
+    result = fmmax_backend.solve(
+        wavelength=wl,
+        geom_list=geom_list,
+        layer_permittivities=layers_oc,
+        shape_permittivities=shapes_oc,
+        shape_names=s_names,
+        pol=pol,
+        theta=theta,
+        phi=phi,
+        widths=widths,
+        size=size,
+        orders=orders,
+        user_options=fmmax_options,
+        profile_depths=dist,
+    )
+    return result["profile"]
