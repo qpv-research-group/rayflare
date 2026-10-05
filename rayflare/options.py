@@ -56,6 +56,7 @@ class default_options(State):
             grid_shape=None,
             force_x64_solve=False,
             max_grid_points=1_000_000,
+            eig_backend="default",
         )
 
         self.orders = 10

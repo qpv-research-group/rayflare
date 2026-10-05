@@ -14,11 +14,11 @@ FMMAX and JAX are deliberately imported only when this backend is selected.
 """
 
 from importlib import metadata
+import inspect
 
 import numpy as np
 
-
-FMMAX_PIN = "1.7.1"
+FMMAX_PIN = "1.7.1"  # PyPI baseline, not the maintained-source revision.
 
 DEFAULT_OPTIONS = {
     "formulation": "fft",
@@ -27,6 +27,7 @@ DEFAULT_OPTIONS = {
     "grid_shape": None,
     "force_x64_solve": False,
     "max_grid_points": 1_000_000,
+    "eig_backend": "default",
 }
 
 
@@ -100,7 +101,14 @@ def _grid_shape(lattice, expansion, backend_options, basis):
     else:
         shape = np.asarray(backend_options["grid_shape"], dtype=int)
 
-    minimum = np.asarray(basis.min_array_shape_for_expansion(expansion), dtype=int)
+    # The maintained source exposes this helper in fft; the PyPI baseline
+    # exposes it in basis. Select the public capability, not a version string.
+    minimum_shape = getattr(basis, "min_array_shape_for_expansion", None)
+    if minimum_shape is None:
+        from fmmax import fft
+
+        minimum_shape = fft.min_array_shape_for_expansion
+    minimum = np.asarray(minimum_shape(expansion), dtype=int)
     if backend_options["grid_shape"] is not None and np.any(shape < minimum):
         raise ValueError(
             "FMMAX_options['grid_shape'] is too small for the Fourier expansion: "
@@ -116,14 +124,48 @@ def _grid_shape(lattice, expansion, backend_options, basis):
 
 
 def _cell_coordinates(lattice, shape):
-    i, j = np.meshgrid(
-        (np.arange(shape[0]) + 0.5) / shape[0],
-        (np.arange(shape[1]) + 0.5) / shape[1],
-        indexing="ij",
+    # Use the installed solver's sampling origin for both material and fields.
+    # The maintained source samples cell vertices; the PyPI baseline samples
+    # pixel centres. A hard-coded half-pixel offset misaligns patterned loss.
+    jnp, basis, _, _, _ = _imports()
+    vectors = basis.LatticeVectors(u=jnp.asarray(lattice[0]), v=jnp.asarray(lattice[1]))
+    x, y = basis.unit_cell_coordinates(vectors, shape, num_unit_cells=(1, 1))
+    return np.asarray(x), np.asarray(y)
+
+
+def _eigensolve_options(fmm, backend_options):
+    """Expose optional maintained-source eigensolvers without requiring them."""
+    requested = str(backend_options["eig_backend"]).lower()
+    if requested == "default":
+        return {}
+    if (
+        "eig_backend"
+        not in inspect.signature(fmm.eigensolve_isotropic_media).parameters
+    ):
+        raise NotImplementedError(
+            "This FMMAX installation does not support eig_backend selection. "
+            "Install the reviewed maintained source or use eig_backend='default'."
+        )
+    from fmmax import utils
+
+    return {"eig_backend": _enum_from_value(utils.EigBackend, requested, "eig_backend")}
+
+
+def _physical_incident_flux(incident_amplitude, solve_result, fields, jnp):
+    """Normalize field-loss profiles by physical flux, not a release prefactor.
+
+    FMMAX variants use different overall factors in amplitude_poynting_flux.
+    Ratios of modal powers are unaffected, but a physical |E|^2 loss density
+    must use 0.5 Re(E x H*) from the same incident fields.
+    """
+    electric, magnetic = fields.fields_from_wave_amplitudes(
+        incident_amplitude, jnp.zeros_like(incident_amplitude), solve_result
     )
-    x = i * lattice[0, 0] + j * lattice[1, 0]
-    y = i * lattice[0, 1] + j * lattice[1, 1]
-    return x, y
+    ex, ey, _ = electric
+    hx, hy, _ = magnetic
+    return np.sum(
+        0.5 * np.real(np.asarray(ex * jnp.conj(hy) - ey * jnp.conj(hx))), axis=0
+    )
 
 
 def _points_in_polygon(x, y, vertices):
@@ -378,6 +420,7 @@ def solve(
         azimuthal_angle=jnp.asarray(phi_rad),
         permittivity=jnp.asarray(layer_permittivities[0]),
     )
+    eigensolve_options = _eigensolve_options(fmm, backend_options)
     layer_solve_results = [
         fmm.eigensolve_isotropic_media(
             wavelength=jnp.asarray(wavelength),
@@ -386,6 +429,7 @@ def solve(
             permittivity=jnp.asarray(permittivity),
             expansion=expansion,
             formulation=formulation,
+            **eigensolve_options,
         )
         for permittivity in permittivity_grids
     ]
@@ -485,6 +529,11 @@ def solve(
     result["transverse_wavevectors"] = transverse_wavevectors
 
     if profile_depths is not None:
+        physical_incident_flux = _physical_incident_flux(
+            incident_amplitude, layer_solve_results[0], fields, jnp
+        )
+        if np.any(physical_incident_flux <= 0):
+            raise ValueError("The incident fields have non-positive physical power.")
         profile_depths = np.asarray(profile_depths, dtype=float)
         total_thickness = float(np.sum(widths[1:-1]))
         if np.any(profile_depths < 0) or np.any(profile_depths >= total_thickness):
@@ -515,6 +564,7 @@ def solve(
                 magnetic_field=magnetic_field,
                 layer_solve_result=solve_result,
                 shape=grid_shape,
+                num_unit_cells=(1, 1),
             )
             electric_intensity = sum(np.abs(np.asarray(x)) ** 2 for x in electric_grid)
             epsilon_imag = np.imag(permittivity_grids[layer_index])[..., np.newaxis]
@@ -523,7 +573,9 @@ def solve(
                 * angular_frequency
                 * np.mean(epsilon_imag * electric_intensity, axis=(0, 1))
             )
-            profile[profile_index] = np.sum(absorbed_density / incident_flux * weights)
+            profile[profile_index] = np.sum(
+                absorbed_density / physical_incident_flux * weights
+            )
         result["profile"] = profile
 
     return result

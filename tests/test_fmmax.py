@@ -3,7 +3,6 @@ import pytest
 from numpy.testing import assert_allclose
 from tmm import absorp_in_each_layer, coh_tmm
 
-
 pytest.importorskip("fmmax", reason="optional FMMAX dependency is not installed")
 
 
@@ -51,15 +50,70 @@ def test_planar_matches_tmm(theta, pol):
     assert_allclose(np.sum(actual), 1, atol=2e-6, rtol=0)
 
 
-def test_profile_integrates_to_layer_absorption():
+@pytest.mark.parametrize("pol", ["s", "p", "u"])
+def test_profile_integrates_to_layer_absorption(pol):
     spacing = 0.5
     depths = np.arange(0, 240, spacing)
-    result = _planar_result("u", profile_depths=depths)
+    result = _planar_result(pol, profile_depths=depths)
     layer_index = np.searchsorted(np.cumsum([80, 160]), depths, side="right")
     integrated = np.asarray(
         [np.sum(result["profile"][layer_index == i]) * spacing for i in range(2)]
     )
     assert_allclose(integrated, result["A_per_layer"], atol=3e-4, rtol=0)
+
+
+def test_physical_incident_flux_matches_plane_wave():
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend
+
+    jnp, basis, fields, fmm, _ = fmmax_backend._imports()
+    theta, phi, n = np.deg2rad(35), np.deg2rad(23), 1.5
+    lattice = basis.LatticeVectors(u=jnp.asarray([500, 0]), v=jnp.asarray([0, 500]))
+    expansion = basis.generate_expansion(lattice, 1, basis.Truncation.CIRCULAR)
+    wavevector = basis.plane_wave_in_plane_wavevector(
+        jnp.asarray(650), jnp.asarray(theta), jnp.asarray(phi), jnp.asarray(n**2)
+    )
+    layer = fmm.eigensolve_isotropic_media(
+        wavelength=jnp.asarray(650),
+        in_plane_wavevector=wavevector,
+        primitive_lattice_vectors=lattice,
+        permittivity=jnp.asarray([[n**2]]),
+        expansion=expansion,
+        formulation=fmm.Formulation.FFT,
+    )
+    amplitudes, _ = fmmax_backend._incident_amplitudes(
+        layer, theta, phi, "u", fields, jnp
+    )
+    flux = fmmax_backend._physical_incident_flux(amplitudes, layer, fields, jnp)
+    assert_allclose(flux, n * np.cos(theta) / 2, atol=2e-6, rtol=0)
+
+
+def test_material_grid_matches_solver_sampling_origin():
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend
+
+    jnp, basis, _, _, _ = fmmax_backend._imports()
+    lattice = np.asarray([[400, 0], [80, 300]], dtype=float)
+    shape = (13, 17)
+    vectors = basis.LatticeVectors(u=jnp.asarray(lattice[0]), v=jnp.asarray(lattice[1]))
+    expected = basis.unit_cell_coordinates(vectors, shape, num_unit_cells=(1, 1))
+    actual = fmmax_backend._cell_coordinates(lattice, shape)
+    for coordinates, reference in zip(actual, expected):
+        assert_allclose(coordinates, reference, atol=1e-6, rtol=0)
+
+
+def test_minimum_grid_helper_matches_installed_api():
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend
+
+    jnp, basis, _, _, _ = fmmax_backend._imports()
+    vectors = basis.LatticeVectors(u=jnp.asarray([400, 0]), v=jnp.asarray([0, 400]))
+    expansion = basis.generate_expansion(vectors, 25, basis.Truncation.CIRCULAR)
+    shape = fmmax_backend._grid_shape(
+        np.asarray([[400, 0], [0, 400]]),
+        expansion,
+        fmmax_backend.options({"grid_spacing": 10000}),
+        basis,
+    )
+    expected = tuple(2 * np.max(np.abs(expansion.basis_coefficients), axis=0) + 1)
+    assert shape == expected
 
 
 def _patterned_result(pol, orders=25, grid_spacing=4):
@@ -195,6 +249,104 @@ def test_rcwa_matrix_interface_selects_fmmax(tmp_path):
         absorption.todense(), axis=1
     )
     assert_allclose(energy, 1, atol=2e-6)
+
+
+@pytest.mark.parametrize("side", [1, -1])
+def test_normal_incidence_matrix_retains_reflection_and_transmission(side):
+    from rayflare.angles import make_angle_vector
+    from rayflare.rigorous_coupled_wave_analysis.rcwa import RCWA_wl_fmmax
+
+    theta_edges, phi_edges, angles = make_angle_vector(3, 2 * np.pi, 1)
+    result = RCWA_wl_fmmax(
+        wl=650,
+        geom_list=[None, None, None],
+        l_oc=np.asarray([1 + 0j, 4 + 0j, 1 + 0j]),
+        s_oc=[],
+        s_names=[],
+        pol="s",
+        theta=np.asarray([0.0]),
+        phi=np.asarray([0.0]),
+        widths=[np.inf, 100, np.inf],
+        size=((500, 0), (0, 500)),
+        orders=1,
+        phi_sym=2 * np.pi,
+        theta_intv=theta_edges,
+        phi_intv=phi_edges,
+        angle_vector_0=angles[:, 0],
+        fmmax_options={},
+        side=side,
+    )
+    reflection, transmission, absorption, matrix, _ = result
+    column = 0 if side == 1 else np.flatnonzero(angles[:, 0] == 5)[0] - len(angles) // 2
+    power = matrix.todense()[:, column]
+    half = len(angles) // 2
+    reflected = np.sum(power[:half] if side == 1 else power[half:])
+    transmitted = np.sum(power[half:] if side == 1 else power[:half])
+    assert reflection[column] > 0.3  # Nonzero reflection must not be discarded.
+    assert_allclose(reflected, reflection[column], atol=2e-6, rtol=0)
+    assert_allclose(transmitted, transmission[column], atol=2e-6, rtol=0)
+    assert_allclose(np.sum(power) + np.sum(absorption[:, column]), 1, atol=2e-6, rtol=0)
+
+
+def test_rear_incidence_keeps_patterned_geometry_with_its_layer(tmp_path):
+    from solcore import material
+    from solcore.structure import Layer
+    from rayflare.options import default_options
+    from rayflare.rigorous_coupled_wave_analysis import RCWA
+
+    air = material("Air")()
+    layers = [
+        Layer(
+            120e-9,
+            material("GaAs")(),
+            geometry=[{"type": "circle", "mat": air, "center": (0, 0), "radius": 80}],
+        ),
+        Layer(
+            80e-9,
+            material("Si")(),
+            geometry=[
+                {
+                    "type": "rectangle",
+                    "mat": air,
+                    "center": (100, 50),
+                    "halfwidths": (40, 60),
+                }
+            ],
+        ),
+    ]
+    opts = default_options()
+    opts.RCWA_method = "FMMAX"
+    opts.parallel = False
+    opts.orders = 1
+    opts.wavelength = np.asarray([650e-9])
+    opts.n_theta_bins = 3
+    opts.c_azimuth = 0.1
+    opts.theta_in = opts.phi_in = 0
+    opts.pol = "s"
+    arguments = dict(
+        size=((400, 0), (0, 400)),
+        orders=1,
+        options=opts,
+        structpath=str(tmp_path),
+        incidence=air,
+        transmission=air,
+        only_incidence_angle=True,
+        save=False,
+        overwrite=True,
+    )
+    reference_rt, reference_a = RCWA(layers[::-1], front_or_rear="front", **arguments)
+    rear_rt, rear_a = RCWA(layers, front_or_rear="rear", **arguments)
+    reference = reference_rt.todense()[0, :, 0]
+    rear = rear_rt.todense()[0, :, -1]
+    half = len(reference) // 2
+    assert_allclose(np.sum(rear[:half]), np.sum(reference[half:]), atol=2e-6, rtol=0)
+    assert_allclose(np.sum(rear[half:]), np.sum(reference[:half]), atol=2e-6, rtol=0)
+    assert_allclose(
+        rear_a.todense()[0, :, -1], reference_a.todense()[0, ::-1, 0], atol=2e-6, rtol=0
+    )
+    assert_allclose(
+        np.sum(rear) + np.sum(rear_a.todense()[0, :, -1]), 1, atol=2e-6, rtol=0
+    )
 
 
 def test_unsupported_geometry_is_rejected():

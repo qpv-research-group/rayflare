@@ -123,7 +123,10 @@ def RCWA(
                 prof_layers = np.sort(len(layers) - np.array(prof_layers) + 1).tolist()
 
         # write a separate function that makes the OptiStack structure into an S4 object, defined materials etc.
-        geom_list = [layer.geometry for layer in structure]
+        # Keep geometry paired with the reversed material stack for FMMAX rear
+        # incidence. Leave the existing backends' behavior unchanged here.
+        geometry_layers = layers if method == "fmmax" else structure
+        geom_list = [layer.geometry for layer in geometry_layers]
         geom_list.insert(0, {})  # incidence medium
         geom_list.append({})  # transmission medium
 
@@ -507,6 +510,19 @@ def RCWA_wl_inkstone(
         return R, T, A_layer.T, mat_RT, mat_int  # , mat_T
 
 
+def _fmmax_angle_bins(theta, phi, theta_intv, phi_intv, angle_vector_0):
+    """Map directions to matrix bins, including zero-angle boundaries."""
+    theta_bins = np.clip(
+        np.digitize(theta, theta_intv, right=True) - 1, 0, len(phi_intv) - 1
+    )
+    bins = np.empty(len(theta_bins), dtype=int)
+    for i, theta_bin in enumerate(theta_bins):
+        edges = phi_intv[theta_bin]
+        phi_bin = np.clip(np.digitize(phi[i], edges, right=True) - 1, 0, len(edges) - 2)
+        bins[i] = np.flatnonzero(angle_vector_0 == theta_bin)[0] + phi_bin
+    return bins
+
+
 def RCWA_wl_fmmax(
     wl,
     geom_list,
@@ -535,30 +551,28 @@ def RCWA_wl_fmmax(
         )
     from . import fmmax_backend
 
-    n_angles = len(theta)
-    R = np.zeros(n_angles)
-    T = np.zeros(n_angles)
-    A_layer = np.zeros((n_angles, len(widths) - 2))
-    mat_RT = np.zeros((len(angle_vector_0), int(len(angle_vector_0) / 2)))
+    n_columns = int(len(angle_vector_0) / 2)
+    R = np.zeros(n_columns)
+    T = np.zeros(n_columns)
+    A_layer = np.zeros((n_columns, len(widths) - 2))
+    mat_RT = np.zeros((len(angle_vector_0), n_columns))
     mat_int = np.zeros_like(mat_RT)
     if dist is not None:
         mat_prof = np.zeros((len(dist), int(len(angle_vector_0) / 2)))
         mat_intgr = np.zeros(int(len(angle_vector_0) / 2))
 
-    if side == 1:
-        in_bin = np.arange(n_angles)
-    else:
-        binned_theta_in = (
-            np.digitize(np.pi - np.pi * theta / 180, theta_intv, right=True) - 1
-        )
-        phi_in = xr.DataArray(
-            np.pi * phi / 180,
-            coords={"theta_bin": (["angle_in"], binned_theta_in)},
-            dims=["angle_in"],
-        )
-        in_bin = phi_in.groupby("theta_bin").map(
-            overall_bin, args=(phi_intv, angle_vector_0)
-        ).data - int(len(angle_vector_0) / 2)
+    theta_in = np.deg2rad(theta)
+    if side == -1:
+        theta_in = np.pi - theta_in
+    in_bin = _fmmax_angle_bins(
+        theta_in,
+        fold_phi(np.deg2rad(phi), phi_sym),
+        theta_intv,
+        phi_intv,
+        angle_vector_0,
+    )
+    if side == -1:
+        in_bin -= n_columns
 
     logger.info(f"FMMAX RCWA calculation for wavelength = {wl} nm")
     for angle_index, (th, ph) in enumerate(zip(theta, phi)):
@@ -603,33 +617,17 @@ def RCWA_wl_fmmax(
         T_order = np.where(
             np.abs(result["T_per_order"]) < 1e-12, 0, result["T_per_order"]
         )
-        theta_r_bin = np.digitize(theta_r, theta_intv, right=True) - 1
-        theta_t_bin = np.digitize(theta_t, theta_intv, right=True) - 1
+        reflected_bins = _fmmax_angle_bins(
+            theta_r, phi_rt, theta_intv, phi_intv, angle_vector_0
+        )
+        transmitted_bins = _fmmax_angle_bins(
+            theta_t, phi_rt, theta_intv, phi_intv, angle_vector_0
+        )
         for order_index in np.nonzero(R_order > 0)[0]:
-            if not 0 <= theta_r_bin[order_index] < len(phi_intv):
-                continue
-            phi_index = (
-                np.digitize(
-                    phi_rt[order_index], phi_intv[theta_r_bin[order_index]], right=True
-                )
-                - 1
-            )
-            output_bin = (
-                np.argmin(abs(angle_vector_0 - theta_r_bin[order_index])) + phi_index
-            )
+            output_bin = reflected_bins[order_index]
             mat_RT[output_bin, column] += R_order[order_index]
         for order_index in np.nonzero(T_order > 0)[0]:
-            if not 0 <= theta_t_bin[order_index] < len(phi_intv):
-                continue
-            phi_index = (
-                np.digitize(
-                    phi_rt[order_index], phi_intv[theta_t_bin[order_index]], right=True
-                )
-                - 1
-            )
-            output_bin = (
-                np.argmin(abs(angle_vector_0 - theta_t_bin[order_index])) + phi_index
-            )
+            output_bin = transmitted_bins[order_index]
             mat_RT[output_bin, column] += T_order[order_index]
 
     if side == -1:
