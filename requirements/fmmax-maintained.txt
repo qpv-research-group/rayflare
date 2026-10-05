@@ -1,0 +1,5 @@
+# Maintained source: pin a full public commit, never a moving branch.
+# Install RayFlare without its fmmax extra before using this requirement.
+# Package metadata still identifies this source as fmmax 0.11.0; pip's
+# direct_url.json records the repository and commit that distinguish it.
+fmmax @ git+https://github.com/matt8s/fmmax.git@88f50196189b57a3de66c1da4a69030cda51bcc9

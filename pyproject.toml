@@ -57,7 +57,8 @@ test = [
 ]
 
 [project.optional-dependencies]
-# Pin FMMAX so that the numerical backend used by this adapter is reproducible.
+# PyPI baseline only; maintained-source testing is pinned separately in
+# requirements/fmmax-maintained.txt until publishing access is established.
 # JAX/JAXlib remain transitive dependencies selected for the user's platform.
 fmmax = ["fmmax==1.7.1"]
 

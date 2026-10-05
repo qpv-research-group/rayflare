@@ -1,15 +1,22 @@
 FMMAX backend
 =============
 
-`FMMAX <https://github.com/facebookresearch/fmmax>`_ is an optional JAX-based
-Fourier modal method backend. Install the reproducible version used by this
-adapter with::
+`FMMAX <https://github.com/matt8s/fmmax>`_ is an optional JAX-based
+Fourier modal method backend.
+It provides an alternative to S4 for the isotropic structures and outputs
+listed below, not a replacement for every S4-specific API.
+There are two installation paths: the pinned PyPI baseline and the maintained
+source at ``matt8s/fmmax``.
+Install the PyPI baseline with::
 
     pip install "rayflare[fmmax]"
 
-The ``fmmax`` extra pins FMMAX 1.7.1. FMMAX and JAX are imported lazily, so a
-normal RayFlare import and the default S4 backend do not require them. Select
-FMMAX without changing the existing RCWA API::
+The ``fmmax`` extra pins FMMAX 1.7.1.
+That distribution identifies ``invrs-io/fmmax`` as its source; it is not a release
+of ``matt8s/fmmax`` or the archived ``facebookresearch/fmmax`` repository.
+FMMAX and JAX are imported lazily, so a normal RayFlare import and the default
+S4 backend do not require them.
+Select FMMAX without changing the existing RCWA API::
 
     options.RCWA_method = "FMMAX"
 
@@ -17,6 +24,93 @@ The default remains ``"S4"``. FMMAX can be selected for both
 :class:`~rayflare.rigorous_coupled_wave_analysis.rcwa.rcwa_structure` and the
 :func:`~rayflare.rigorous_coupled_wave_analysis.rcwa.RCWA` redistribution
 matrix function.
+
+RayFlare's existing saved-matrix filenames do not include the backend or its
+settings.
+When switching from S4 or Inkstone, changing the FMMAX source revision, or
+changing solver settings, use a fresh matrix directory/surface name or request
+``overwrite=True`` when calling ``RCWA``.
+Otherwise a previously cached matrix can be returned without running FMMAX.
+
+Maintained-source installation
+------------------------------
+
+The integration also has a separate compatibility lane for
+`matt8s/fmmax <https://github.com/matt8s/fmmax>`_.
+In a fresh environment, install RayFlare without the ``fmmax`` extra and then
+install the reviewed source revision::
+
+    python -m pip install rayflare
+    python -m pip install "fmmax @ git+https://github.com/matt8s/fmmax.git@88f50196189b57a3de66c1da4a69030cda51bcc9"
+
+For development from the RayFlare checkout, use::
+
+    python -m pip install -e .
+    python -m pip install -r requirements/fmmax-maintained.txt
+
+Do not combine this source requirement with ``rayflare[fmmax]``: the current
+source metadata reports version 0.11.0, which conflicts with the extra's 1.7.1
+pin.
+The full commit is the source identifier; the package version alone does not
+identify the repository or establish compatibility.
+``python -m pip freeze`` records the VCS revision, and installed VCS packages
+also record it in their ``direct_url.json`` metadata.
+
+The adapter selects public API capabilities rather than comparing version
+strings.
+It accepts the grid-size helper in either ``basis`` or ``fft``, uses the solver's
+own grid coordinates for rasterization, passes an explicit unit-cell count to
+field reconstruction, and normalizes physical loss density by
+``0.5 Re(E x H*)`` of the incident fields.
+These choices account for API, sampling-origin, and modal-flux prefactor
+differences between the two sources without changing either solver.
+
+The dedicated FMMAX workflow installs each source in a separate CPU job and
+runs the same adapter tests, including planar TMM comparisons, energy balance,
+profile integration, geometry-grid alignment, and patterned Inkstone comparisons.
+Workflow results, not the existence of a job definition, establish compatibility
+for a particular revision.
+
+Local CPU validation of the compatibility changes passed all 30 focused tests
+against both the installed PyPI baseline and a fresh VCS installation of the
+pinned maintained source.
+The latter reported package version 0.11.0 and its ``direct_url.json`` recorded
+commit ``88f50196189b57a3de66c1da4a69030cda51bcc9``.
+Both runs used Python 3.12.14, JAX/JAXlib 0.11.2, NumPy 2.4.0, Solcore 5.10.1,
+Inkstone 0.3.15, single-precision arrays, and one CPU device.
+Both semiconductor/metal examples also completed.
+The Python 3.11/JAX 0.4.38 CI lane and GPU behavior have not been validated locally.
+From the respective environment, reproduce the focused checks with::
+
+    JAX_PLATFORMS=cpu python -m pytest tests/test_fmmax_optional.py tests/test_fmmax.py -q
+
+RayFlare's existing dependency metadata pins NumPy 2.4.0, which the package
+index now marks as yanked.
+That inherited pin was retained for these reproducibility checks; it is not a
+recommendation to select a yanked release for new projects.
+
+Distribution handoff
+--------------------
+
+GitHub repository access and PyPI publishing access are separate.
+Until the maintained source has a verified release on the existing ``fmmax``
+PyPI project, the extra remains on the baseline and the maintained-source lane
+remains commit-pinned.
+To switch the extra after publishing access is granted:
+
+* Coordinate the release with the current PyPI owners and verify that the
+  package is built from the intended maintained-source tag.
+* Choose an unused, appropriately newer package version; the inherited 0.11.0
+  version must not be reused as the successor to PyPI 1.7.1.
+* Establish working release credentials or trusted publishing, update package
+  and documentation links, and verify the wheel and sdist in a clean environment.
+* Run the RayFlare numerical and optional-dependency tests against that released
+  wheel, then update the extra pin, installation-error version, CI source matrix,
+  and validation record together in a new commit.
+* Retain the existing baseline evidence and compatibility lane until the intended
+  support policy is agreed with RayFlare's maintainers.
+
+This handoff does not require a new RayFlare backend name or API.
 
 Conventions
 -----------
@@ -68,6 +162,7 @@ Option               Default               Meaning
 ``grid_shape``       ``None``               Explicit ``(nx, ny)`` override
 ``force_x64_solve``  ``False``              Use FMMAX's x64 matrix-solve path
 ``max_grid_points``  ``1000000``            Guard against accidental large grids
+``eig_backend``      ``"default"``          Optional maintained-source eigensolver
 ===================  ====================  =====================================
 
 The raster is automatically enlarged if required by the Fourier expansion. An
@@ -75,12 +170,23 @@ explicit ``grid_shape`` that is too small is rejected. As with any RCWA solve,
 both Fourier terms and geometry-grid resolution must be converged for the
 specific structure.
 
+``eig_backend="default"`` leaves the installed solver's default unchanged.
+The maintained source additionally exposes ``"cusolver"`` for supported NVIDIA
+GPU/JAX installations.
+An installation without the selection API raises an explicit exception for a
+nondefault request rather than silently ignoring it.
+This adapter has no GPU correctness or timing validation yet; selecting
+``"cusolver"`` is not a performance guarantee.
+
 Validation and tolerances
 -------------------------
 
-The following checks used FMMAX 1.7.1, JAX/JAXlib 0.11.2, single-precision JAX
-arrays, and one CPU device. Errors are absolute because R, T, and absorption are
-bounded power fractions and some reference values approach zero.
+The following recorded baseline checks used FMMAX 1.7.1, JAX/JAXlib 0.11.2,
+single-precision JAX arrays, and one CPU device, before the maintained-source
+compatibility changes.
+They do not establish validation of the maintained source.
+Errors are absolute because R, T, and absorption are bounded power fractions
+and some reference values approach zero.
 
 .. list-table::
     :header-rows: 1
