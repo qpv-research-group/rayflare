@@ -169,3 +169,98 @@ def test_invalid_backend_options_are_rejected(settings):
 
     with pytest.raises(ValueError):
         backend.options(settings)
+
+
+def _validation_pair(tmp_path, values, difference=None):
+    import json
+    from pathlib import Path
+
+    paths = [tmp_path / "cpu.npz", tmp_path / "gpu.npz"]
+    record = dict(
+        sha="test-sha",
+        source={},
+        versions={"jax": "test"},
+        x64=False,
+        matmul_precision="None",
+        solve_matmul_precision="highest",
+        dirty=False,
+        python_version="3.12.14",
+        runtime_environment={"XLA_FLAGS": None},
+        num_terms={"planar": 1, "pattern": 45, "diffraction_1": 21},
+        geometry_grids=[],
+    )
+    for index, path in enumerate(paths):
+        np.savez(path, **values)
+        provenance = record.copy()
+        if index and difference:
+            provenance.update(difference)
+        Path(str(path) + ".json").write_text(json.dumps(provenance))
+    return paths
+
+
+@pytest.mark.parametrize(
+    "key,values",
+    [
+        ("planar_A_per_layer", [-0.1, 0.2]),
+        ("planar_R", [1.1]),
+        ("pattern_profile", [-0.001]),
+        ("matrix_1", [[-0.01, 1.01]]),
+    ],
+)
+def test_comparison_rejects_matching_unphysical_results(tmp_path, key, values):
+    from tests.fmmax_validation import compare
+
+    paths = _validation_pair(tmp_path, {key: np.array(values)})
+    with pytest.raises(AssertionError, match="physical"):
+        compare(*paths)
+
+
+@pytest.mark.parametrize(
+    "difference",
+    [
+        {"python_version": "3.11.9"},
+        {"runtime_environment": {"XLA_FLAGS": "--xla_gpu_enable_triton_gemm=false"}},
+        {"solve_matmul_precision": "default"},
+        {"geometry_grids": ["different-material-raster"]},
+    ],
+)
+def test_comparison_rejects_mismatched_runtime(tmp_path, difference):
+    from tests.fmmax_validation import compare
+
+    paths = _validation_pair(tmp_path, {"planar_R": np.array(0.2)}, difference)
+    with pytest.raises(AssertionError):
+        compare(*paths)
+
+
+def test_snapshot_metadata_allows_absent_optional_cuda_packages():
+    from tests.fmmax_validation import _installed_version
+
+    assert (
+        _installed_version("__rayflare_nonexistent_validation_optional_dependency__")
+        is None
+    )
+    assert _installed_version("numpy") is not None
+
+
+def test_comparison_uses_precision_and_modal_dimension_roundoff_scale(tmp_path):
+    import json
+    from pathlib import Path
+    from tests.fmmax_validation import compare
+
+    paths = _validation_pair(tmp_path, {"pattern_R": np.array(0.2)})
+    np.savez(paths[1], pattern_R=np.array(0.200004))
+    # Plausible float32 roundoff for 90 modes, but not double precision.
+    compare(*paths)
+    for path in paths:
+        record = json.loads(Path(str(path) + ".json").read_text())
+        record["x64"] = True
+        Path(str(path) + ".json").write_text(json.dumps(record))
+    with pytest.raises(AssertionError):
+        compare(*paths)
+    np.savez(paths[1], pattern_R=np.array(0.2001))
+    for path in paths:
+        record = json.loads(Path(str(path) + ".json").read_text())
+        record["x64"] = False
+        Path(str(path) + ".json").write_text(json.dumps(record))
+    with pytest.raises(AssertionError):
+        compare(*paths)

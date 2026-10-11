@@ -561,6 +561,18 @@ def test_lossy_pattern_profile_convergence():
     assert abs(integrals[-1] - integrals[-2]) < 2e-5
     assert abs(integrals[-2] - integrals[-3]) < 5e-4
     assert abs(integrals[-3] - integrals[-4]) < 2e-3
+    # Bound the whole profile, including positive/negative differences that
+    # cancel in its integral. The pointwise budgets are the existing integrated
+    # budgets divided by this fixture's 100 nm thickness; L1 uses those budgets
+    # directly. They are convergence tolerances, not floating-point tolerances.
+    for left, right, budget in ((coarse, fourier, 2e-3), (fourier, raster, 5e-4)):
+        delta = np.abs(left["profile"] - right["profile"])
+        assert np.max(delta) < budget / 100
+        assert 2 * np.sum(delta) < budget
+    # Compare the common 2 nm sampling with pairs of 1 nm midpoint samples.
+    delta = np.abs(raster["profile"] - depth["profile"].reshape(-1, 2).mean(axis=1))
+    assert np.max(delta) < 2e-5 / 100
+    assert 2 * np.sum(delta) < 2e-5
 
 
 def test_complex_coherent_excitation_matches_weighted_planar_tmm():

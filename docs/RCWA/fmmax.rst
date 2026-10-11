@@ -182,6 +182,10 @@ nondefault request rather than silently ignoring it.
 Selecting ``"cusolver"`` is not a performance guarantee.
 The pinned maintained source's default eigensolver uses a host callback on GPU
 when the optional ``jeig`` package is absent.
+That revision initializes its CPU callback at import time, including when
+``cusolver`` is selected, so enable both backends with ``JAX_PLATFORMS=cuda,cpu``.
+JAX requires both listed backends to initialize and uses CUDA as the default;
+the validation script additionally asserts that default and solver-array devices.
 PyPI 1.7.1 instead delegates to JAX's default eigensolver; its execution location
 depends on the JAX release and installed CUDA libraries.
 In JAX 0.11.2, right-eigenvector-only solves can use native cuSOLVER when its
@@ -235,7 +239,7 @@ repeated solves. Both visible A100 GPUs were occupied by another process
 CPU/GPU agreement or GPU timing was reported in that baseline.
 
 Reproducing CPU/GPU comparisons
-------------------------------
+-------------------------------
 
 ``tests/fmmax_validation.py`` saves matching planar, circular-pattern,
 off-centre lossy-pattern profile, and front/rear diffracting-matrix fixtures.
@@ -243,12 +247,14 @@ It asserts the selected default backend and checks eigensolve, scattering,
 and reconstructed-field arrays on that backend.
 Snapshots record the RayFlare SHA, source provenance, precision, package
 versions, environment settings, and representative eigensolver lowering.
+They also record ordered hashes and shapes of the material-permittivity rasters;
+comparisons reject different geometry samples before checking numerical errors.
 Run CPU and GPU snapshots in separate processes and keep their outputs outside
 the checkout::
 
     JAX_PLATFORMS=cpu MPLBACKEND=Agg OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
         python tests/fmmax_validation.py snapshot /path/to/cpu.npz --backend cpu
-    CUDA_VISIBLE_DEVICES=0 XLA_PYTHON_CLIENT_PREALLOCATE=false JAX_PLATFORMS=cuda \
+    CUDA_VISIBLE_DEVICES=0 XLA_PYTHON_CLIENT_PREALLOCATE=false JAX_PLATFORMS=cuda,cpu \
         MPLBACKEND=Agg OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
         python tests/fmmax_validation.py snapshot /path/to/gpu.npz --backend gpu
     python tests/fmmax_validation.py compare /path/to/cpu.npz /path/to/gpu.npz
@@ -261,6 +267,18 @@ PyPI baseline rejects this adapter option explicitly.
 The comparison reports absolute errors in powers and matrices, pointwise
 profile errors, and profile-integral errors, including individual planar layers.
 It is a correctness check, not a timing benchmark.
+Repeat snapshots with ``JAX_ENABLE_X64=true`` for a double-precision control.
+Float32 power comparisons use the original ``2e-6`` absolute floor or the
+modal accumulation scale ``gamma_(2N) = 2N epsilon / (1 - 2N epsilon)``,
+whichever is larger, where ``N`` is the actual Fourier-term count.
+For the 21- and 45-term patterned fixtures this is approximately ``5.01e-6``
+and ``1.07e-5``.
+This is a fixture-specific roundoff-scale criterion, not a general eigensolver
+error bound; eigenpair residuals, eigenvector conditioning, double-precision
+controls, physical bounds, and convergence are checked separately.
+Planar TMM and energy-balance regressions retain their ``2e-6`` tolerances.
+Profile comparisons retain ``2e-8`` nm\ :sup:`-1` pointwise and ``2e-6``
+integrated absolute/L1 limits.
 
 The expanded regressions use independent TMM powers and local loss density for
 multilayer public ``calculate_profile()`` checks at 450, 650, and 850 nm,
