@@ -71,16 +71,14 @@ profile integration, geometry-grid alignment, and patterned Inkstone comparisons
 Workflow results, not the existence of a job definition, establish compatibility
 for a particular revision.
 
-Local CPU validation of the compatibility changes passed all 30 focused tests
-against both the installed PyPI baseline and a fresh VCS installation of the
-pinned maintained source.
-The latter reported package version 0.11.0 and its ``direct_url.json`` recorded
-commit ``88f50196189b57a3de66c1da4a69030cda51bcc9``.
-Both runs used Python 3.12.14, JAX/JAXlib 0.11.2, NumPy 2.4.0, Solcore 5.10.1,
-Inkstone 0.3.15, single-precision arrays, and one CPU device.
-Both semiconductor/metal examples also completed.
-The Python 3.11/JAX 0.4.38 CI lane and GPU behavior have not been validated locally.
-From the respective environment, reproduce the focused checks with::
+The historical `fork compatibility run
+<https://github.com/matt8s/rayflare/actions/runs/37257793818>`_ at RayFlare
+``88e56e89680afc6e5ecfae0ccb61901fb0eb6d0d`` passed all four CPU jobs.
+Each source was tested with Python 3.11/JAX 0.4.38 and Python 3.12/JAX 0.11.2.
+Each job passed 30 focused tests, dependency and provenance checks, and the
+semiconductor/metal example.
+This fork result does not establish an upstream CI pass or GPU agreement.
+From each source's separate environment, reproduce the current focused checks with::
 
     JAX_PLATFORMS=cpu python -m pytest tests/test_fmmax_optional.py tests/test_fmmax.py -q
 
@@ -136,6 +134,10 @@ Conventions
   by the incident z-directed Poynting flux. Layer absorption is the difference
   between unit-cell-averaged flux at the two layer boundaries. Profiles are
   calculated from ``omega Im(epsilon) |E|^2 / 2`` and have units nm\ :sup:`-1`.
+* Each solve uses JAX's ``highest`` matrix-multiply precision locally, while
+  retaining the selected array dtype and restoring the caller's precision setting.
+  Reduced-mantissa GPU defaults can otherwise violate the power/flux tolerances
+  even for planar stacks.
 * ``options.orders`` is FMMAX's *approximate* number of Fourier terms. Symmetric
   circular or parallelogramic truncation can change the actual count; for
   example, requested counts 25 and 49 produce 21 and 45 terms for the square
@@ -148,6 +150,8 @@ Isotropic planar layers and rasterized ``circle``, ``ellipse``, ``rectangle``,
 and ``polygon`` entries in ``Layer.geometry`` are supported. Multiple shapes
 and patterned layers are allowed; later entries overwrite earlier entries in
 overlap regions. A periodic feature must fit within one primitive-cell span.
+Polygon vertices are relative to the centre and rotate with the shape, as in
+the S4 interface; Inkstone's current RayFlare interface ignores polygon rotation.
 An absorbing incidence medium, unknown shape type, degenerate lattice, invalid
 grid, or unsupported option raises an explicit exception.
 
@@ -175,8 +179,14 @@ The maintained source additionally exposes ``"cusolver"`` for supported NVIDIA
 GPU/JAX installations.
 An installation without the selection API raises an explicit exception for a
 nondefault request rather than silently ignoring it.
-This adapter has no GPU correctness or timing validation yet; selecting
-``"cusolver"`` is not a performance guarantee.
+Selecting ``"cusolver"`` is not a performance guarantee.
+The pinned maintained source's default eigensolver uses a host callback on GPU
+when the optional ``jeig`` package is absent.
+PyPI 1.7.1 instead delegates to JAX's default eigensolver; its execution location
+depends on the JAX release and installed CUDA libraries.
+In JAX 0.11.2, right-eigenvector-only solves can use native cuSOLVER when its
+``geev`` implementation is available.
+GPU-resident result arrays alone do not prove that eigensolving stayed on GPU.
 
 Validation and tolerances
 -------------------------
@@ -218,11 +228,50 @@ are therefore ``2e-6`` for planar R/T/A, ``3e-4`` for profile integrals,
 Fourier-order check, and ``3e-3`` for the raster check. These are validation
 tolerances, not universal convergence guarantees.
 
-On the same patterned 25-term/4 nm case, an explicitly synchronized CPU run
+In the historical baseline, on the same patterned 25-term/4 nm case, an explicitly synchronized CPU run
 took 11.32 s including first compilation and ``0.637 +/- 0.023`` s over five
 repeated solves. Both visible A100 GPUs were occupied by another process
 (approximately 37.2 of 40 GB on each), so no GPU package was installed and no
-CPU/GPU agreement or GPU timing is reported.
+CPU/GPU agreement or GPU timing was reported in that baseline.
+
+Reproducing CPU/GPU comparisons
+------------------------------
+
+``tests/fmmax_validation.py`` saves matching planar, circular-pattern,
+off-centre lossy-pattern profile, and front/rear diffracting-matrix fixtures.
+It asserts the selected default backend and checks eigensolve, scattering,
+and reconstructed-field arrays on that backend.
+Snapshots record the RayFlare SHA, source provenance, precision, package
+versions, environment settings, and representative eigensolver lowering.
+Run CPU and GPU snapshots in separate processes and keep their outputs outside
+the checkout::
+
+    JAX_PLATFORMS=cpu MPLBACKEND=Agg OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+        python tests/fmmax_validation.py snapshot /path/to/cpu.npz --backend cpu
+    CUDA_VISIBLE_DEVICES=0 XLA_PYTHON_CLIENT_PREALLOCATE=false JAX_PLATFORMS=cuda \
+        MPLBACKEND=Agg OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+        python tests/fmmax_validation.py snapshot /path/to/gpu.npz --backend gpu
+    python tests/fmmax_validation.py compare /path/to/cpu.npz /path/to/gpu.npz
+
+Use the same source, runtime, precision, and committed checkout for both runs.
+For maintained-source GPU eigensolving, add ``--eig-backend cusolver`` to a
+separate GPU snapshot; the script requires the native cuSOLVER lowering and
+compares its observables with the default snapshot.
+PyPI baseline rejects this adapter option explicitly.
+The comparison reports absolute errors in powers and matrices, pointwise
+profile errors, and profile-integral errors, including individual planar layers.
+It is a correctness check, not a timing benchmark.
+
+The expanded regressions use independent TMM powers and local loss density for
+multilayer public ``calculate_profile()`` checks at 450, 650, and 850 nm,
+including a lossless stack.
+Patterned-profile checks use a rotated, off-centre ellipse with different loss
+in feature and background and separately refine Fourier terms, raster spacing,
+and midpoint depth quadrature.
+Diffraction checks use a 900 nm period at 500 nm and nonzero azimuth; the
+grating equation determines each propagating order's reflected/transmitted bin,
+including accumulated power when several orders share a bin.
+These references test normalization and angular placement, not only total energy.
 
 Limitations
 -----------

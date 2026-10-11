@@ -91,3 +91,81 @@ def test_fmmax_matrix_angle_bins_include_zero_boundaries():
         angles[:, 1], angles[:, 2], theta_edges, phi_edges, angles[:, 0]
     )
     np.testing.assert_array_equal(bins, np.arange(len(angles)))
+
+
+@pytest.mark.parametrize("kind", ["ellipse", "rectangle", "polygon"])
+def test_rotated_shapes_wrap_and_translate_in_skew_cell(kind):
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend as backend
+
+    # Points away from edges: 90-degree rotation makes the long axis vertical.
+    lattice = np.array([[100.0, 0.0], [30.0, 100.0]])
+    center = np.array([5.0, 5.0])
+    points = np.array([[5, 5], [5, 20], [20, 5], [5, 95], [95, 5]])
+    shape = dict(
+        type=kind,
+        center=center,
+        angle=90,
+        halfwidths=(20, 8),
+        vertices=[(-20, -8), (20, -8), (20, 8), (-20, 8)],
+    )
+    expected = [True, True, False, False, False]
+    for offset in (np.zeros(2), lattice[0], lattice[1], -lattice[0] + lattice[1]):
+        translated = dict(shape, center=center + offset)
+        np.testing.assert_array_equal(
+            backend._shape_mask(translated, points[:, 0], points[:, 1], lattice),
+            expected,
+        )
+    # Equivalent periodic image at the opposite x boundary.
+    wrapped = np.array([[99.0, 5.0], [-1.0, 5.0]])
+    assert backend._shape_mask(shape, wrapped[:, 0], wrapped[:, 1], lattice).all()
+
+
+def test_later_geometry_overwrites_overlap(monkeypatch):
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend as backend
+
+    # Supply explicit sample points so this inexpensive raster test needs no JAX.
+    x, y = np.array([[10.0, 20.0, 40.0]]), np.array([[10.0, 10.0, 10.0]])
+    monkeypatch.setattr(backend, "_cell_coordinates", lambda lattice, shape: (x, y))
+    shapes = [
+        dict(type="circle", mat="first", center=(10, 10), radius=15),
+        dict(type="rectangle", mat="last", center=(20, 10), halfwidths=(5, 5)),
+    ]
+    grids = backend._permittivity_grids(
+        [shapes], [1], [2 + 1j, 3 + 2j], ["first", "last"], np.eye(2) * 100, x.shape
+    )
+    np.testing.assert_array_equal(grids[0], [[2 + 1j, 3 + 2j, 1]])
+
+
+@pytest.mark.parametrize("kind", ["ellipse", "rectangle", "polygon"])
+def test_oblique_rotation_has_counterclockwise_sign(kind):
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend as backend
+
+    shape = dict(
+        type=kind,
+        center=(50, 50),
+        angle=45,
+        halfwidths=(20, 5),
+        vertices=[(-20, -5), (20, -5), (20, 5), (-20, 5)],
+    )
+    x, y = np.array([60.0, 60.0, 50.0]), np.array([60.0, 40.0, 50.0])
+    np.testing.assert_array_equal(
+        backend._shape_mask(shape, x, y, np.eye(2) * 100), [True, False, True]
+    )
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"unknown": 1},
+        {"grid_spacing": 0},
+        {"grid_shape": (0, 5)},
+        {"grid_shape": (2.5, 5)},
+        {"grid_shape": (3,)},
+        {"max_grid_points": 0},
+    ],
+)
+def test_invalid_backend_options_are_rejected(settings):
+    from rayflare.rigorous_coupled_wave_analysis import fmmax_backend as backend
+
+    with pytest.raises(ValueError):
+        backend.options(settings)

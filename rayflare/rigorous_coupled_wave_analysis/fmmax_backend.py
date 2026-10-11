@@ -14,6 +14,7 @@ FMMAX and JAX are deliberately imported only when this backend is selected.
 """
 
 from importlib import metadata
+from functools import wraps
 import inspect
 
 import numpy as np
@@ -342,6 +343,24 @@ def _weighted_normalized(values, incident_flux, weights):
     return np.sum(normalized * weights[np.newaxis, :], axis=-1)
 
 
+def _full_matmul_precision(function):
+    """Keep float32 power accuracy on GPUs without changing global JAX settings."""
+
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        _imports()  # Preserve the actionable optional-dependency error.
+        import jax
+
+        # GPU defaults may use TF32 products, which violate the flux/TMM accuracy
+        # contract even for planar stacks. This changes multiply precision, not
+        # array dtype, and the context restores the caller's setting afterwards.
+        with jax.default_matmul_precision("highest"):
+            return function(*args, **kwargs)
+
+    return wrapped
+
+
+@_full_matmul_precision
 def solve(
     wavelength,
     geom_list,
