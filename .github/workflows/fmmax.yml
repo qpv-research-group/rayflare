@@ -1,0 +1,81 @@
+name: FMMAX compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fmmax:
+    name: ${{ matrix.source }} / Python ${{ matrix.runtime.python }} / JAX ${{ matrix.runtime.jax }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [pypi, maintained]
+        runtime:
+          - python: "3.11"
+            jax: "0.4.38"
+          - python: "3.12"
+            jax: "0.11.2"
+    env:
+      JAX_PLATFORMS: cpu
+      MPLBACKEND: Agg
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.runtime.python }}
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libopenblas-dev
+          python -m pip install --upgrade pip
+      - name: Install RayFlare and CPU dependencies
+        run: |
+          # NumPy matches RayFlare's inherited exact dependency pin.
+          python -m pip install -e . pytest "numpy==2.4.0" "solcore==5.10.1" "inkstone==0.3.15" "jax[cpu]==${{ matrix.runtime.jax }}" "jaxlib==${{ matrix.runtime.jax }}"
+      - name: Install PyPI baseline
+        if: matrix.source == 'pypi'
+        run: python -m pip install -e '.[fmmax]'
+      - name: Install maintained source
+        if: matrix.source == 'maintained'
+        run: python -m pip install -r requirements/fmmax-maintained.txt
+      - name: Check environment and record source
+        env:
+          FMMAX_SOURCE: ${{ matrix.source }}
+        run: |
+          python -m pip check
+          python -m pip freeze
+          python - <<'PY'
+          import json
+          import os
+          from importlib import metadata
+          from pathlib import Path
+
+          import fmmax
+          import jax
+
+          distribution = metadata.distribution("fmmax")
+          direct_url = json.loads(distribution.read_text("direct_url.json") or "{}")
+          if os.environ["FMMAX_SOURCE"] == "maintained":
+              requirement = Path("requirements/fmmax-maintained.txt").read_text()
+              expected = next(line for line in requirement.splitlines() if line.startswith("fmmax @ ")).rsplit("@", 1)[1]
+              assert direct_url["url"] == "https://github.com/matt8s/fmmax.git", direct_url
+              assert direct_url["vcs_info"]["commit_id"] == expected, direct_url
+          else:
+              assert distribution.version == "1.7.1", distribution.version
+          print("FMMAX", distribution.version, "source", direct_url)
+          print("JAX", jax.__version__, "devices", jax.devices())
+          PY
+      - name: Test adapter and optional imports
+        run: python -m pytest tests/test_fmmax_optional.py tests/test_fmmax.py -q -ra
+      - name: Run semiconductor and metal example
+        run: python examples/fmmax_semiconductor_metal.py

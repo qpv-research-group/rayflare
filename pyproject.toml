@@ -56,6 +56,12 @@ test = [
     "pytest-cov",
 ]
 
+[project.optional-dependencies]
+# PyPI baseline only; maintained-source testing is pinned separately in
+# requirements/fmmax-maintained.txt until publishing access is established.
+# JAX/JAXlib remain transitive dependencies selected for the user's platform.
+fmmax = ["fmmax==1.7.1"]
+
 [project.urls]
 Homepage = "https://github.com/qpv-research-group/rayflare"
 Documentation = "https://rayflare.readthedocs.io"
